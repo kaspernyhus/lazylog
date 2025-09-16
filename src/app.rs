@@ -1,4 +1,7 @@
-use crate::event::{AppEvent, Event, EventHandler};
+use crate::{
+    event::{AppEvent, Event, EventHandler},
+    log::LogBuffer,
+};
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
@@ -7,10 +10,10 @@ use ratatui::{
 /// Application.
 #[derive(Debug)]
 pub struct App {
-    /// Is the application running?
     pub running: bool,
-    /// Event handler.
     pub events: EventHandler,
+    pub log_buffer: LogBuffer,
+    pub filtered_lines: Vec<usize>,
 }
 
 impl Default for App {
@@ -18,6 +21,8 @@ impl Default for App {
         Self {
             running: true,
             events: EventHandler::new(),
+            log_buffer: LogBuffer::default(),
+            filtered_lines: Vec::new(),
         }
     }
 }

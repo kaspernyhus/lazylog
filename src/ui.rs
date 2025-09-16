@@ -35,13 +35,7 @@ impl Widget for &App {
             .title_alignment(Alignment::Center)
             .style(Style::default().bg(Color::Indexed(237)));
 
-        let items = [
-            "INFO: REW V5.31.3 running Arch Linux JRE 1.8.0_432 64-bit on linux 6.11.9-arch1-1",
-            "INFO: Disabling use of BlendComposite due to internal error, waterfalls will not show overlaid cursor",
-            "SEVERE: Read audio data timed out from PCM: pipewire",
-            "Nov 22, 2024 7:39:21 PM roomeqwizard.ID$1 paintComponent",
-            "javax.sound.sampled.LineUnavailableException: line with format PCM_SIGNED 48000.0 Hz, 32 bit, stereo, 8 bytes/frame, little-endian not supported.",
-        ];
+        let items = [""];
 
         let mut list_state = ListState::default();
         list_state.select_first();
