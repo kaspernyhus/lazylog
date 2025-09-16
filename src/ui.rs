@@ -35,7 +35,10 @@ impl Widget for &App {
             .title_alignment(Alignment::Center)
             .style(Style::default().bg(Color::Indexed(237)));
 
-        let items = [""];
+        let items: Vec<&str> = self.log_buffer.lines
+            .iter()
+            .map(|line| line.content.as_str())
+            .collect();
 
         let mut list_state = ListState::default();
         list_state.select_first();

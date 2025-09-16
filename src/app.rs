@@ -1,4 +1,5 @@
 use crate::{
+    cli::Cli,
     event::{AppEvent, Event, EventHandler},
     log::LogBuffer,
 };
@@ -29,8 +30,18 @@ impl Default for App {
 
 impl App {
     /// Constructs a new instance of [`App`].
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(args: Cli) -> Self {
+        let mut app = Self::default();
+        if let Some(file_path) = args.file {
+            let _ = app.load_file(file_path.as_str());
+        }
+        app
+    }
+
+    pub fn load_file(&mut self, file_path: &str) -> color_eyre::Result<()> {
+        self.log_buffer.load_from_file(file_path)?;
+        self.filtered_lines = (0..self.log_buffer.lines.len()).collect();
+        Ok(())
     }
 
     /// Run the application's main loop.
