@@ -1,12 +1,13 @@
 #[derive(Debug, Clone)]
 pub struct LogLine {
+    pub index: usize,
     pub content: String,
 }
 
 #[derive(Debug, Default)]
 pub struct LogBuffer {
     pub lines: Vec<LogLine>,
-    pub current_line: usize,
+    pub current_index: usize,
 }
 
 impl LogBuffer {
@@ -14,11 +15,13 @@ impl LogBuffer {
         let content = std::fs::read_to_string(path)?;
         self.lines = content
             .lines()
-            .map(|line| LogLine {
+            .enumerate()
+            .map(|(index, line)| LogLine {
+                index,
                 content: line.to_string(),
             })
             .collect();
-        self.current_line = 0;
+        self.current_index = 0;
         Ok(())
     }
 }
