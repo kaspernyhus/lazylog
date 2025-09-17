@@ -33,6 +33,10 @@ pub enum Event {
 pub enum AppEvent {
     /// Quit the application.
     Quit,
+    /// Move up
+    MoveUp,
+    /// Move down
+    MoveDown,
 }
 
 /// Terminal event handler.

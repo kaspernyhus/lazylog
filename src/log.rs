@@ -7,7 +7,6 @@ pub struct LogLine {
 #[derive(Debug, Default)]
 pub struct LogBuffer {
     pub lines: Vec<LogLine>,
-    pub current_index: usize,
 }
 
 impl LogBuffer {
@@ -21,7 +20,10 @@ impl LogBuffer {
                 content: line.to_string(),
             })
             .collect();
-        self.current_index = 0;
         Ok(())
+    }
+
+    pub fn get_lines(&self, start: usize, end: usize) -> &[LogLine] {
+        &self.lines[start..end.min(self.lines.len())]
     }
 }

@@ -8,6 +8,7 @@ pub mod event;
 pub mod log;
 pub mod logging;
 pub mod ui;
+pub mod viewport;
 
 #[tokio::main]
 async fn main() -> color_eyre::Result<()> {

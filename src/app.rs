@@ -2,6 +2,7 @@ use crate::{
     cli::Cli,
     event::{AppEvent, Event, EventHandler},
     log::LogBuffer,
+    viewport::Viewport,
 };
 use ratatui::{
     DefaultTerminal,
@@ -16,6 +17,7 @@ pub struct App {
     pub events: EventHandler,
     pub log_buffer: LogBuffer,
     pub filtered_lines: Vec<usize>,
+    pub viewport: Viewport,
 }
 
 impl Default for App {
@@ -25,6 +27,7 @@ impl Default for App {
             events: EventHandler::new(),
             log_buffer: LogBuffer::default(),
             filtered_lines: Vec::new(),
+            viewport: Viewport::default(),
         }
     }
 }
@@ -53,16 +56,26 @@ impl App {
 
     /// Run the application's main loop.
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
+        let terminal_size = terminal.size()?;
+        self.viewport
+            .resize(terminal_size.height.saturating_sub(2) as usize);
+        self.viewport.scroll_margin = 2;
+
         while self.running {
             terminal.draw(|frame| frame.render_widget(&self, frame.area()))?;
             match self.events.next().await? {
                 Event::Tick => self.tick(),
                 Event::Crossterm(event) => match event {
                     crossterm::event::Event::Key(key_event) => self.handle_key_events(key_event)?,
+                    crossterm::event::Event::Resize(_x, y) => {
+                        self.viewport.resize(y.saturating_sub(2) as usize);
+                    }
                     _ => {}
                 },
                 Event::App(app_event) => match app_event {
                     AppEvent::Quit => self.quit(),
+                    AppEvent::MoveUp => self.viewport.move_up(self.log_buffer.lines.len()),
+                    AppEvent::MoveDown => self.viewport.move_down(self.log_buffer.lines.len()),
                 },
             }
         }
@@ -76,7 +89,8 @@ impl App {
             KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
                 self.events.send(AppEvent::Quit)
             }
-            // Other handlers you could add here.
+            KeyCode::Up => self.events.send(AppEvent::MoveUp),
+            KeyCode::Down => self.events.send(AppEvent::MoveDown),
             _ => {}
         }
         Ok(())

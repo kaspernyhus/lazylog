@@ -35,13 +35,17 @@ impl Widget for &App {
             .title_alignment(Alignment::Center)
             .style(Style::default().bg(Color::Indexed(237)));
 
-        let items: Vec<&str> = self.log_buffer.lines
+        let (start, end) = self.viewport.visible();
+        let visible_lines = self.log_buffer.get_lines(start, end);
+        let items: Vec<&str> = visible_lines
             .iter()
             .map(|line| line.content.as_str())
             .collect();
 
         let mut list_state = ListState::default();
-        list_state.select_first();
+        if self.viewport.selected_line >= start && self.viewport.selected_line < end {
+            list_state.select(Some(self.viewport.selected_line - start));
+        }
 
         let log_list = List::new(items)
             .highlight_symbol(RIGHT_ARROW)
