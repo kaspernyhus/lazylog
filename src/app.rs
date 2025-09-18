@@ -7,6 +7,7 @@ use ratatui::{
     DefaultTerminal,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
 };
+use tracing::info;
 
 /// Application.
 #[derive(Debug)]
@@ -39,8 +40,14 @@ impl App {
     }
 
     pub fn load_file(&mut self, file_path: &str) -> color_eyre::Result<()> {
+        info!("Loading file: {}", file_path);
         self.log_buffer.load_from_file(file_path)?;
         self.filtered_lines = (0..self.log_buffer.lines.len()).collect();
+        info!(
+            lines_loaded = self.log_buffer.lines.len(),
+            file_path = file_path,
+            "File loaded successfully"
+        );
         Ok(())
     }
 
