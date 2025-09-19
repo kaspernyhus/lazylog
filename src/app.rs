@@ -18,6 +18,7 @@ pub struct App {
     pub log_buffer: LogBuffer,
     pub filtered_lines: Vec<usize>,
     pub viewport: Viewport,
+    pub show_help: bool,
 }
 
 impl Default for App {
@@ -28,6 +29,7 @@ impl Default for App {
             log_buffer: LogBuffer::default(),
             filtered_lines: Vec::new(),
             viewport: Viewport::default(),
+            show_help: false,
         }
     }
 }
@@ -89,6 +91,9 @@ impl App {
             KeyCode::Char('q') => self.events.send(AppEvent::Quit),
             KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
                 self.events.send(AppEvent::Quit)
+            }
+            KeyCode::Char('h') => {
+                self.show_help = !self.show_help;
             }
             KeyCode::Up => self.events.send(AppEvent::MoveUp),
             KeyCode::Down => self.events.send(AppEvent::MoveDown),
