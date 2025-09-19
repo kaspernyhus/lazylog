@@ -37,6 +37,10 @@ pub enum AppEvent {
     MoveUp,
     /// Move down
     MoveDown,
+    /// Page up
+    PageUp,
+    /// Page down
+    PageDown,
 }
 
 /// Terminal event handler.

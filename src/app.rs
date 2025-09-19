@@ -78,6 +78,8 @@ impl App {
                     AppEvent::Quit => self.quit(),
                     AppEvent::MoveUp => self.viewport.move_up(self.log_buffer.lines.len()),
                     AppEvent::MoveDown => self.viewport.move_down(self.log_buffer.lines.len()),
+                    AppEvent::PageUp => self.viewport.page_up(self.log_buffer.lines.len()),
+                    AppEvent::PageDown => self.viewport.page_down(self.log_buffer.lines.len()),
                 },
             }
         }
@@ -97,6 +99,8 @@ impl App {
             }
             KeyCode::Up => self.events.send(AppEvent::MoveUp),
             KeyCode::Down => self.events.send(AppEvent::MoveDown),
+            KeyCode::PageUp => self.events.send(AppEvent::PageUp),
+            KeyCode::PageDown => self.events.send(AppEvent::PageDown),
             _ => {}
         }
         Ok(())
