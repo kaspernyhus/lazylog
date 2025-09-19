@@ -6,12 +6,14 @@ pub struct LogLine {
 
 #[derive(Debug, Default)]
 pub struct LogBuffer {
+    pub file_path: Option<String>,
     pub lines: Vec<LogLine>,
 }
 
 impl LogBuffer {
     pub fn load_from_file(&mut self, path: &str) -> color_eyre::Result<()> {
         let content = std::fs::read_to_string(path)?;
+        self.file_path = Some(path.to_string());
         self.lines = content
             .lines()
             .enumerate()
