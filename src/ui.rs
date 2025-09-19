@@ -4,7 +4,10 @@ use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
-    widgets::{Block, Clear, List, Paragraph, StatefulWidget, Widget},
+    widgets::{
+        Block, Clear, List, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
+        StatefulWidget, Widget,
+    },
 };
 
 use crate::app::App;
@@ -71,6 +74,20 @@ fn render_footer(app: &App, area: Rect, buf: &mut Buffer) {
     footer.render(area, buf);
 }
 
+fn render_scrollbar(app: &App, area: Rect, buf: &mut Buffer) {
+    let mut scrollbar_state = ScrollbarState::new(app.log_buffer.lines.len())
+        .position(app.viewport.selected_line)
+        .viewport_content_length(1);
+
+    let scrollbar = Scrollbar::default()
+        .orientation(ScrollbarOrientation::VerticalRight)
+        .track_style(Style::default().fg(Color::Indexed(237)))
+        .begin_symbol(None)
+        .end_symbol(None);
+
+    StatefulWidget::render(scrollbar, area, buf, &mut scrollbar_state);
+}
+
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let [top, middle, bottom] = Layout::vertical([
@@ -79,6 +96,9 @@ impl Widget for &App {
             Constraint::Length(1),
         ])
         .areas(area);
+
+        let [content_area, scrollbar_area] =
+            Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(middle);
 
         let title = Block::default()
             .title(" Lazylog ")
@@ -102,9 +122,10 @@ impl Widget for &App {
             .highlight_style(Style::default().add_modifier(Modifier::BOLD));
 
         title.render(top, buf);
-        StatefulWidget::render(log_list, middle, buf, &mut list_state);
+        StatefulWidget::render(log_list, content_area, buf, &mut list_state);
 
         render_footer(self, bottom, buf);
+        render_scrollbar(self, scrollbar_area, buf);
 
         if self.show_help {
             render_help_popup(area, buf);
