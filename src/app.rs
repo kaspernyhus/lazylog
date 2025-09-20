@@ -82,6 +82,8 @@ impl App {
                     AppEvent::PageUp => self.viewport.page_up(),
                     AppEvent::PageDown => self.viewport.page_down(),
                     AppEvent::CenterSelected => self.viewport.center_selected(),
+                    AppEvent::GotoTop => self.viewport.goto_top(),
+                    AppEvent::GotoBottom => self.viewport.goto_bottom(),
                 },
             }
         }
@@ -103,6 +105,9 @@ impl App {
             KeyCode::Down => self.events.send(AppEvent::MoveDown),
             KeyCode::PageUp => self.events.send(AppEvent::PageUp),
             KeyCode::PageDown => self.events.send(AppEvent::PageDown),
+            KeyCode::Char('z') => self.events.send(AppEvent::CenterSelected),
+            KeyCode::Char('g') => self.events.send(AppEvent::GotoTop),
+            KeyCode::Char('G') => self.events.send(AppEvent::GotoBottom),
             _ => {}
         }
         Ok(())

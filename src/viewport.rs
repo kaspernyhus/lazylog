@@ -52,6 +52,20 @@ impl Viewport {
         }
     }
 
+    pub fn goto_top(&mut self) {
+        self.selected_line = 0;
+        self.adjust_visible();
+    }
+
+    pub fn goto_bottom(&mut self) {
+        if self.total_lines > 0 {
+            self.selected_line = self.total_lines - 1;
+        } else {
+            self.selected_line = 0;
+        }
+        self.adjust_visible();
+    }
+
     pub fn center_selected(&mut self) {
         if self.total_lines == 0 {
             self.top_line = 0;
