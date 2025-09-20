@@ -97,7 +97,7 @@ impl Widget for &App {
         ])
         .areas(area);
 
-        let [content_area, scrollbar_area] =
+        let [log_view_area, scrollbar_area] =
             Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(middle);
 
         let title = Block::default()
@@ -107,9 +107,17 @@ impl Widget for &App {
 
         let (start, end) = self.viewport.visible();
         let visible_lines = self.log_buffer.get_lines(start, end);
+
         let items: Vec<&str> = visible_lines
             .iter()
-            .map(|line| line.content.as_str())
+            .map(|line| {
+                let content = &line.content;
+                if self.viewport.horizontal_offset >= content.len() {
+                    ""
+                } else {
+                    &content[self.viewport.horizontal_offset..]
+                }
+            })
             .collect();
 
         let mut list_state = ListState::default();
@@ -122,7 +130,7 @@ impl Widget for &App {
             .highlight_style(Style::default().add_modifier(Modifier::BOLD));
 
         title.render(top, buf);
-        StatefulWidget::render(log_list, content_area, buf, &mut list_state);
+        StatefulWidget::render(log_list, log_view_area, buf, &mut list_state);
 
         render_footer(self, bottom, buf);
         render_scrollbar(self, scrollbar_area, buf);

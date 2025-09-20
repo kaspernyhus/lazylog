@@ -60,8 +60,10 @@ impl App {
     /// Run the application's main loop.
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
         let terminal_size = terminal.size()?;
-        self.viewport
-            .resize(terminal_size.height.saturating_sub(2) as usize);
+        self.viewport.resize(
+            terminal_size.width.saturating_sub(1) as usize,
+            terminal_size.height.saturating_sub(2) as usize,
+        );
         self.viewport.scroll_margin = 2;
 
         while self.running {
@@ -70,8 +72,9 @@ impl App {
                 Event::Tick => self.tick(),
                 Event::Crossterm(event) => match event {
                     crossterm::event::Event::Key(key_event) => self.handle_key_events(key_event)?,
-                    crossterm::event::Event::Resize(_x, y) => {
-                        self.viewport.resize(y.saturating_sub(2) as usize);
+                    crossterm::event::Event::Resize(x, y) => {
+                        self.viewport
+                            .resize(x.saturating_sub(1) as usize, y.saturating_sub(2) as usize);
                     }
                     _ => {}
                 },
@@ -84,6 +87,13 @@ impl App {
                     AppEvent::CenterSelected => self.viewport.center_selected(),
                     AppEvent::GotoTop => self.viewport.goto_top(),
                     AppEvent::GotoBottom => self.viewport.goto_bottom(),
+                    AppEvent::ScrollLeft => self.viewport.scroll_left(),
+                    AppEvent::ScrollRight => {
+                        let (start, end) = self.viewport.visible();
+                        let max_line_length = self.log_buffer.get_lines_max_length(start, end);
+                        self.viewport.scroll_right(max_line_length)
+                    }
+                    AppEvent::ResetHorizontal => self.viewport.reset_horizontal(),
                 },
             }
         }
@@ -108,6 +118,9 @@ impl App {
             KeyCode::Char('z') => self.events.send(AppEvent::CenterSelected),
             KeyCode::Char('g') => self.events.send(AppEvent::GotoTop),
             KeyCode::Char('G') => self.events.send(AppEvent::GotoBottom),
+            KeyCode::Left => self.events.send(AppEvent::ScrollLeft),
+            KeyCode::Right => self.events.send(AppEvent::ScrollRight),
+            KeyCode::Char('0') => self.events.send(AppEvent::ResetHorizontal),
             _ => {}
         }
         Ok(())

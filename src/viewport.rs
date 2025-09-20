@@ -2,17 +2,20 @@ use tracing::info;
 
 #[derive(Debug, Default)]
 pub struct Viewport {
-    pub top_line: usize,
+    pub width: usize,
     pub height: usize,
+    pub top_line: usize,
     pub selected_line: usize,
     pub scroll_margin: usize,
     pub total_lines: usize,
+    pub horizontal_offset: usize,
 }
 
 impl Viewport {
-    pub fn resize(&mut self, height: usize) {
+    pub fn resize(&mut self, width: usize, height: usize) {
+        self.width = width;
         self.height = height;
-        info!("Viewport resized: height={}", height);
+        info!("Viewport resized: width={}, height={}", width, height);
     }
 
     pub fn set_total_lines(&mut self, total_lines: usize) {
@@ -113,5 +116,22 @@ impl Viewport {
         if self.total_lines <= self.height {
             self.top_line = 0;
         }
+    }
+
+    pub fn scroll_left(&mut self) {
+        let scroll_amount = self.width / 2;
+        self.horizontal_offset = self.horizontal_offset.saturating_sub(scroll_amount);
+    }
+
+    pub fn scroll_right(&mut self, max_line_length: usize) {
+        if max_line_length > self.width {
+            let scroll_amount = self.width / 2;
+            self.horizontal_offset =
+                (self.horizontal_offset + scroll_amount).min(max_line_length - self.width / 2);
+        }
+    }
+
+    pub fn reset_horizontal(&mut self) {
+        self.horizontal_offset = 0;
     }
 }

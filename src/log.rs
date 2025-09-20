@@ -28,4 +28,12 @@ impl LogBuffer {
     pub fn get_lines(&self, start: usize, end: usize) -> &[LogLine] {
         &self.lines[start..end.min(self.lines.len())]
     }
+
+    pub fn get_lines_max_length(&self, start: usize, end: usize) -> usize {
+        self.lines[start..end.min(self.lines.len())]
+            .iter()
+            .map(|line| line.content.len())
+            .max()
+            .unwrap_or(0)
+    }
 }

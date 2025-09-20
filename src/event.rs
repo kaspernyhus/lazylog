@@ -47,6 +47,12 @@ pub enum AppEvent {
     GotoTop,
     /// Goto bottom
     GotoBottom,
+    /// Scroll left horizontally
+    ScrollLeft,
+    /// Scroll right horizontally
+    ScrollRight,
+    /// Reset horizontal scroll
+    ResetHorizontal,
 }
 
 /// Terminal event handler.
