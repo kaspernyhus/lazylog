@@ -81,6 +81,7 @@ impl App {
                     AppEvent::MoveDown => self.viewport.move_down(),
                     AppEvent::PageUp => self.viewport.page_up(),
                     AppEvent::PageDown => self.viewport.page_down(),
+                    AppEvent::CenterSelected => self.viewport.center_selected(),
                 },
             }
         }

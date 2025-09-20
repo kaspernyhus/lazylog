@@ -41,6 +41,8 @@ pub enum AppEvent {
     PageUp,
     /// Page down
     PageDown,
+    /// Center viewport on selected line
+    CenterSelected,
 }
 
 /// Terminal event handler.
