@@ -15,13 +15,17 @@ use crate::app::App;
 pub const RIGHT_ARROW: &str = "▶ ";
 
 fn render_help_popup(area: Rect, buf: &mut Buffer) {
-    let popup_area = popup_area(area, 40, 20);
+    let popup_area = popup_area(area, 38, 18);
     Clear.render(popup_area, buf);
 
     let help_text = vec![
-        Line::from("q           Quit"),
-        Line::from("Down/Up     Navigate"),
-        Line::from("g/G         Go to start/end"),
+        Line::from("q            Quit"),
+        Line::from("Down/Up      Navigate"),
+        Line::from("g/G          Go to start/end"),
+        Line::from("PageUp/Down  Page up/down"),
+        Line::from("z            Center selected line"),
+        Line::from("Left/Right   Scroll horizontally"),
+        Line::from("0            Reset horizontal scroll"),
     ];
 
     let block = Block::default()
