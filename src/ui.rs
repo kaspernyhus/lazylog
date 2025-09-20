@@ -39,7 +39,7 @@ fn render_help_popup(area: Rect, buf: &mut Buffer) {
 }
 
 fn render_footer(app: &App, area: Rect, buf: &mut Buffer) {
-    let total_lines = app.log_buffer.lines.len();
+    let total_lines = app.viewport.total_lines;
     let current_line = app.viewport.selected_line + 1;
     let percent = if total_lines > 0 {
         if current_line == total_lines {

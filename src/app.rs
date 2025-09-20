@@ -48,6 +48,7 @@ impl App {
         info!("Loading file: {}", file_path);
         self.log_buffer.load_from_file(file_path)?;
         self.filtered_lines = (0..self.log_buffer.lines.len()).collect();
+        self.viewport.set_total_lines(self.log_buffer.lines.len());
         info!(
             lines_loaded = self.log_buffer.lines.len(),
             file_path = file_path,
@@ -76,10 +77,10 @@ impl App {
                 },
                 Event::App(app_event) => match app_event {
                     AppEvent::Quit => self.quit(),
-                    AppEvent::MoveUp => self.viewport.move_up(self.log_buffer.lines.len()),
-                    AppEvent::MoveDown => self.viewport.move_down(self.log_buffer.lines.len()),
-                    AppEvent::PageUp => self.viewport.page_up(self.log_buffer.lines.len()),
-                    AppEvent::PageDown => self.viewport.page_down(self.log_buffer.lines.len()),
+                    AppEvent::MoveUp => self.viewport.move_up(),
+                    AppEvent::MoveDown => self.viewport.move_down(),
+                    AppEvent::PageUp => self.viewport.page_up(),
+                    AppEvent::PageDown => self.viewport.page_down(),
                 },
             }
         }
