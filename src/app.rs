@@ -63,6 +63,11 @@ impl App {
         Ok(())
     }
 
+    fn next_state(&mut self, state: AppState) {
+        debug!("Next state: {:?}", state);
+        self.app_state = state;
+    }
+
     /// Run the application's main loop.
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
         let terminal_size = terminal.size()?;
@@ -87,9 +92,12 @@ impl App {
                 Event::App(app_event) => match app_event {
                     AppEvent::Quit => self.quit(),
                     AppEvent::Confirm => {}
-                    AppEvent::Cancel => {
-                        self.app_state = AppState::LogView;
-                    }
+                    AppEvent::Cancel => match self.app_state {
+                        AppState::HelpView => {
+                            self.next_state(AppState::LogView);
+                        }
+                        _ => {}
+                    },
                     AppEvent::MoveUp => self.viewport.move_up(),
                     AppEvent::MoveDown => self.viewport.move_down(),
                     AppEvent::PageUp => self.viewport.page_up(),
@@ -104,6 +112,13 @@ impl App {
                         self.viewport.scroll_right(max_line_length)
                     }
                     AppEvent::ResetHorizontal => self.viewport.reset_horizontal(),
+                    AppEvent::ToggleHelp => {
+                        if self.app_state == AppState::HelpView {
+                            self.next_state(AppState::LogView);
+                        } else {
+                            self.next_state(AppState::HelpView);
+                        }
+                    }
                 },
             }
         }
@@ -113,31 +128,41 @@ impl App {
     /// Handles the key events and updates the state of [`App`].
     pub fn handle_key_events(&mut self, key_event: KeyEvent) -> color_eyre::Result<()> {
         debug!("Key event: {:?}", key_event);
+
+        // Global keybindings
         match key_event.code {
-            KeyCode::Char('q') => self.events.send(AppEvent::Quit),
-            KeyCode::Esc => self.events.send(AppEvent::Cancel),
-            KeyCode::Enter => self.events.send(AppEvent::Confirm),
             KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
                 self.events.send(AppEvent::Quit)
             }
-            KeyCode::Char('h') => {
-                if self.app_state == AppState::HelpView {
-                    self.app_state = AppState::LogView;
-                } else {
-                    self.app_state = AppState::HelpView;
-                }
-            }
+            KeyCode::Esc => self.events.send(AppEvent::Cancel),
+            KeyCode::Enter => self.events.send(AppEvent::Confirm),
             KeyCode::Up => self.events.send(AppEvent::MoveUp),
             KeyCode::Down => self.events.send(AppEvent::MoveDown),
-            KeyCode::PageUp => self.events.send(AppEvent::PageUp),
-            KeyCode::PageDown => self.events.send(AppEvent::PageDown),
-            KeyCode::Char('z') => self.events.send(AppEvent::CenterSelected),
-            KeyCode::Char('g') => self.events.send(AppEvent::GotoTop),
-            KeyCode::Char('G') => self.events.send(AppEvent::GotoBottom),
-            KeyCode::Left => self.events.send(AppEvent::ScrollLeft),
-            KeyCode::Right => self.events.send(AppEvent::ScrollRight),
-            KeyCode::Char('0') => self.events.send(AppEvent::ResetHorizontal),
             _ => {}
+        }
+
+        match self.app_state {
+            // LogView (Normal Mode)
+            AppState::LogView => match key_event.code {
+                KeyCode::Char('q') => self.events.send(AppEvent::Quit),
+                KeyCode::Char('h') => self.events.send(AppEvent::ToggleHelp),
+                KeyCode::PageUp => self.events.send(AppEvent::PageUp),
+                KeyCode::PageDown => self.events.send(AppEvent::PageDown),
+                KeyCode::Char('z') => self.events.send(AppEvent::CenterSelected),
+                KeyCode::Char('g') => self.events.send(AppEvent::GotoTop),
+                KeyCode::Char('G') => self.events.send(AppEvent::GotoBottom),
+                KeyCode::Left => self.events.send(AppEvent::ScrollLeft),
+                KeyCode::Right => self.events.send(AppEvent::ScrollRight),
+                KeyCode::Char('0') => self.events.send(AppEvent::ResetHorizontal),
+                _ => {}
+            },
+
+            // HelpView
+            AppState::HelpView => match key_event.code {
+                KeyCode::Char('q') => self.events.send(AppEvent::Quit),
+                KeyCode::Char('h') => self.events.send(AppEvent::ToggleHelp),
+                _ => {}
+            },
         }
         Ok(())
     }

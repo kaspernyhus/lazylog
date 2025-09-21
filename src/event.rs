@@ -57,6 +57,8 @@ pub enum AppEvent {
     ScrollRight,
     /// Reset horizontal scroll
     ResetHorizontal,
+    /// Toggle help popup
+    ToggleHelp,
 }
 
 /// Terminal event handler.
