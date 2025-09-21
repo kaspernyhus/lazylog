@@ -14,6 +14,7 @@ use tracing::{debug, info};
 pub enum AppState {
     LogView,
     HelpView,
+    SearchView,
 }
 
 /// Application.
@@ -25,6 +26,7 @@ pub struct App {
     pub log_buffer: LogBuffer,
     pub filtered_lines: Vec<usize>,
     pub viewport: Viewport,
+    pub input_query: String,
 }
 
 impl Default for App {
@@ -36,6 +38,7 @@ impl Default for App {
             log_buffer: LogBuffer::default(),
             filtered_lines: Vec::new(),
             viewport: Viewport::default(),
+            input_query: String::new(),
         }
     }
 }
@@ -91,13 +94,24 @@ impl App {
                 },
                 Event::App(app_event) => match app_event {
                     AppEvent::Quit => self.quit(),
-                    AppEvent::Confirm => {}
-                    AppEvent::Cancel => match self.app_state {
-                        AppState::HelpView => {
+                    AppEvent::Confirm => {
+                        debug!("Confirm");
+                        if self.app_state == AppState::SearchView {
                             self.next_state(AppState::LogView);
                         }
-                        _ => {}
-                    },
+                    }
+                    AppEvent::Cancel => {
+                        debug!("Cancel");
+                        match self.app_state {
+                            AppState::HelpView => {
+                                self.next_state(AppState::LogView);
+                            }
+                            AppState::SearchView => {
+                                self.next_state(AppState::LogView);
+                            }
+                            AppState::LogView => {}
+                        }
+                    }
                     AppEvent::MoveUp => self.viewport.move_up(),
                     AppEvent::MoveDown => self.viewport.move_down(),
                     AppEvent::PageUp => self.viewport.page_up(),
@@ -119,6 +133,10 @@ impl App {
                             self.next_state(AppState::HelpView);
                         }
                     }
+                    AppEvent::SearchMode => {
+                        self.input_query.clear();
+                        self.next_state(AppState::SearchView);
+                    }
                 },
             }
         }
@@ -136,14 +154,14 @@ impl App {
             }
             KeyCode::Esc => self.events.send(AppEvent::Cancel),
             KeyCode::Enter => self.events.send(AppEvent::Confirm),
-            KeyCode::Up => self.events.send(AppEvent::MoveUp),
-            KeyCode::Down => self.events.send(AppEvent::MoveDown),
             _ => {}
         }
 
         match self.app_state {
             // LogView (Normal Mode)
             AppState::LogView => match key_event.code {
+                KeyCode::Up => self.events.send(AppEvent::MoveUp),
+                KeyCode::Down => self.events.send(AppEvent::MoveDown),
                 KeyCode::Char('q') => self.events.send(AppEvent::Quit),
                 KeyCode::Char('h') => self.events.send(AppEvent::ToggleHelp),
                 KeyCode::PageUp => self.events.send(AppEvent::PageUp),
@@ -154,6 +172,10 @@ impl App {
                 KeyCode::Left => self.events.send(AppEvent::ScrollLeft),
                 KeyCode::Right => self.events.send(AppEvent::ScrollRight),
                 KeyCode::Char('0') => self.events.send(AppEvent::ResetHorizontal),
+                KeyCode::Char('/') => self.events.send(AppEvent::SearchMode),
+                KeyCode::Char('f') if key_event.modifiers == KeyModifiers::CONTROL => {
+                    self.events.send(AppEvent::SearchMode)
+                }
                 _ => {}
             },
 
@@ -161,6 +183,19 @@ impl App {
             AppState::HelpView => match key_event.code {
                 KeyCode::Char('q') => self.events.send(AppEvent::Quit),
                 KeyCode::Char('h') => self.events.send(AppEvent::ToggleHelp),
+                _ => {}
+            },
+
+            // SearchView
+            AppState::SearchView => match key_event.code {
+                KeyCode::Char(c) => {
+                    self.input_query.push(c);
+                    debug!("Search query: {}", self.input_query);
+                }
+                KeyCode::Backspace => {
+                    self.input_query.pop();
+                    debug!("Search query: {}", self.input_query);
+                }
                 _ => {}
             },
         }

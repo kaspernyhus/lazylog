@@ -78,6 +78,14 @@ fn render_footer(app: &App, area: Rect, buf: &mut Buffer) {
     footer.render(area, buf);
 }
 
+fn render_search_bar(app: &App, area: Rect, buf: &mut Buffer) {
+    let search_prompt = format!("Search: {}", app.input_query);
+    let search_bar = Paragraph::new(search_prompt)
+        .style(Style::default().bg(Color::Indexed(237)))
+        .alignment(Alignment::Left);
+    search_bar.render(area, buf);
+}
+
 fn render_scrollbar(app: &App, area: Rect, buf: &mut Buffer) {
     let mut scrollbar_state = ScrollbarState::new(app.log_buffer.lines.len())
         .position(app.viewport.selected_line)
@@ -136,7 +144,11 @@ impl Widget for &App {
         title.render(top, buf);
         StatefulWidget::render(log_list, log_view_area, buf, &mut list_state);
 
-        render_footer(self, bottom, buf);
+        if self.app_state == AppState::SearchView {
+            render_search_bar(self, bottom, buf);
+        } else {
+            render_footer(self, bottom, buf);
+        }
         render_scrollbar(self, scrollbar_area, buf);
 
         if self.app_state == AppState::HelpView {

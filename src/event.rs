@@ -59,6 +59,8 @@ pub enum AppEvent {
     ResetHorizontal,
     /// Toggle help popup
     ToggleHelp,
+    /// Start search mode
+    SearchMode,
 }
 
 /// Terminal event handler.
