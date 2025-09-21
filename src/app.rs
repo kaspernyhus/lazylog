@@ -15,6 +15,7 @@ pub enum AppState {
     LogView,
     HelpView,
     SearchView,
+    GotoLineView,
 }
 
 /// Application.
@@ -98,6 +99,13 @@ impl App {
                         debug!("Confirm");
                         if self.app_state == AppState::SearchView {
                             self.next_state(AppState::LogView);
+                        } else if self.app_state == AppState::GotoLineView {
+                            if let Ok(line_number) = self.input_query.parse::<usize>() {
+                                if line_number > 0 && line_number <= self.log_buffer.lines.len() {
+                                    self.viewport.goto_line(line_number - 1);
+                                }
+                            }
+                            self.next_state(AppState::LogView);
                         }
                     }
                     AppEvent::Cancel => {
@@ -107,6 +115,9 @@ impl App {
                                 self.next_state(AppState::LogView);
                             }
                             AppState::SearchView => {
+                                self.next_state(AppState::LogView);
+                            }
+                            AppState::GotoLineView => {
                                 self.next_state(AppState::LogView);
                             }
                             AppState::LogView => {}
@@ -136,6 +147,10 @@ impl App {
                     AppEvent::SearchMode => {
                         self.input_query.clear();
                         self.next_state(AppState::SearchView);
+                    }
+                    AppEvent::GotoLineMode => {
+                        self.input_query.clear();
+                        self.next_state(AppState::GotoLineView);
                     }
                 },
             }
@@ -176,6 +191,7 @@ impl App {
                 KeyCode::Char('f') if key_event.modifiers == KeyModifiers::CONTROL => {
                     self.events.send(AppEvent::SearchMode)
                 }
+                KeyCode::Char(':') => self.events.send(AppEvent::GotoLineMode),
                 _ => {}
             },
 
@@ -195,6 +211,19 @@ impl App {
                 KeyCode::Backspace => {
                     self.input_query.pop();
                     debug!("Search query: {}", self.input_query);
+                }
+                _ => {}
+            },
+
+            // GotoLineView
+            AppState::GotoLineView => match key_event.code {
+                KeyCode::Char(c) if c.is_ascii_digit() => {
+                    self.input_query.push(c);
+                    debug!("Goto line query: {}", self.input_query);
+                }
+                KeyCode::Backspace => {
+                    self.input_query.pop();
+                    debug!("Goto line query: {}", self.input_query);
                 }
                 _ => {}
             },

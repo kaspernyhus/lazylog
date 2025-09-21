@@ -51,6 +51,8 @@ pub enum AppEvent {
     GotoTop,
     /// Goto bottom
     GotoBottom,
+    /// Goto line mode
+    GotoLineMode,
     /// Scroll left horizontally
     ScrollLeft,
     /// Scroll right horizontally

@@ -86,6 +86,14 @@ fn render_search_bar(app: &App, area: Rect, buf: &mut Buffer) {
     search_bar.render(area, buf);
 }
 
+fn render_goto_line_bar(app: &App, area: Rect, buf: &mut Buffer) {
+    let search_prompt = format!("Go to line: {}", app.input_query);
+    let search_bar = Paragraph::new(search_prompt)
+        .style(Style::default().bg(Color::Indexed(237)))
+        .alignment(Alignment::Left);
+    search_bar.render(area, buf);
+}
+
 fn render_scrollbar(app: &App, area: Rect, buf: &mut Buffer) {
     let mut scrollbar_state = ScrollbarState::new(app.log_buffer.lines.len())
         .position(app.viewport.selected_line)
@@ -146,6 +154,8 @@ impl Widget for &App {
 
         if self.app_state == AppState::SearchView {
             render_search_bar(self, bottom, buf);
+        } else if self.app_state == AppState::GotoLineView {
+            render_goto_line_bar(self, bottom, buf);
         } else {
             render_footer(self, bottom, buf);
         }
