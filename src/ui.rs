@@ -10,7 +10,7 @@ use ratatui::{
     },
 };
 
-use crate::app::App;
+use crate::app::{App, AppState};
 
 pub const RIGHT_ARROW: &str = "▶ ";
 
@@ -139,7 +139,7 @@ impl Widget for &App {
         render_footer(self, bottom, buf);
         render_scrollbar(self, scrollbar_area, buf);
 
-        if self.show_help {
+        if self.app_state == AppState::HelpView {
             render_help_popup(area, buf);
         }
     }

@@ -10,26 +10,32 @@ use ratatui::{
 };
 use tracing::{debug, info};
 
+#[derive(Debug, PartialEq)]
+pub enum AppState {
+    LogView,
+    HelpView,
+}
+
 /// Application.
 #[derive(Debug)]
 pub struct App {
     pub running: bool,
+    pub app_state: AppState,
     pub events: EventHandler,
     pub log_buffer: LogBuffer,
     pub filtered_lines: Vec<usize>,
     pub viewport: Viewport,
-    pub show_help: bool,
 }
 
 impl Default for App {
     fn default() -> Self {
         Self {
             running: true,
+            app_state: AppState::LogView,
             events: EventHandler::new(),
             log_buffer: LogBuffer::default(),
             filtered_lines: Vec::new(),
             viewport: Viewport::default(),
-            show_help: false,
         }
     }
 }
@@ -80,6 +86,10 @@ impl App {
                 },
                 Event::App(app_event) => match app_event {
                     AppEvent::Quit => self.quit(),
+                    AppEvent::Confirm => {}
+                    AppEvent::Cancel => {
+                        self.app_state = AppState::LogView;
+                    }
                     AppEvent::MoveUp => self.viewport.move_up(),
                     AppEvent::MoveDown => self.viewport.move_down(),
                     AppEvent::PageUp => self.viewport.page_up(),
@@ -105,11 +115,17 @@ impl App {
         debug!("Key event: {:?}", key_event);
         match key_event.code {
             KeyCode::Char('q') => self.events.send(AppEvent::Quit),
+            KeyCode::Esc => self.events.send(AppEvent::Cancel),
+            KeyCode::Enter => self.events.send(AppEvent::Confirm),
             KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
                 self.events.send(AppEvent::Quit)
             }
             KeyCode::Char('h') => {
-                self.show_help = !self.show_help;
+                if self.app_state == AppState::HelpView {
+                    self.app_state = AppState::LogView;
+                } else {
+                    self.app_state = AppState::HelpView;
+                }
             }
             KeyCode::Up => self.events.send(AppEvent::MoveUp),
             KeyCode::Down => self.events.send(AppEvent::MoveDown),

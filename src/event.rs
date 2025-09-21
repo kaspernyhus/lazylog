@@ -33,6 +33,10 @@ pub enum Event {
 pub enum AppEvent {
     /// Quit the application.
     Quit,
+    /// Confirm
+    Confirm,
+    /// Cancel
+    Cancel,
     /// Move up
     MoveUp,
     /// Move down
