@@ -2,6 +2,7 @@
 pub struct Search {
     search_pattern: Option<String>,
     search_history: Vec<String>,
+    case_sensitive: bool,
 }
 
 impl Search {
@@ -27,5 +28,13 @@ impl Search {
     pub fn previous(&self) -> Option<String> {
         // Placeholder for actual search logic
         None
+    }
+
+    pub fn is_case_sensitive(&self) -> bool {
+        self.case_sensitive
+    }
+
+    pub fn toggle_case_sensitive(&mut self) {
+        self.case_sensitive = !self.case_sensitive;
     }
 }

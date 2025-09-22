@@ -154,6 +154,13 @@ impl App {
                         self.input_query.clear();
                         self.next_state(AppState::SearchView);
                     }
+                    AppEvent::ToggleCaseSensitive => {
+                        self.search.toggle_case_sensitive();
+                        debug!(
+                            "Case sensitivity toggled: {}",
+                            self.search.is_case_sensitive()
+                        );
+                    }
                     AppEvent::GotoLineMode => {
                         self.input_query.clear();
                         self.next_state(AppState::GotoLineView);
@@ -210,12 +217,14 @@ impl App {
 
             // SearchView
             AppState::SearchView => match key_event.code {
-                KeyCode::Char(c) => {
-                    self.input_query.push(c);
-                    debug!("Search query: {}", self.input_query);
-                }
+                KeyCode::Left => self.events.send(AppEvent::ToggleCaseSensitive),
+                KeyCode::Right => self.events.send(AppEvent::ToggleCaseSensitive),
                 KeyCode::Backspace => {
                     self.input_query.pop();
+                    debug!("Search query: {}", self.input_query);
+                }
+                KeyCode::Char(c) => {
+                    self.input_query.push(c);
                     debug!("Search query: {}", self.input_query);
                 }
                 _ => {}

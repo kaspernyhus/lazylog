@@ -63,6 +63,8 @@ pub enum AppEvent {
     ToggleHelp,
     /// Start search mode
     SearchMode,
+    /// Toggle case sensitivity
+    ToggleCaseSensitive,
 }
 
 /// Terminal event handler.

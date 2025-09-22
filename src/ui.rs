@@ -105,7 +105,12 @@ impl App {
     }
 
     fn render_search_bar(&self, area: Rect, buf: &mut Buffer) {
-        let search_prompt = format!("Search: {}", self.input_query);
+        let case_sensitive = if self.search.is_case_sensitive() {
+            "[Aa]"
+        } else {
+            "[aa]"
+        };
+        let search_prompt = format!("Search: {} {}", case_sensitive, self.input_query);
         let search_bar = Paragraph::new(search_prompt)
             .style(Style::default().bg(GRAY_COLOR))
             .alignment(Alignment::Left);
@@ -147,7 +152,7 @@ impl App {
                 } else {
                     &content[self.viewport.horizontal_offset..]
                 };
-                self.highlight_line(text, false)
+                self.highlight_line(text)
             })
             .collect();
 
@@ -163,40 +168,47 @@ impl App {
         StatefulWidget::render(log_list, area, buf, &mut list_state);
     }
 
-    fn highlight_line<'a>(&self, content: &'a str, case_sensitive: bool) -> Line<'a> {
-        if let Some(pattern) = &self.search.get_search_pattern() {
-            if pattern.is_empty() {
-                return Line::from(content);
-            }
+    fn highlight_line<'a>(&self, content: &'a str) -> Line<'a> {
+        let Some(pattern) = &self.search.get_search_pattern() else {
+            return Line::from(content);
+        };
 
-            let mut spans = Vec::new();
-            let mut last_index = 0;
-
-            // if !case_sensitive {
-            //     let content = content.to_lowercase();
-            //     let pattern = pattern.to_lowercase();
-            // }
-
-            while let Some(index) = content[last_index..].find(pattern) {
-                let start = last_index + index;
-                if start > last_index {
-                    spans.push(ratatui::text::Span::raw(&content[last_index..start]));
-                }
-                spans.push(ratatui::text::Span::styled(
-                    &content[start..start + pattern.len()],
-                    Style::default().add_modifier(Modifier::REVERSED),
-                ));
-                last_index = start + pattern.len();
-            }
-
-            if last_index < content.len() {
-                spans.push(ratatui::text::Span::raw(&content[last_index..]));
-            }
-
-            Line::from(spans)
-        } else {
-            Line::from(content)
+        if pattern.is_empty() {
+            return Line::from(content);
         }
+
+        let mut spans = Vec::new();
+        let mut last_index = 0;
+
+        let (search_content, search_pattern) = if self.search.is_case_sensitive() {
+            (content.to_string(), pattern.clone())
+        } else {
+            (content.to_lowercase(), pattern.to_lowercase())
+        };
+
+        while let Some(index) = search_content[last_index..].find(&search_pattern) {
+            let start = last_index + index;
+
+            if start > last_index {
+                spans.push(ratatui::text::Span::raw(&content[last_index..start]));
+            }
+
+            spans.push(ratatui::text::Span::styled(
+                &content[start..start + pattern.len()],
+                Style::default()
+                    .bg(Color::Yellow)
+                    .fg(Color::Black)
+                    .add_modifier(Modifier::BOLD),
+            ));
+
+            last_index = start + pattern.len();
+        }
+
+        if last_index < content.len() {
+            spans.push(ratatui::text::Span::raw(&content[last_index..]));
+        }
+
+        Line::from(spans)
     }
 }
 
