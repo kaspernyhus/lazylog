@@ -13,6 +13,14 @@ impl Search {
         }
     }
 
+    pub fn update(&mut self, input: &str, min_chars: usize) {
+        if input.len() >= min_chars {
+            self.set_search_pattern(input.to_string());
+        } else {
+            self.clear_search_pattern();
+        }
+    }
+
     pub fn get_search_pattern(&self) -> Option<String> {
         self.search_pattern.clone()
     }

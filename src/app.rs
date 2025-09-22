@@ -101,7 +101,6 @@ impl App {
                     AppEvent::Confirm => {
                         debug!("Confirm");
                         if self.app_state == AppState::SearchView {
-                            self.search.set_search_pattern(self.input_query.clone());
                             self.next_state(AppState::LogView);
                         } else if self.app_state == AppState::GotoLineView {
                             if let Ok(line_number) = self.input_query.parse::<usize>() {
@@ -119,6 +118,7 @@ impl App {
                                 self.next_state(AppState::LogView);
                             }
                             AppState::SearchView => {
+                                self.search.clear_search_pattern();
                                 self.next_state(AppState::LogView);
                             }
                             AppState::GotoLineView => {
@@ -221,10 +221,12 @@ impl App {
                 KeyCode::Right => self.events.send(AppEvent::ToggleCaseSensitive),
                 KeyCode::Backspace => {
                     self.input_query.pop();
+                    self.search.update(&self.input_query, 2);
                     debug!("Search query: {}", self.input_query);
                 }
                 KeyCode::Char(c) => {
                     self.input_query.push(c);
+                    self.search.update(&self.input_query, 2);
                     debug!("Search query: {}", self.input_query);
                 }
                 _ => {}
