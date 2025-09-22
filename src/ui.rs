@@ -138,15 +138,16 @@ impl App {
         let (start, end) = self.viewport.visible();
         let visible_lines = self.log_buffer.get_lines(start, end);
 
-        let items: Vec<&str> = visible_lines
+        let items: Vec<Line> = visible_lines
             .iter()
             .map(|line| {
                 let content = &line.content;
-                if self.viewport.horizontal_offset >= content.len() {
+                let text = if self.viewport.horizontal_offset >= content.len() {
                     ""
                 } else {
                     &content[self.viewport.horizontal_offset..]
-                }
+                };
+                self.highlight_line(text, false)
             })
             .collect();
 
@@ -160,6 +161,42 @@ impl App {
             .highlight_style(Style::default().add_modifier(Modifier::BOLD));
 
         StatefulWidget::render(log_list, area, buf, &mut list_state);
+    }
+
+    fn highlight_line<'a>(&self, content: &'a str, case_sensitive: bool) -> Line<'a> {
+        if let Some(pattern) = &self.search.get_search_pattern() {
+            if pattern.is_empty() {
+                return Line::from(content);
+            }
+
+            let mut spans = Vec::new();
+            let mut last_index = 0;
+
+            // if !case_sensitive {
+            //     let content = content.to_lowercase();
+            //     let pattern = pattern.to_lowercase();
+            // }
+
+            while let Some(index) = content[last_index..].find(pattern) {
+                let start = last_index + index;
+                if start > last_index {
+                    spans.push(ratatui::text::Span::raw(&content[last_index..start]));
+                }
+                spans.push(ratatui::text::Span::styled(
+                    &content[start..start + pattern.len()],
+                    Style::default().add_modifier(Modifier::REVERSED),
+                ));
+                last_index = start + pattern.len();
+            }
+
+            if last_index < content.len() {
+                spans.push(ratatui::text::Span::raw(&content[last_index..]));
+            }
+
+            Line::from(spans)
+        } else {
+            Line::from(content)
+        }
     }
 }
 

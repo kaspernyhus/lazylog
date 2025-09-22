@@ -7,6 +7,7 @@ pub mod cli;
 pub mod event;
 pub mod log;
 pub mod logging;
+pub mod search;
 pub mod ui;
 pub mod viewport;
 

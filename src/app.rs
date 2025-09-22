@@ -2,6 +2,7 @@ use crate::{
     cli::Cli,
     event::{AppEvent, Event, EventHandler},
     log::LogBuffer,
+    search::Search,
     viewport::Viewport,
 };
 use ratatui::{
@@ -28,6 +29,7 @@ pub struct App {
     pub filtered_lines: Vec<usize>,
     pub viewport: Viewport,
     pub input_query: String,
+    pub search: Search,
 }
 
 impl Default for App {
@@ -40,6 +42,7 @@ impl Default for App {
             filtered_lines: Vec::new(),
             viewport: Viewport::default(),
             input_query: String::new(),
+            search: Search::default(),
         }
     }
 }
@@ -98,6 +101,7 @@ impl App {
                     AppEvent::Confirm => {
                         debug!("Confirm");
                         if self.app_state == AppState::SearchView {
+                            self.search.set_search_pattern(self.input_query.clone());
                             self.next_state(AppState::LogView);
                         } else if self.app_state == AppState::GotoLineView {
                             if let Ok(line_number) = self.input_query.parse::<usize>() {
@@ -120,7 +124,9 @@ impl App {
                             AppState::GotoLineView => {
                                 self.next_state(AppState::LogView);
                             }
-                            AppState::LogView => {}
+                            AppState::LogView => {
+                                self.search.clear_search_pattern();
+                            }
                         }
                     }
                     AppEvent::MoveUp => self.viewport.move_up(),
