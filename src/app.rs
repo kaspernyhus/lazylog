@@ -101,6 +101,9 @@ impl App {
                     AppEvent::Confirm => {
                         debug!("Confirm");
                         if self.app_state == AppState::SearchView {
+                            if self.input_query.is_empty() {
+                                self.search.clear_search_pattern();
+                            }
                             self.next_state(AppState::LogView);
                         } else if self.app_state == AppState::GotoLineView {
                             if let Ok(line_number) = self.input_query.parse::<usize>() {
