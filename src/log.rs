@@ -36,4 +36,8 @@ impl LogBuffer {
             .max()
             .unwrap_or(0)
     }
+
+    pub fn get_all_line_contents(&self) -> Vec<String> {
+        self.lines.iter().map(|line| line.content.clone()).collect()
+    }
 }

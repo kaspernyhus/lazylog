@@ -103,12 +103,20 @@ impl App {
                         if self.app_state == AppState::SearchView {
                             if self.input_query.is_empty() {
                                 self.search.clear_search_pattern();
+                            } else {
+                                let lines = self.log_buffer.get_all_line_contents();
+                                self.search.update_matches(&lines);
+                                if let Some(line) =
+                                    self.search.next_match(self.viewport.selected_line)
+                                {
+                                    self.viewport.goto_line(line, true);
+                                }
                             }
                             self.next_state(AppState::LogView);
                         } else if self.app_state == AppState::GotoLineView {
                             if let Ok(line_number) = self.input_query.parse::<usize>() {
                                 if line_number > 0 && line_number <= self.log_buffer.lines.len() {
-                                    self.viewport.goto_line(line_number - 1);
+                                    self.viewport.goto_line(line_number - 1, true);
                                 }
                             }
                             self.next_state(AppState::LogView);
@@ -159,6 +167,10 @@ impl App {
                     }
                     AppEvent::ToggleCaseSensitive => {
                         self.search.toggle_case_sensitive();
+                        if self.search.get_search_pattern().is_some() {
+                            let lines = self.log_buffer.get_all_line_contents();
+                            self.search.update_matches(&lines);
+                        }
                         debug!(
                             "Case sensitivity toggled: {}",
                             self.search.is_case_sensitive()
@@ -167,6 +179,17 @@ impl App {
                     AppEvent::GotoLineMode => {
                         self.input_query.clear();
                         self.next_state(AppState::GotoLineView);
+                    }
+                    AppEvent::SearchNext => {
+                        if let Some(line) = self.search.next_match(self.viewport.selected_line) {
+                            self.viewport.goto_line(line, false);
+                        }
+                    }
+                    AppEvent::SearchPrevious => {
+                        if let Some(line) = self.search.previous_match(self.viewport.selected_line)
+                        {
+                            self.viewport.goto_line(line, false);
+                        }
                     }
                 },
             }
@@ -208,6 +231,8 @@ impl App {
                     self.events.send(AppEvent::SearchMode)
                 }
                 KeyCode::Char(':') => self.events.send(AppEvent::GotoLineMode),
+                KeyCode::Char('n') => self.events.send(AppEvent::SearchNext),
+                KeyCode::Char('N') => self.events.send(AppEvent::SearchPrevious),
                 _ => {}
             },
 
@@ -224,12 +249,12 @@ impl App {
                 KeyCode::Right => self.events.send(AppEvent::ToggleCaseSensitive),
                 KeyCode::Backspace => {
                     self.input_query.pop();
-                    self.search.update(&self.input_query, 2);
+                    self.search.update_search_pattern(&self.input_query, 2);
                     debug!("Search query: {}", self.input_query);
                 }
                 KeyCode::Char(c) => {
                     self.input_query.push(c);
-                    self.search.update(&self.input_query, 2);
+                    self.search.update_search_pattern(&self.input_query, 2);
                     debug!("Search query: {}", self.input_query);
                 }
                 _ => {}

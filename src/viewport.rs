@@ -69,10 +69,14 @@ impl Viewport {
         self.adjust_visible();
     }
 
-    pub fn goto_line(&mut self, line: usize) {
+    pub fn goto_line(&mut self, line: usize, center: bool) {
         if line < self.total_lines {
             self.selected_line = line;
-            self.center_selected();
+            if center {
+                self.center_selected();
+            } else {
+                self.adjust_visible();
+            }
         }
     }
 

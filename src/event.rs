@@ -65,6 +65,10 @@ pub enum AppEvent {
     SearchMode,
     /// Toggle case sensitivity
     ToggleCaseSensitive,
+    /// Go to next search match
+    SearchNext,
+    /// Go to previous search match
+    SearchPrevious,
 }
 
 /// Terminal event handler.

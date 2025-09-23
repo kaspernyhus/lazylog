@@ -38,10 +38,9 @@ fn popup_area(area: Rect, width: u16, height: u16) -> Rect {
 }
 
 impl App {
-    fn render_footer(&self, area: Rect, buf: &mut Buffer) {
+    fn get_progression(&self) -> (usize, usize, usize) {
         let total_lines = self.viewport.total_lines;
         let current_line = self.viewport.selected_line + 1;
-
         let percent = if total_lines > 0 {
             if current_line == total_lines {
                 100
@@ -51,7 +50,10 @@ impl App {
         } else {
             0
         };
+        (current_line, total_lines, percent)
+    }
 
+    fn render_footer(&self, area: Rect, buf: &mut Buffer) {
         let file_name = if let Some(path) = &self.log_buffer.file_path {
             let name = std::path::Path::new(path)
                 .file_name()
@@ -66,13 +68,25 @@ impl App {
             "".to_string()
         };
 
+        let left = Line::from(file_name).left_aligned();
+        let middle = Line::from("h:View Help").centered();
+
+        let (current_match, total_matches) = self.search.get_match_info();
+        let (current_line, total_lines, percent) = self.get_progression();
+        let right = if total_matches > 0 {
+            Line::from(format!(
+                "{}/{} | {}/{} {:3}% ",
+                current_match, total_matches, current_line, total_lines, percent
+            ))
+            .right_aligned()
+        } else {
+            Line::from(format!("{}/{} {:3}% ", current_line, total_lines, percent)).right_aligned()
+        };
+
         let footer = Block::default()
-            .title_bottom(Line::from(file_name).left_aligned())
-            .title_bottom(Line::from("h:View Help").centered())
-            .title_bottom(
-                Line::from(format!("{}/{} {:3}% ", current_line, total_lines, percent))
-                    .right_aligned(),
-            )
+            .title_bottom(left)
+            .title_bottom(middle)
+            .title_bottom(right)
             .style(Style::default().bg(GRAY_COLOR));
         footer.render(area, buf);
     }
@@ -83,10 +97,17 @@ impl App {
         } else {
             "[aa]"
         };
-        let search_prompt = format!("Search: {} {}", case_sensitive, self.input_query);
-        let search_bar = Paragraph::new(search_prompt)
-            .style(Style::default().bg(GRAY_COLOR))
-            .alignment(Alignment::Left);
+        let search_prompt =
+            Line::from(format!("Search: {} {}", case_sensitive, self.input_query)).left_aligned();
+        let (current_line, total_lines, percent) = self.get_progression();
+        let progression =
+            Line::from(format!("{}/{} {:3}% ", current_line, total_lines, percent)).right_aligned();
+
+        let search_bar = Block::default()
+            .title_bottom(search_prompt)
+            .title_bottom(progression)
+            .style(Style::default().bg(GRAY_COLOR));
+
         search_bar.render(area, buf);
     }
 
