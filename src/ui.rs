@@ -1,12 +1,13 @@
+use crate::help::render_help_popup;
 use ratatui::text::Line;
-use ratatui::widgets::{Borders, ListState};
+use ratatui::widgets::ListState;
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
     widgets::{
-        Block, Clear, List, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
-        StatefulWidget, Widget,
+        Block, List, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget,
+        Widget,
     },
 };
 
@@ -37,34 +38,6 @@ fn popup_area(area: Rect, width: u16, height: u16) -> Rect {
 }
 
 impl App {
-    fn render_help_popup(&self, area: Rect, buf: &mut Buffer) {
-        let popup_area = popup_area(area, 38, 18);
-        Clear.render(popup_area, buf);
-
-        let help_text = vec![
-            Line::from("q            Quit"),
-            Line::from("Down/Up      Navigate"),
-            Line::from("g/G          Go to start/end"),
-            Line::from("PageUp/Down  Page up/down"),
-            Line::from("z            Center selected line"),
-            Line::from("Left/Right   Scroll horizontally"),
-            Line::from("0            Reset horizontal scroll"),
-        ];
-
-        let block = Block::default()
-            .title(" Help ")
-            .title_alignment(Alignment::Center)
-            .borders(Borders::ALL)
-            .style(Style::default().bg(Color::Blue));
-
-        let help_popup = Paragraph::new(help_text)
-            .block(block)
-            .alignment(Alignment::Left)
-            .wrap(ratatui::widgets::Wrap { trim: true });
-
-        help_popup.render(popup_area, buf);
-    }
-
     fn render_footer(&self, area: Rect, buf: &mut Buffer) {
         let total_lines = self.viewport.total_lines;
         let current_line = self.viewport.selected_line + 1;
@@ -244,7 +217,8 @@ impl Widget for &App {
 
         // Popup
         if self.app_state == AppState::HelpView {
-            self.render_help_popup(area, buf);
+            let help_area = popup_area(area, 38, 18);
+            render_help_popup(help_area, buf);
         }
     }
 }
