@@ -45,7 +45,7 @@ impl Search {
         self.case_sensitive = !self.case_sensitive;
     }
 
-    pub fn update_matches<'a>(&mut self, lines: impl Iterator<Item = &'a str>) {
+    pub fn update_matches(&mut self, lines: &[&str]) {
         self.match_indices.clear();
         self.total_matches = 0;
         self.current_match_index = 0;
@@ -58,7 +58,7 @@ impl Search {
             return;
         }
 
-        for (line_index, line) in lines.enumerate() {
+        for (line_index, line) in lines.iter().enumerate() {
             let matching = if self.case_sensitive {
                 line.contains(pattern)
             } else {

@@ -1,6 +1,6 @@
 use crate::help::render_help_popup;
 use ratatui::text::Line;
-use ratatui::widgets::ListState;
+use ratatui::widgets::{Clear, ListState};
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Constraint, Layout, Rect},
@@ -93,12 +93,12 @@ impl App {
 
     fn render_search_bar(&self, area: Rect, buf: &mut Buffer) {
         let case_sensitive = if self.search.is_case_sensitive() {
-            "[Aa]"
+            "Aa"
         } else {
-            "[aa]"
+            "aa"
         };
         let search_prompt =
-            Line::from(format!("Search: {} {}", case_sensitive, self.input_query)).left_aligned();
+            Line::from(format!("Search: [{}] {}", case_sensitive, self.input_query)).left_aligned();
         let (current_line, total_lines, percent) = self.get_progression();
         let progression =
             Line::from(format!("{}/{} {:3}% ", current_line, total_lines, percent)).right_aligned();
@@ -119,8 +119,93 @@ impl App {
         search_bar.render(area, buf);
     }
 
+    fn render_filter_bar(&self, area: Rect, buf: &mut Buffer) {
+        let filter_mode = match self.filter.get_mode() {
+            crate::filter::FilterMode::Include => "IN",
+            crate::filter::FilterMode::Exclude => "EX",
+        };
+
+        let case_sensitive = if self.filter.is_case_sensitive() {
+            "Aa"
+        } else {
+            "aa"
+        };
+
+        let filter_prompt = Line::from(format!(
+            "Filter: [{}] [{}] {}",
+            case_sensitive, filter_mode, self.input_query
+        ))
+        .left_aligned();
+        let (current_line, total_lines, percent) = self.get_progression();
+        let progression =
+            Line::from(format!("{}/{} {:3}% ", current_line, total_lines, percent)).right_aligned();
+
+        let filter_bar = Block::default()
+            .title_bottom(filter_prompt)
+            .title_bottom(progression)
+            .style(Style::default().bg(GRAY_COLOR));
+
+        filter_bar.render(area, buf);
+    }
+
+    fn render_filter_list_popup(&self, area: Rect, buf: &mut Buffer) {
+        Clear.render(area, buf);
+
+        let filter_patterns = self.filter.get_filter_patterns();
+        if filter_patterns.is_empty() {
+            let no_filters_text = vec![Line::from("No filters configured")];
+            let popup = Paragraph::new(no_filters_text)
+                .block(
+                    Block::default()
+                        .title(" Filters ")
+                        .title_alignment(Alignment::Center)
+                        .borders(ratatui::widgets::Borders::ALL)
+                        .border_style(Style::default().fg(Color::White)),
+                )
+                .alignment(Alignment::Center);
+            popup.render(area, buf);
+        } else {
+            let items: Vec<Line> = filter_patterns
+                .iter()
+                .map(|pattern| {
+                    let mode_str = match pattern.mode {
+                        crate::filter::FilterMode::Include => "IN",
+                        crate::filter::FilterMode::Exclude => "EX",
+                    };
+                    let case_str = if pattern.case_sensitive { "Aa" } else { "aa" };
+
+                    let content = format!("[{}] [{}] {}", mode_str, case_str, pattern.pattern);
+
+                    if pattern.enabled {
+                        Line::from(content).style(Style::default().fg(Color::Green))
+                    } else {
+                        Line::from(content).style(Style::default().fg(Color::Gray))
+                    }
+                })
+                .collect();
+
+            let mut list_state = ListState::default();
+            if !filter_patterns.is_empty() {
+                list_state.select(Some(self.filter.get_selected_pattern_index()));
+            }
+
+            let filter_list = List::new(items)
+                .block(
+                    Block::default()
+                        .title(" Filters ")
+                        .title_alignment(Alignment::Center)
+                        .borders(ratatui::widgets::Borders::ALL)
+                        .border_style(Style::default().fg(Color::White)),
+                )
+                .highlight_symbol(RIGHT_ARROW)
+                .highlight_style(Style::default().add_modifier(Modifier::BOLD));
+
+            StatefulWidget::render(filter_list, area, buf, &mut list_state);
+        }
+    }
+
     fn render_scrollbar(&self, area: Rect, buf: &mut Buffer) {
-        let mut scrollbar_state = ScrollbarState::new(self.log_buffer.lines.len())
+        let mut scrollbar_state = ScrollbarState::new(self.viewport.total_lines)
             .position(self.viewport.selected_line)
             .viewport_content_length(1);
 
@@ -135,16 +220,17 @@ impl App {
 
     fn render_logview(&self, area: Rect, buf: &mut Buffer) {
         let (start, end) = self.viewport.visible();
-        let visible_lines = self.log_buffer.get_lines(start, end);
 
-        let items: Vec<Line> = visible_lines
+        // Get the visible range of filtered lines
+        let filtered_lines: Vec<_> = self.log_buffer.get_lines_iter(Some((start, end))).collect();
+
+        let items: Vec<Line> = filtered_lines
             .iter()
             .map(|line| {
-                let content = &line.content;
-                let text = if self.viewport.horizontal_offset >= content.len() {
+                let text = if self.viewport.horizontal_offset >= line.len() {
                     ""
                 } else {
-                    &content[self.viewport.horizontal_offset..]
+                    &line[self.viewport.horizontal_offset..]
                 };
                 self.highlight_line(text)
             })
@@ -163,41 +249,91 @@ impl App {
     }
 
     fn highlight_line<'a>(&self, content: &'a str) -> Line<'a> {
-        let Some(pattern) = &self.search.get_search_pattern() else {
-            return Line::from(content);
-        };
+        let mut patterns_to_highlight = Vec::new();
 
-        if pattern.is_empty() {
+        if let Some(pattern) = &self.search.get_search_pattern() {
+            if !pattern.is_empty() {
+                patterns_to_highlight.push((
+                    pattern.clone(),
+                    self.search.is_case_sensitive(),
+                    Color::Yellow,
+                ));
+            }
+        }
+
+        if self.app_state == AppState::FilterMode {
+            if let Some(pattern) = &self.filter.get_filter_pattern() {
+                if !pattern.is_empty() {
+                    patterns_to_highlight.push((
+                        pattern.clone(),
+                        self.filter.is_case_sensitive(),
+                        Color::Cyan,
+                    ));
+                }
+            }
+        }
+
+        if patterns_to_highlight.is_empty() {
             return Line::from(content);
         }
+
+        self.apply_highlights(content, patterns_to_highlight)
+    }
+
+    fn apply_highlights<'a>(
+        &self,
+        content: &'a str,
+        patterns: Vec<(String, bool, Color)>,
+    ) -> Line<'a> {
+        let mut highlight_ranges = Vec::new();
+
+        for (pattern, case_sensitive, color) in patterns {
+            let (search_content, search_pattern) = if case_sensitive {
+                (content.to_string(), pattern)
+            } else {
+                (content.to_lowercase(), pattern.to_lowercase())
+            };
+
+            let mut start_pos = 0;
+            while let Some(index) = search_content[start_pos..].find(&search_pattern) {
+                let start = start_pos + index;
+                let end = start + search_pattern.len();
+                highlight_ranges.push((start, end, color));
+                start_pos = start + 1; // Move forward to find overlapping matches
+            }
+        }
+
+        if highlight_ranges.is_empty() {
+            return Line::from(content);
+        }
+
+        // Sort ranges by start position
+        highlight_ranges.sort_by(|a, b| a.0.cmp(&b.0));
 
         let mut spans = Vec::new();
         let mut last_index = 0;
 
-        let (search_content, search_pattern) = if self.search.is_case_sensitive() {
-            (content.to_string(), pattern.clone())
-        } else {
-            (content.to_lowercase(), pattern.to_lowercase())
-        };
-
-        while let Some(index) = search_content[last_index..].find(&search_pattern) {
-            let start = last_index + index;
-
+        for (start, end, color) in highlight_ranges {
+            // Add unhighlighted text before this range
             if start > last_index {
                 spans.push(ratatui::text::Span::raw(&content[last_index..start]));
             }
 
-            spans.push(ratatui::text::Span::styled(
-                &content[start..start + pattern.len()],
-                Style::default()
-                    .bg(Color::Yellow)
-                    .fg(Color::Black)
-                    .add_modifier(Modifier::BOLD),
-            ));
-
-            last_index = start + pattern.len();
+            // Add highlighted text (only if we haven't already passed this range)
+            if end > last_index {
+                let highlight_start = start.max(last_index);
+                spans.push(ratatui::text::Span::styled(
+                    &content[highlight_start..end],
+                    Style::default()
+                        .bg(color)
+                        .fg(Color::Black)
+                        .add_modifier(Modifier::BOLD),
+                ));
+                last_index = end;
+            }
         }
 
+        // Add any remaining unhighlighted text
         if last_index < content.len() {
             spans.push(ratatui::text::Span::raw(&content[last_index..]));
         }
@@ -231,13 +367,18 @@ impl Widget for &App {
 
         // Footer
         match self.app_state {
-            AppState::SearchView => self.render_search_bar(bottom, buf),
-            AppState::GotoLineView => self.render_goto_line_bar(bottom, buf),
+            AppState::SearchMode => self.render_search_bar(bottom, buf),
+            AppState::GotoLineMode => self.render_goto_line_bar(bottom, buf),
+            AppState::FilterMode => self.render_filter_bar(bottom, buf),
             _ => self.render_footer(bottom, buf),
         }
 
-        // Popup
-        if self.app_state == AppState::HelpView {
+        // Popups
+        if self.app_state == AppState::FilterListView {
+            let filter_area = popup_area(area, 50, 20);
+            self.render_filter_list_popup(filter_area, buf);
+        }
+        if self.show_help {
             let help_area = popup_area(area, 38, 18);
             render_help_popup(help_area, buf);
         }

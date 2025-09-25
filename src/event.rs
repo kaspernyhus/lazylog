@@ -51,8 +51,8 @@ pub enum AppEvent {
     GotoTop,
     /// Goto bottom
     GotoBottom,
-    /// Goto line mode
-    GotoLineMode,
+    /// Goto specific line input mode
+    ActivateGotoLineMode,
     /// Scroll left horizontally
     ScrollLeft,
     /// Scroll right horizontally
@@ -61,14 +61,24 @@ pub enum AppEvent {
     ResetHorizontal,
     /// Toggle help popup
     ToggleHelp,
-    /// Start search mode
-    SearchMode,
+    /// Start search input mode
+    ActivateSearchMode,
     /// Toggle case sensitivity
     ToggleCaseSensitive,
     /// Go to next search match
     SearchNext,
     /// Go to previous search match
     SearchPrevious,
+    /// Start filter input mode
+    ActivateFilterMode,
+    /// Toggle filter (include/exclude)
+    ToggleFilterMode,
+    /// Activate filter list view
+    ActivateFilterListView,
+    /// Toggle selected filter pattern active/inactive
+    ToggleFilterPatternActive,
+    /// Remove selected filter pattern
+    RemoveFilterPattern,
 }
 
 /// Terminal event handler.

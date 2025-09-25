@@ -5,6 +5,7 @@ use cli::Cli;
 pub mod app;
 pub mod cli;
 pub mod event;
+pub mod filter;
 pub mod help;
 pub mod log;
 pub mod logging;
