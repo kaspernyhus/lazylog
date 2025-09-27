@@ -214,6 +214,7 @@ impl App {
                     AppEvent::ToggleHelp => self.show_help = !self.show_help,
                     AppEvent::ActivateSearchMode => {
                         self.input_query.clear();
+                        self.search.clear_search_pattern();
                         self.next_state(AppState::SearchMode);
                     }
                     AppEvent::ToggleCaseSensitive => {
