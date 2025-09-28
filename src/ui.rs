@@ -254,7 +254,7 @@ impl App {
     fn highlight_line<'a>(&self, content: &'a str) -> Line<'a> {
         let mut patterns_to_highlight = Vec::new();
 
-        if let Some(pattern) = self.search.get_search_pattern() {
+        if let Some(pattern) = self.search.get_pattern() {
             if !pattern.is_empty() {
                 patterns_to_highlight.push((
                     pattern.to_string(),

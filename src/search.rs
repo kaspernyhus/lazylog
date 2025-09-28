@@ -1,38 +1,103 @@
 #[derive(Debug, Default)]
+pub struct SearchHistory {
+    history: Vec<String>,
+    index: Option<usize>,
+}
+
+#[derive(Debug, Default)]
 pub struct Search {
     search_pattern: Option<String>,
-    search_history: Vec<String>,
     case_sensitive: bool,
     current_match_index: usize,
     total_matches: usize,
     match_indices: Vec<usize>,
+    pub history: SearchHistory,
+}
+
+impl SearchHistory {
+    pub fn add_query(&mut self, pattern: String) {
+        if !self.history.contains(&pattern) {
+            self.history.push(pattern);
+        }
+        self.index = None;
+    }
+
+    pub fn previous_query(&mut self) -> Option<String> {
+        if self.history.is_empty() {
+            return None;
+        }
+
+        match self.index {
+            None => {
+                // First time navigating history, start from the end
+                self.index = Some(self.history.len() - 1);
+                Some(self.history[self.history.len() - 1].clone())
+            }
+            Some(current) => {
+                if current > 0 {
+                    self.index = Some(current - 1);
+                    Some(self.history[current - 1].clone())
+                } else {
+                    // Already at the oldest entry
+                    None
+                }
+            }
+        }
+    }
+
+    pub fn next_query(&mut self) -> Option<String> {
+        if self.history.is_empty() {
+            return None;
+        }
+
+        match self.index {
+            None => None, // Not currently in history mode
+            Some(current) => {
+                if current < self.history.len() - 1 {
+                    self.index = Some(current + 1);
+                    Some(self.history[current + 1].clone())
+                } else {
+                    // At the newest entry, exit history mode
+                    self.index = None;
+                    Some(String::new()) // Return empty string to clear input
+                }
+            }
+        }
+    }
+
+    pub fn reset(&mut self) {
+        self.index = None;
+    }
 }
 
 impl Search {
-    pub fn set_search_pattern(&mut self, pattern: String) {
+    pub fn apply_pattern(&mut self, pattern: String, lines: &[&str]) {
+        self.history.add_query(pattern.clone());
+        self.set_pattern(pattern);
+        self.update_matches(lines);
+    }
+
+    pub fn set_pattern(&mut self, pattern: String) {
         self.search_pattern = Some(pattern.clone());
-        if !self.search_history.contains(&pattern) {
-            self.search_history.push(pattern);
-        }
         self.reset_matches();
     }
 
-    pub fn update_search_pattern(&mut self, input: &str, min_chars: usize) {
+    pub fn update_pattern(&mut self, input: &str, min_chars: usize) {
         if input.is_empty() {
-            self.clear_search_pattern();
+            self.clear_pattern();
             return;
         }
 
         if input.len() >= min_chars {
-            self.set_search_pattern(input.to_string());
+            self.set_pattern(input.to_string());
         }
     }
 
-    pub fn get_search_pattern(&self) -> Option<&str> {
+    pub fn get_pattern(&self) -> Option<&str> {
         self.search_pattern.as_deref()
     }
 
-    pub fn clear_search_pattern(&mut self) {
+    pub fn clear_pattern(&mut self) {
         self.search_pattern = None;
         self.reset_matches();
     }

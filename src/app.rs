@@ -129,14 +129,14 @@ impl App {
                     AppEvent::Confirm => match self.app_state {
                         AppState::SearchMode => {
                             if self.input_query.is_empty() {
-                                self.search.clear_search_pattern();
+                                self.search.clear_pattern();
                             } else {
                                 let lines: Vec<&str> = self
                                     .log_buffer
                                     .get_lines_iter(Interval::All)
                                     .map(|log_line| log_line.content())
                                     .collect();
-                                self.search.update_matches(&lines);
+                                self.search.apply_pattern(self.input_query.clone(), &lines);
                                 if let Some(line) =
                                     self.search.next_match(self.viewport.selected_line)
                                 {
@@ -171,7 +171,7 @@ impl App {
                         }
                         match self.app_state {
                             AppState::SearchMode => {
-                                self.search.clear_search_pattern();
+                                self.search.clear_pattern();
                                 self.next_state(AppState::LogView);
                             }
                             AppState::GotoLineMode => {
@@ -182,7 +182,7 @@ impl App {
                                 self.next_state(AppState::LogView);
                             }
                             AppState::LogView => {
-                                self.search.clear_search_pattern();
+                                self.search.clear_pattern();
                             }
                             AppState::FilterListView => {
                                 self.next_state(AppState::LogView);
@@ -220,13 +220,14 @@ impl App {
                     AppEvent::ToggleHelp => self.show_help = !self.show_help,
                     AppEvent::ActivateSearchMode => {
                         self.input_query.clear();
-                        self.search.clear_search_pattern();
+                        self.search.clear_pattern();
+                        self.search.history.reset();
                         self.next_state(AppState::SearchMode);
                     }
                     AppEvent::ToggleCaseSensitive => {
                         self.search.toggle_case_sensitive();
                         self.filter.toggle_case_sensitive();
-                        if self.search.get_search_pattern().is_some() {
+                        if self.search.get_pattern().is_some() {
                             let lines: Vec<&str> = self
                                 .log_buffer
                                 .get_lines_iter(Interval::All)
@@ -270,6 +271,18 @@ impl App {
                     AppEvent::RemoveFilterPattern => {
                         self.filter.remove_selected_pattern();
                         self.update_view();
+                    }
+                    AppEvent::SearchHistoryPrevious => {
+                        if let Some(history_query) = self.search.history.previous_query() {
+                            self.input_query = history_query;
+                            self.search.update_pattern(&self.input_query, 0);
+                        }
+                    }
+                    AppEvent::SearchHistoryNext => {
+                        if let Some(history_query) = self.search.history.next_query() {
+                            self.input_query = history_query;
+                            self.search.update_pattern(&self.input_query, 0);
+                        }
                     }
                 },
             }
@@ -320,23 +333,25 @@ impl App {
 
             // SearchMode
             AppState::SearchMode => match key_event.code {
-                KeyCode::Up => self.events.send(AppEvent::ToggleCaseSensitive),
-                KeyCode::Down => self.events.send(AppEvent::ToggleCaseSensitive),
+                KeyCode::Tab => self.events.send(AppEvent::ToggleCaseSensitive),
+                KeyCode::Up => self.events.send(AppEvent::SearchHistoryPrevious),
+                KeyCode::Down => self.events.send(AppEvent::SearchHistoryNext),
                 KeyCode::Backspace => {
                     self.input_query.pop();
-                    self.search.update_search_pattern(&self.input_query, 2);
+                    self.search.update_pattern(&self.input_query, 2);
+                    self.search.history.reset();
                 }
                 KeyCode::Char(c) => {
                     self.input_query.push(c);
-                    self.search.update_search_pattern(&self.input_query, 2);
+                    self.search.update_pattern(&self.input_query, 2);
+                    self.search.history.reset();
                 }
                 _ => {}
             },
 
             // FilterMode
             AppState::FilterMode => match key_event.code {
-                KeyCode::Up => self.events.send(AppEvent::ToggleCaseSensitive),
-                KeyCode::Down => self.events.send(AppEvent::ToggleCaseSensitive),
+                KeyCode::Tab => self.events.send(AppEvent::ToggleCaseSensitive),
                 KeyCode::Left => self.events.send(AppEvent::ToggleFilterMode),
                 KeyCode::Right => self.events.send(AppEvent::ToggleFilterMode),
                 KeyCode::Delete => self.events.send(AppEvent::RemoveFilterPattern),

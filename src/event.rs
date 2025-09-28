@@ -79,6 +79,10 @@ pub enum AppEvent {
     ToggleFilterPatternActive,
     /// Remove selected filter pattern
     RemoveFilterPattern,
+    /// Navigate to previous search history
+    SearchHistoryPrevious,
+    /// Navigate to next search history
+    SearchHistoryNext,
 }
 
 /// Terminal event handler.
