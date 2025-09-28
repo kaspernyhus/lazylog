@@ -28,8 +28,8 @@ impl Search {
         }
     }
 
-    pub fn get_search_pattern(&self) -> Option<String> {
-        self.search_pattern.clone()
+    pub fn get_search_pattern(&self) -> Option<&str> {
+        self.search_pattern.as_deref()
     }
 
     pub fn clear_search_pattern(&mut self) {

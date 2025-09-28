@@ -1,4 +1,5 @@
 use crate::help::render_help_popup;
+use crate::log::Interval;
 use ratatui::text::Line;
 use ratatui::widgets::{Clear, ListState};
 use ratatui::{
@@ -220,11 +221,12 @@ impl App {
 
     fn render_logview(&self, area: Rect, buf: &mut Buffer) {
         let (start, end) = self.viewport.visible();
+        let lines: Vec<&str> = self
+            .log_buffer
+            .get_lines_iter(Interval::Range(start, end))
+            .collect();
 
-        // Get the visible range of filtered lines
-        let filtered_lines: Vec<_> = self.log_buffer.get_lines_iter(Some((start, end))).collect();
-
-        let items: Vec<Line> = filtered_lines
+        let items: Vec<Line> = lines
             .iter()
             .map(|line| {
                 let text = if self.viewport.horizontal_offset >= line.len() {
@@ -251,10 +253,10 @@ impl App {
     fn highlight_line<'a>(&self, content: &'a str) -> Line<'a> {
         let mut patterns_to_highlight = Vec::new();
 
-        if let Some(pattern) = &self.search.get_search_pattern() {
+        if let Some(pattern) = self.search.get_search_pattern() {
             if !pattern.is_empty() {
                 patterns_to_highlight.push((
-                    pattern.clone(),
+                    pattern.to_string(),
                     self.search.is_case_sensitive(),
                     Color::Yellow,
                 ));
@@ -262,10 +264,10 @@ impl App {
         }
 
         if self.app_state == AppState::FilterMode {
-            if let Some(pattern) = &self.filter.get_filter_pattern() {
+            if let Some(pattern) = self.filter.get_filter_pattern() {
                 if !pattern.is_empty() {
                     patterns_to_highlight.push((
-                        pattern.clone(),
+                        pattern.to_string(),
                         self.filter.is_case_sensitive(),
                         Color::Cyan,
                     ));

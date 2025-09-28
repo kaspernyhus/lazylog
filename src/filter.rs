@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub enum FilterMode {
     #[default]
     Include,
@@ -54,8 +54,8 @@ impl Filter {
         }
     }
 
-    pub fn get_filter_pattern(&self) -> Option<String> {
-        self.filter_pattern.clone()
+    pub fn get_filter_pattern(&self) -> Option<&str> {
+        self.filter_pattern.as_deref()
     }
 
     pub fn clear_filter_pattern(&mut self) {
@@ -93,7 +93,7 @@ impl Filter {
             {
                 self.filter_list.patterns.push(FilterPattern::new(
                     pattern.clone(),
-                    self.filter_mode.clone(),
+                    self.filter_mode,
                     self.case_sensitive,
                 ));
             }

@@ -2,7 +2,7 @@ use crate::{
     cli::Cli,
     event::{AppEvent, Event, EventHandler},
     filter::Filter,
-    log::LogBuffer,
+    log::{Interval, LogBuffer},
     search::Search,
     viewport::Viewport,
 };
@@ -64,8 +64,7 @@ impl App {
     pub fn load_file(&mut self, file_path: &str) -> color_eyre::Result<()> {
         info!("Loading file: {}", file_path);
         self.log_buffer.load_from_file(file_path)?;
-        self.update_filters();
-        self.update_filters();
+        self.update_view();
         info!(
             lines_loaded = self.log_buffer.lines.len(),
             file_path = file_path,
@@ -74,25 +73,17 @@ impl App {
         Ok(())
     }
 
-    fn update_filters(&mut self) {
-        let filter_patterns = self.filter.get_filter_patterns();
-        debug!("Applying {} filters", filter_patterns.len());
-
+    fn update_view(&mut self) {
         self.log_buffer.apply_filters(&self.filter);
-        let filtered_count = self.log_buffer.get_lines_count();
-        let (total_lines, filtered_lines) = self.log_buffer.debug_filter_state();
-        debug!("Filter result: {}/{} lines visible", filtered_lines, total_lines);
+        let num_lines = self.log_buffer.get_lines_count();
 
-        self.viewport.set_total_lines(filtered_count);
+        self.viewport.set_total_lines(num_lines);
 
-        // Ensure selected line is within bounds after filtering
-        if filtered_count == 0 {
+        if num_lines == 0 {
             self.viewport.selected_line = 0;
-        } else if self.viewport.selected_line >= filtered_count {
-            // Position at the end of filtered results
-            self.viewport.goto_line(filtered_count - 1, false);
+        } else if self.viewport.selected_line >= num_lines {
+            self.viewport.goto_line(num_lines - 1, false);
         }
-        // If selected line is still valid, keep it as is - no need to adjust
     }
 
     fn next_state(&mut self, state: AppState) {
@@ -128,10 +119,8 @@ impl App {
                             if self.input_query.is_empty() {
                                 self.search.clear_search_pattern();
                             } else {
-                                let lines: Vec<&str> = self
-                                    .log_buffer
-                                    .get_lines_iter(None)
-                                    .collect();
+                                let lines: Vec<&str> =
+                                    self.log_buffer.get_lines_iter(Interval::All).collect();
                                 self.search.update_matches(&lines);
                                 if let Some(line) =
                                     self.search.next_match(self.viewport.selected_line)
@@ -146,7 +135,7 @@ impl App {
                                 self.filter.clear_filter_pattern();
                             } else {
                                 self.filter.add_filter();
-                                self.update_filters();
+                                self.update_view();
                             }
                             self.next_state(AppState::LogView);
                         }
@@ -207,7 +196,9 @@ impl App {
                     AppEvent::ScrollLeft => self.viewport.scroll_left(),
                     AppEvent::ScrollRight => {
                         let (start, end) = self.viewport.visible();
-                        let max_line_length = self.log_buffer.get_lines_max_length(start, end);
+                        let max_line_length = self
+                            .log_buffer
+                            .get_lines_max_length(Interval::Range(start, end));
                         self.viewport.scroll_right(max_line_length)
                     }
                     AppEvent::ResetHorizontal => self.viewport.reset_horizontal(),
@@ -221,10 +212,8 @@ impl App {
                         self.search.toggle_case_sensitive();
                         self.filter.toggle_case_sensitive();
                         if self.search.get_search_pattern().is_some() {
-                            let lines: Vec<&str> = self
-                                .log_buffer
-                                .get_lines_iter(None)
-                                .collect();
+                            let lines: Vec<&str> =
+                                self.log_buffer.get_lines_iter(Interval::All).collect();
                             self.search.update_matches(&lines);
                         }
                     }
@@ -258,11 +247,11 @@ impl App {
                     }
                     AppEvent::ToggleFilterPatternActive => {
                         self.filter.toggle_selected_pattern();
-                        self.update_filters();
+                        self.update_view();
                     }
                     AppEvent::RemoveFilterPattern => {
                         self.filter.remove_selected_pattern();
-                        self.update_filters();
+                        self.update_view();
                     }
                 },
             }

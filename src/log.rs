@@ -4,7 +4,13 @@ use crate::filter::{Filter, FilterMode, FilterPattern};
 pub struct LogBuffer {
     pub file_path: Option<String>,
     pub lines: Vec<String>,
-    filtered_lines: Vec<usize>,
+    active_lines: Vec<usize>, // Indices of lines that pass the current
+}
+
+#[derive(Debug)]
+pub enum Interval {
+    All,
+    Range(usize, usize),
 }
 
 impl LogBuffer {
@@ -17,19 +23,19 @@ impl LogBuffer {
     }
 
     pub fn apply_filters(&mut self, filter: &Filter) {
-        self.rebuild_filtered_view(filter);
+        self.rebuild_active_lines(filter);
     }
 
     pub fn clear_filters(&mut self) {
-        self.filtered_lines = (0..self.lines.len()).collect();
+        self.active_lines = (0..self.lines.len()).collect();
     }
 
-    fn rebuild_filtered_view(&mut self, filter: &Filter) {
+    fn rebuild_active_lines(&mut self, filter: &Filter) {
         let filter_patterns = filter.get_filter_patterns();
         if filter_patterns.is_empty() {
             self.clear_filters();
         } else {
-            self.filtered_lines = self
+            self.active_lines = self
                 .lines
                 .iter()
                 .enumerate()
@@ -39,31 +45,36 @@ impl LogBuffer {
         }
     }
 
-    pub fn get_lines_iter(&self, interval: Option<(usize, usize)>) -> impl Iterator<Item = &str> {
-        let filtered_indices = match interval {
-            Some((start, end)) => {
-                let end_idx = end.min(self.filtered_lines.len());
-                if start >= self.filtered_lines.len() {
+    pub fn get_lines_iter(&self, interval: Interval) -> impl Iterator<Item = &str> {
+        let active_indices = match interval {
+            Interval::All => &self.active_lines[..],
+            Interval::Range(start_index, end) => {
+                let end_index = end.min(self.active_lines.len());
+                if start_index >= self.active_lines.len() {
                     &[]
                 } else {
-                    &self.filtered_lines[start..end_idx]
+                    &self.active_lines[start_index..end_index]
                 }
             }
-            None => &self.filtered_lines[..],
         };
 
-        filtered_indices
+        active_indices
             .iter()
             .map(move |&idx| self.lines[idx].as_str())
     }
 
-    pub fn get_lines_max_length(&self, start: usize, end: usize) -> usize {
-        let end_idx = end.min(self.filtered_lines.len());
-        if start >= self.filtered_lines.len() {
+    pub fn get_lines_max_length(&self, interval: Interval) -> usize {
+        let (start_index, end) = match interval {
+            Interval::All => (0, self.active_lines.len()),
+            Interval::Range(s, e) => (s, e),
+        };
+
+        let end_index = end.min(self.active_lines.len());
+        if start_index >= self.active_lines.len() {
             return 0;
         }
 
-        self.filtered_lines[start..end_idx]
+        self.active_lines[start_index..end_index]
             .iter()
             .map(|&idx| self.lines[idx].len())
             .max()
@@ -71,48 +82,35 @@ impl LogBuffer {
     }
 
     pub fn get_lines_count(&self) -> usize {
-        self.filtered_lines.len()
-    }
-
-    pub fn debug_filter_state(&self) -> (usize, usize) {
-        (self.lines.len(), self.filtered_lines.len())
+        self.active_lines.len()
     }
 
     fn line_passes_filters(&self, line: &str, filters: &[FilterPattern]) -> bool {
-        let active_filters: Vec<&FilterPattern> = filters.iter().filter(|f| f.enabled).collect();
-
-        if active_filters.is_empty() {
-            return true;
-        }
-
-        let include_filters: Vec<&FilterPattern> = active_filters
+        // Exclude filters take precedence
+        for filter in filters
             .iter()
-            .filter(|f| f.mode == FilterMode::Include)
-            .copied()
-            .collect();
-
-        let exclude_filters: Vec<&FilterPattern> = active_filters
-            .iter()
-            .filter(|f| f.mode == FilterMode::Exclude)
-            .copied()
-            .collect();
-
-        for filter in &exclude_filters {
+            .filter(|f| f.enabled && f.mode == FilterMode::Exclude)
+        {
             if self.line_matches_pattern(line, &filter.pattern, filter.case_sensitive) {
                 return false;
             }
         }
 
-        if !include_filters.is_empty() {
-            for filter in &include_filters {
-                if self.line_matches_pattern(line, &filter.pattern, filter.case_sensitive) {
-                    return true;
-                }
-            }
-            return false;
-        }
+        // Check for Include filters
+        let has_include_filters = filters
+            .iter()
+            .any(|f| f.enabled && f.mode == FilterMode::Include);
 
-        true
+        if has_include_filters {
+            filters
+                .iter()
+                .filter(|f| f.enabled && f.mode == FilterMode::Include)
+                .any(|filter| {
+                    self.line_matches_pattern(line, &filter.pattern, filter.case_sensitive)
+                })
+        } else {
+            true
+        }
     }
 
     fn line_matches_pattern(&self, line: &str, pattern: &str, case_sensitive: bool) -> bool {
