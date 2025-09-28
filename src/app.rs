@@ -74,6 +74,10 @@ impl App {
     }
 
     fn update_view(&mut self) {
+        let log_line_index = self
+            .log_buffer
+            .get_log_line_index(self.viewport.selected_line);
+
         self.log_buffer.apply_filters(&self.filter);
         let num_lines = self.log_buffer.get_lines_count();
 
@@ -81,8 +85,16 @@ impl App {
 
         if num_lines == 0 {
             self.viewport.selected_line = 0;
-        } else if self.viewport.selected_line >= num_lines {
-            self.viewport.goto_line(num_lines - 1, false);
+        } else {
+            let new_selected_line = if let Some(target_log_line_index) = log_line_index {
+                self.log_buffer
+                    .find_closest_line_by_index(target_log_line_index)
+                    .unwrap_or_else(|| self.viewport.selected_line.min(num_lines - 1))
+            } else {
+                self.viewport.selected_line.min(num_lines - 1)
+            };
+
+            self.viewport.goto_line(new_selected_line, false);
         }
     }
 
@@ -119,8 +131,11 @@ impl App {
                             if self.input_query.is_empty() {
                                 self.search.clear_search_pattern();
                             } else {
-                                let lines: Vec<&str> =
-                                    self.log_buffer.get_lines_iter(Interval::All).collect();
+                                let lines: Vec<&str> = self
+                                    .log_buffer
+                                    .get_lines_iter(Interval::All)
+                                    .map(|log_line| log_line.content())
+                                    .collect();
                                 self.search.update_matches(&lines);
                                 if let Some(line) =
                                     self.search.next_match(self.viewport.selected_line)
@@ -212,8 +227,11 @@ impl App {
                         self.search.toggle_case_sensitive();
                         self.filter.toggle_case_sensitive();
                         if self.search.get_search_pattern().is_some() {
-                            let lines: Vec<&str> =
-                                self.log_buffer.get_lines_iter(Interval::All).collect();
+                            let lines: Vec<&str> = self
+                                .log_buffer
+                                .get_lines_iter(Interval::All)
+                                .map(|log_line| log_line.content())
+                                .collect();
                             self.search.update_matches(&lines);
                         }
                     }

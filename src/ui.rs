@@ -224,6 +224,7 @@ impl App {
         let lines: Vec<&str> = self
             .log_buffer
             .get_lines_iter(Interval::Range(start, end))
+            .map(|log_line| log_line.content())
             .collect();
 
         let items: Vec<Line> = lines

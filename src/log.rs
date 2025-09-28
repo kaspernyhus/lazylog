@@ -1,10 +1,16 @@
 use crate::filter::{Filter, FilterMode, FilterPattern};
 
+#[derive(Debug, Clone)]
+pub struct LogLine {
+    pub content: String,
+    pub index: usize,
+}
+
 #[derive(Debug, Default)]
 pub struct LogBuffer {
     pub file_path: Option<String>,
-    pub lines: Vec<String>,
-    active_lines: Vec<usize>, // Indices of lines that pass the current
+    pub lines: Vec<LogLine>,
+    active_lines: Vec<usize>, // Indices of lines that pass the applied filters
 }
 
 #[derive(Debug)]
@@ -13,11 +19,25 @@ pub enum Interval {
     Range(usize, usize),
 }
 
+impl LogLine {
+    pub fn new(content: String, index: usize) -> Self {
+        Self { content, index }
+    }
+
+    pub fn content(&self) -> &str {
+        &self.content
+    }
+}
+
 impl LogBuffer {
     pub fn load_from_file(&mut self, path: &str) -> color_eyre::Result<()> {
         let content = std::fs::read_to_string(path)?;
         self.file_path = Some(path.to_string());
-        self.lines = content.lines().map(|line| line.to_string()).collect();
+        self.lines = content
+            .lines()
+            .enumerate()
+            .map(|(index, line)| LogLine::new(line.to_string(), index))
+            .collect();
         self.clear_filters();
         Ok(())
     }
@@ -39,13 +59,13 @@ impl LogBuffer {
                 .lines
                 .iter()
                 .enumerate()
-                .filter(|(_, line)| self.line_passes_filters(line, filter_patterns))
+                .filter(|(_, log_line)| self.line_passes_filters(log_line, filter_patterns))
                 .map(|(index, _)| index)
                 .collect();
         }
     }
 
-    pub fn get_lines_iter(&self, interval: Interval) -> impl Iterator<Item = &str> {
+    pub fn get_lines_iter(&self, interval: Interval) -> impl Iterator<Item = &LogLine> {
         let active_indices = match interval {
             Interval::All => &self.active_lines[..],
             Interval::Range(start_index, end) => {
@@ -58,9 +78,7 @@ impl LogBuffer {
             }
         };
 
-        active_indices
-            .iter()
-            .map(move |&idx| self.lines[idx].as_str())
+        active_indices.iter().map(move |&idx| &self.lines[idx])
     }
 
     pub fn get_lines_max_length(&self, interval: Interval) -> usize {
@@ -76,7 +94,7 @@ impl LogBuffer {
 
         self.active_lines[start_index..end_index]
             .iter()
-            .map(|&idx| self.lines[idx].len())
+            .map(|&idx| self.lines[idx].content.len())
             .max()
             .unwrap_or(0)
     }
@@ -85,13 +103,46 @@ impl LogBuffer {
         self.active_lines.len()
     }
 
-    fn line_passes_filters(&self, line: &str, filters: &[FilterPattern]) -> bool {
+    pub fn get_log_line_index(&self, line_index: usize) -> Option<usize> {
+        if line_index >= self.active_lines.len() {
+            return None;
+        }
+        let actual_index = self.active_lines[line_index];
+        Some(self.lines[actual_index].index)
+    }
+
+    pub fn find_closest_line_by_index(&self, target_log_line_index: usize) -> Option<usize> {
+        if self.active_lines.is_empty() {
+            return None;
+        }
+
+        let mut best_match = 0;
+        let mut min_distance = usize::MAX;
+
+        for (active_lines_index, &lines_index) in self.active_lines.iter().enumerate() {
+            let log_line_index = self.lines[lines_index].index;
+            let distance = if log_line_index >= target_log_line_index {
+                log_line_index - target_log_line_index
+            } else {
+                target_log_line_index - log_line_index
+            };
+
+            if distance < min_distance {
+                min_distance = distance;
+                best_match = active_lines_index;
+            }
+        }
+
+        Some(best_match)
+    }
+
+    fn line_passes_filters(&self, line: &LogLine, filters: &[FilterPattern]) -> bool {
         // Exclude filters take precedence
         for filter in filters
             .iter()
             .filter(|f| f.enabled && f.mode == FilterMode::Exclude)
         {
-            if self.line_matches_pattern(line, &filter.pattern, filter.case_sensitive) {
+            if self.line_matches_pattern(&line.content, &filter.pattern, filter.case_sensitive) {
                 return false;
             }
         }
@@ -106,7 +157,7 @@ impl LogBuffer {
                 .iter()
                 .filter(|f| f.enabled && f.mode == FilterMode::Include)
                 .any(|filter| {
-                    self.line_matches_pattern(line, &filter.pattern, filter.case_sensitive)
+                    self.line_matches_pattern(&line.content, &filter.pattern, filter.case_sensitive)
                 })
         } else {
             true

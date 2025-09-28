@@ -117,7 +117,7 @@ impl Viewport {
         }
 
         // Scroll down if selection gets too close to bottom
-        let bottom_margin_line = self.top_line + self.height - self.scroll_margin - 1;
+        let bottom_margin_line = self.top_line + self.height.saturating_sub(self.scroll_margin + 1);
         if self.selected_line > bottom_margin_line {
             self.top_line = (self.selected_line + self.scroll_margin + 1)
                 .saturating_sub(self.height)
