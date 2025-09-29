@@ -2,6 +2,7 @@ use crate::{
     cli::Cli,
     event::{AppEvent, Event, EventHandler},
     filter::Filter,
+    help::Help,
     log::{Interval, LogBuffer},
     search::Search,
     viewport::Viewport,
@@ -25,7 +26,7 @@ pub enum AppState {
 #[derive(Debug)]
 pub struct App {
     pub running: bool,
-    pub show_help: bool,
+    pub help: Help,
     pub app_state: AppState,
     pub events: EventHandler,
     pub log_buffer: LogBuffer,
@@ -39,7 +40,7 @@ impl Default for App {
     fn default() -> Self {
         Self {
             running: true,
-            show_help: false,
+            help: Help::new(),
             app_state: AppState::LogView,
             events: EventHandler::new(),
             log_buffer: LogBuffer::default(),
@@ -165,8 +166,8 @@ impl App {
                         _ => {}
                     },
                     AppEvent::Cancel => {
-                        if self.show_help {
-                            self.show_help = false;
+                        if self.help.is_visible() {
+                            self.help.toggle_visibility();
                             continue;
                         }
                         match self.app_state {
@@ -190,14 +191,18 @@ impl App {
                         };
                     }
                     AppEvent::MoveUp => {
-                        if self.app_state == AppState::FilterListView {
+                        if self.help.is_visible() {
+                            self.help.move_up();
+                        } else if self.app_state == AppState::FilterListView {
                             self.filter.move_selection_up();
                         } else {
                             self.viewport.move_up();
                         }
                     }
                     AppEvent::MoveDown => {
-                        if self.app_state == AppState::FilterListView {
+                        if self.help.is_visible() {
+                            self.help.move_down();
+                        } else if self.app_state == AppState::FilterListView {
                             self.filter.move_selection_down();
                         } else {
                             self.viewport.move_down();
@@ -217,7 +222,9 @@ impl App {
                         self.viewport.scroll_right(max_line_length)
                     }
                     AppEvent::ResetHorizontal => self.viewport.reset_horizontal(),
-                    AppEvent::ToggleHelp => self.show_help = !self.show_help,
+                    AppEvent::ToggleHelp => {
+                        self.help.toggle_visibility();
+                    }
                     AppEvent::ActivateSearchMode => {
                         self.input_query.clear();
                         self.search.clear_pattern();

@@ -1,4 +1,3 @@
-use crate::help::render_help_popup;
 use crate::log::Interval;
 use ratatui::text::Line;
 use ratatui::widgets::{Clear, ListState};
@@ -381,9 +380,9 @@ impl Widget for &App {
             let filter_area = popup_area(area, 50, 20);
             self.render_filter_list_popup(filter_area, buf);
         }
-        if self.show_help {
-            let help_area = popup_area(area, 38, 18);
-            render_help_popup(help_area, buf);
+        if self.help.is_visible() {
+            let help_area = popup_area(area, 45, 30);
+            self.help.render(help_area, buf);
         }
     }
 }
