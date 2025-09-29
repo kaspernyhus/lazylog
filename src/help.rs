@@ -1,8 +1,11 @@
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Rect};
+use ratatui::layout::{Alignment, Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::Line;
-use ratatui::widgets::{Block, Borders, Clear, List, ListState, StatefulWidget, Widget};
+use ratatui::widgets::{
+    Block, Borders, Clear, List, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState,
+    StatefulWidget, Widget,
+};
 
 #[derive(Debug, Default)]
 pub struct Help {
@@ -169,14 +172,42 @@ impl Help {
             .borders(Borders::ALL)
             .style(Style::default().bg(Color::Blue));
 
+        let inner_area = block.inner(popup_area);
+
+        let [help_area, scrollbar_area] =
+            Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(inner_area);
+
+        block.render(popup_area, buf);
+
         let help_list = List::new(self.get_display_lines())
-            .block(block)
             .highlight_symbol("")
             .highlight_style(Style::default().bg(Color::LightBlue));
 
         let mut list_state = ListState::default();
         list_state.select(Some(self.selected_index));
 
-        StatefulWidget::render(help_list, popup_area, buf, &mut list_state);
+        StatefulWidget::render(help_list, help_area, buf, &mut list_state);
+
+        let selectable_count = self
+            .help_items
+            .iter()
+            .filter(|item| item.is_selectable())
+            .count();
+        let selectable_position = self.help_items[..=self.selected_index]
+            .iter()
+            .filter(|item| item.is_selectable())
+            .count()
+            - 1;
+
+        let mut scrollbar_state = ScrollbarState::new(selectable_count)
+            .position(selectable_position)
+            .viewport_content_length(0);
+
+        let scrollbar = Scrollbar::default()
+            .orientation(ScrollbarOrientation::VerticalRight)
+            .begin_symbol(None)
+            .end_symbol(None);
+
+        StatefulWidget::render(scrollbar, scrollbar_area, buf, &mut scrollbar_state);
     }
 }
