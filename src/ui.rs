@@ -384,5 +384,19 @@ impl Widget for &App {
             let help_area = popup_area(area, 45, 30);
             self.help.render(help_area, buf);
         }
+        if let AppState::ErrorState(ref error_msg) = self.app_state {
+            let error_area = popup_area(area, 70, 6);
+            Clear.render(error_area, buf);
+            let error_popup = Paragraph::new(error_msg.as_str())
+                .block(
+                    Block::default()
+                        .title(" Error ")
+                        .title_alignment(Alignment::Center)
+                        .borders(ratatui::widgets::Borders::ALL),
+                )
+                .alignment(Alignment::Center);
+
+            error_popup.render(error_area, buf);
+        }
     }
 }

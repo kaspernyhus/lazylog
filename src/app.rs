@@ -12,7 +12,7 @@ use ratatui::{
     backend::Backend,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
 };
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 
 #[derive(Debug, PartialEq)]
 pub enum AppState {
@@ -21,6 +21,7 @@ pub enum AppState {
     GotoLineMode,
     FilterMode,
     FilterListView,
+    ErrorState(String),
 }
 
 /// Application.
@@ -79,23 +80,27 @@ impl App {
         if use_stdin {
             app.log_buffer.init_stdin_mode();
             app.viewport.follow_mode = true;
+            info!("Reading from stdin...");
         } else if let Some(file_path) = args.file {
-            let _ = app.load_file(file_path.as_str());
+            info!("Loading file: {}", file_path);
+            let error = app.log_buffer.load_from_file(file_path.as_str());
+            if let Err(e) = error {
+                error!(file_path = file_path.as_str(), error = %e, "Failed to load file");
+                app.app_state = AppState::ErrorState(format!(
+                    "Failed to load file: {}\nError: {}",
+                    file_path, e
+                ));
+            } else {
+                info!(
+                    lines_loaded = app.log_buffer.lines.len(),
+                    file_path = file_path.as_str(),
+                    "File loaded successfully"
+                );
+                app.update_view();
+            }
         }
 
         app
-    }
-
-    pub fn load_file(&mut self, file_path: &str) -> color_eyre::Result<()> {
-        info!("Loading file: {}", file_path);
-        self.log_buffer.load_from_file(file_path)?;
-        self.update_view();
-        info!(
-            lines_loaded = self.log_buffer.lines.len(),
-            file_path = file_path,
-            "File loaded successfully"
-        );
-        Ok(())
     }
 
     fn update_view(&mut self) {
@@ -217,6 +222,7 @@ impl App {
                             AppState::FilterListView => {
                                 self.next_state(AppState::LogView);
                             }
+                            AppState::ErrorState(_) => {}
                         };
                     }
                     AppEvent::MoveUp => {
@@ -351,6 +357,12 @@ impl App {
         }
 
         match self.app_state {
+            AppState::ErrorState(_) => {
+                if let KeyCode::Char('q') = key_event.code {
+                    self.events.send(AppEvent::Quit);
+                }
+            }
+
             // LogView (Normal Mode)
             AppState::LogView => match key_event.code {
                 KeyCode::Up => self.events.send(AppEvent::MoveUp),
