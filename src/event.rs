@@ -85,6 +85,8 @@ pub enum AppEvent {
     SearchHistoryNext,
     /// New line received from stdin
     NewLine(String),
+    /// Toggle follow mode
+    ToggleFollowMode,
 }
 
 /// Terminal event handler.

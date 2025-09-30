@@ -232,6 +232,7 @@ impl App {
                             self.filter.move_selection_up();
                         } else {
                             self.viewport.move_up();
+                            self.viewport.follow_mode = false;
                         }
                     }
                     AppEvent::MoveDown => {
@@ -326,6 +327,12 @@ impl App {
                             self.search.update_pattern(&self.input_query, 0);
                         }
                     }
+                    AppEvent::ToggleFollowMode => {
+                        self.viewport.follow_mode = !self.viewport.follow_mode;
+                        if self.viewport.follow_mode {
+                            self.viewport.goto_bottom();
+                        }
+                    }
                     AppEvent::NewLine(line) => {
                         let passes_filter = self.log_buffer.append_line(line, &self.filter);
                         if passes_filter {
@@ -386,6 +393,7 @@ impl App {
                 KeyCode::Char('n') => self.events.send(AppEvent::SearchNext),
                 KeyCode::Char('N') => self.events.send(AppEvent::SearchPrevious),
                 KeyCode::Char('f') => self.events.send(AppEvent::ActivateFilterMode),
+                KeyCode::Char('t') => self.events.send(AppEvent::ToggleFollowMode),
                 _ => {}
             },
 

@@ -65,6 +65,7 @@ impl Help {
             HelpItem::new(":", "Go to line", HelpItemType::Keybind),
             HelpItem::new("f", "Start filter", HelpItemType::Keybind),
             HelpItem::new("F", "View filter list", HelpItemType::Keybind),
+            HelpItem::new("t", "Toggle follow mode", HelpItemType::Keybind),
             // Search Mode section
             HelpItem::new("", "", HelpItemType::Empty),
             HelpItem::new("Search Mode", "", HelpItemType::Header),
