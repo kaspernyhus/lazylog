@@ -9,6 +9,7 @@ pub struct Viewport {
     pub scroll_margin: usize,
     pub total_lines: usize,
     pub horizontal_offset: usize,
+    pub follow_mode: bool,
 }
 
 impl Viewport {

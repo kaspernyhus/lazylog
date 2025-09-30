@@ -1,6 +1,11 @@
 use crate::app::App;
 use clap::Parser;
 use cli::Cli;
+use ratatui::{
+    Terminal, backend,
+    crossterm::{execute, terminal::*},
+};
+use std::io::stderr;
 
 pub mod app;
 pub mod cli;
@@ -15,14 +20,37 @@ pub mod viewport;
 
 #[tokio::main]
 async fn main() -> color_eyre::Result<()> {
-    color_eyre::install()?;
+    use ratatui::crossterm::{execute, terminal::*};
+    use std::io::stderr;
+
     crate::logging::init()?;
 
     let args = Cli::parse();
-    let terminal = ratatui::init();
+
+    set_panic_hook();
+    color_eyre::install()?;
+
+    execute!(stderr(), EnterAlternateScreen)?;
+    enable_raw_mode()?;
+
+    let backend = backend::CrosstermBackend::new(stderr());
+    let mut terminal = Terminal::new(backend)?;
+    terminal.clear()?;
+
     let app = App::new(args);
     let result = app.run(terminal).await;
 
-    ratatui::restore();
+    disable_raw_mode()?;
+    execute!(stderr(), LeaveAlternateScreen)?;
+
     result
+}
+
+fn set_panic_hook() {
+    let hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        let _ = disable_raw_mode();
+        let _ = execute!(stderr(), LeaveAlternateScreen);
+        hook(panic_info);
+    }));
 }

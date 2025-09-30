@@ -83,6 +83,8 @@ pub enum AppEvent {
     SearchHistoryPrevious,
     /// Navigate to next search history
     SearchHistoryNext,
+    /// New line received from stdin
+    NewLine(String),
 }
 
 /// Terminal event handler.
@@ -106,6 +108,20 @@ impl EventHandler {
         let (sender, receiver) = mpsc::unbounded_channel();
         let actor = EventTask::new(sender.clone());
         tokio::spawn(async { actor.run().await });
+        Self { sender, receiver }
+    }
+
+    /// Constructs a new instance with stdin reader task enabled.
+    pub fn new_with_stdin() -> Self {
+        let (sender, receiver) = mpsc::unbounded_channel();
+        let actor = EventTask::new(sender.clone());
+        tokio::spawn(async { actor.run().await });
+
+        let stdin_sender = sender.clone();
+        tokio::spawn(async move {
+            stdin_reader_task(stdin_sender).await;
+        });
+
         Self { sender, receiver }
     }
 
@@ -178,5 +194,28 @@ impl EventTask {
         // Ignores the result because shutting down the app drops the receiver, which causes the send
         // operation to fail. This is expected behavior and should not panic.
         let _ = self.sender.send(event);
+    }
+}
+
+/// Background task that reads lines from stdin and sends them as events.
+async fn stdin_reader_task(sender: mpsc::UnboundedSender<Event>) {
+    use tokio::io::{AsyncBufReadExt, BufReader};
+
+    let stdin = tokio::io::stdin();
+    let mut reader = BufReader::new(stdin);
+    let mut line = String::new();
+
+    loop {
+        line.clear();
+        match reader.read_line(&mut line).await {
+            Ok(0) => break, // EOF
+            Ok(_) => {
+                let trimmed = line.trim_end_matches('\n').to_string();
+                if sender.send(Event::App(AppEvent::NewLine(trimmed))).is_err() {
+                    break;
+                }
+            }
+            Err(_) => break,
+        }
     }
 }

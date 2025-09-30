@@ -81,24 +81,22 @@ impl Filter {
         self.case_sensitive = !self.case_sensitive;
     }
 
-    pub fn add_filter(&mut self) {
-        if let Some(pattern) = &self.filter_pattern {
-            // Avoid adding duplicate patterns with the same mode
-            if !pattern.is_empty()
-                && !self
-                    .filter_list
-                    .patterns
-                    .iter()
-                    .any(|fp| fp.pattern == *pattern && fp.mode == self.filter_mode)
-            {
-                self.filter_list.patterns.push(FilterPattern::new(
-                    pattern.clone(),
-                    self.filter_mode,
-                    self.case_sensitive,
-                ));
-            }
+    pub fn add_filter(&mut self, pattern: String) {
+        if !self.pattern_exists(&pattern, self.filter_mode) {
+            self.filter_list.patterns.push(FilterPattern::new(
+                pattern.clone(),
+                self.filter_mode,
+                self.case_sensitive,
+            ));
         }
         self.clear_filter_pattern();
+    }
+
+    fn pattern_exists(&self, pattern: &str, mode: FilterMode) -> bool {
+        self.filter_list
+            .patterns
+            .iter()
+            .any(|fp| fp.pattern == pattern && fp.mode == mode)
     }
 
     pub fn get_filter_patterns(&self) -> &[FilterPattern] {

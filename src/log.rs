@@ -11,6 +11,7 @@ pub struct LogBuffer {
     pub file_path: Option<String>,
     pub lines: Vec<LogLine>,
     active_lines: Vec<usize>, // Indices of lines that pass the applied filters
+    pub streaming: bool,
 }
 
 #[derive(Debug)]
@@ -33,6 +34,7 @@ impl LogBuffer {
     pub fn load_from_file(&mut self, path: &str) -> color_eyre::Result<()> {
         let content = std::fs::read_to_string(path)?;
         self.file_path = Some(path.to_string());
+        self.streaming = false;
         self.lines = content
             .lines()
             .enumerate()
@@ -40,6 +42,24 @@ impl LogBuffer {
             .collect();
         self.clear_filters();
         Ok(())
+    }
+
+    pub fn init_stdin_mode(&mut self) {
+        self.file_path = Some("<stdin>".to_string());
+        self.streaming = true;
+        self.lines.clear();
+        self.clear_filters();
+    }
+
+    pub fn append_line(&mut self, content: String, filter: &Filter) -> bool {
+        let index = self.lines.len();
+        let log_line = LogLine::new(content, index);
+        let passes_filter = self.line_passes_filters(&log_line, filter.get_filter_patterns());
+        if passes_filter {
+            self.active_lines.push(log_line.index);
+        }
+        self.lines.push(log_line);
+        passes_filter
     }
 
     pub fn apply_filters(&mut self, filter: &Filter) {

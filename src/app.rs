@@ -8,7 +8,8 @@ use crate::{
     viewport::Viewport,
 };
 use ratatui::{
-    DefaultTerminal,
+    Terminal,
+    backend::Backend,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
 };
 use tracing::{debug, info};
@@ -55,10 +56,33 @@ impl Default for App {
 impl App {
     /// Constructs a new instance of [`App`].
     pub fn new(args: Cli) -> Self {
-        let mut app = Self::default();
-        if let Some(file_path) = args.file {
+        let use_stdin = args.should_use_stdin();
+
+        let events = if use_stdin {
+            EventHandler::new_with_stdin()
+        } else {
+            EventHandler::new()
+        };
+
+        let mut app = Self {
+            running: true,
+            help: Help::new(),
+            app_state: AppState::LogView,
+            events,
+            log_buffer: LogBuffer::default(),
+            viewport: Viewport::default(),
+            input_query: String::new(),
+            search: Search::default(),
+            filter: Filter::default(),
+        };
+
+        if use_stdin {
+            app.log_buffer.init_stdin_mode();
+            app.viewport.follow_mode = true;
+        } else if let Some(file_path) = args.file {
             let _ = app.load_file(file_path.as_str());
         }
+
         app
     }
 
@@ -86,6 +110,11 @@ impl App {
 
         if num_lines == 0 {
             self.viewport.selected_line = 0;
+            return;
+        }
+
+        if self.log_buffer.streaming && self.viewport.follow_mode {
+            self.viewport.goto_bottom();
         } else {
             let new_selected_line = if let Some(target_log_line_index) = log_line_index {
                 self.log_buffer
@@ -105,7 +134,7 @@ impl App {
     }
 
     /// Run the application's main loop.
-    pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
+    pub async fn run<B: Backend>(mut self, mut terminal: Terminal<B>) -> color_eyre::Result<()> {
         let terminal_size = terminal.size()?;
         self.viewport.resize(
             terminal_size.width.saturating_sub(1) as usize,
@@ -150,7 +179,7 @@ impl App {
                             if self.input_query.is_empty() {
                                 self.filter.clear_filter_pattern();
                             } else {
-                                self.filter.add_filter();
+                                self.filter.add_filter(self.input_query.clone());
                                 self.update_view();
                             }
                             self.next_state(AppState::LogView);
@@ -289,6 +318,16 @@ impl App {
                         if let Some(history_query) = self.search.history.next_query() {
                             self.input_query = history_query;
                             self.search.update_pattern(&self.input_query, 0);
+                        }
+                    }
+                    AppEvent::NewLine(line) => {
+                        let passes_filter = self.log_buffer.append_line(line, &self.filter);
+                        if passes_filter {
+                            let num_lines = self.log_buffer.get_lines_count();
+                            self.viewport.set_total_lines(num_lines);
+                            if self.viewport.follow_mode {
+                                self.viewport.goto_bottom();
+                            }
                         }
                     }
                 },
