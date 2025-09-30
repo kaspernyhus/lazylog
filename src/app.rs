@@ -300,7 +300,7 @@ impl App {
                     AppEvent::ToggleFilterMode => {
                         self.filter.toggle_mode();
                         if self.filter.get_filter_pattern().is_some() {
-                            // self.apply_filter();
+                            self.log_buffer.apply_filters(&self.filter);
                         }
                     }
                     AppEvent::ActivateFilterListView => {
