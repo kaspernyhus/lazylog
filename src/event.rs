@@ -1,6 +1,7 @@
 use color_eyre::eyre::OptionExt;
 use futures::{FutureExt, StreamExt};
 use ratatui::crossterm::event::Event as CrosstermEvent;
+use std::io::{BufRead, BufReader};
 use std::time::Duration;
 use tokio::sync::mpsc;
 
@@ -120,8 +121,8 @@ impl EventHandler {
         tokio::spawn(async { actor.run().await });
 
         let stdin_sender = sender.clone();
-        tokio::spawn(async move {
-            stdin_reader_task(stdin_sender).await;
+        std::thread::spawn(move || {
+            stdin_reader_task(stdin_sender);
         });
 
         Self { sender, receiver }
@@ -200,20 +201,14 @@ impl EventTask {
 }
 
 /// Background task that reads lines from stdin and sends them as events.
-async fn stdin_reader_task(sender: mpsc::UnboundedSender<Event>) {
-    use tokio::io::{AsyncBufReadExt, BufReader};
+fn stdin_reader_task(sender: mpsc::UnboundedSender<Event>) {
+    let stdin = std::io::stdin();
+    let reader = BufReader::new(stdin);
 
-    let stdin = tokio::io::stdin();
-    let mut reader = BufReader::new(stdin);
-    let mut line = String::new();
-
-    loop {
-        line.clear();
-        match reader.read_line(&mut line).await {
-            Ok(0) => break, // EOF
-            Ok(_) => {
-                let trimmed = line.trim_end_matches('\n').to_string();
-                if sender.send(Event::App(AppEvent::NewLine(trimmed))).is_err() {
+    for line in reader.lines() {
+        match line {
+            Ok(content) => {
+                if sender.send(Event::App(AppEvent::NewLine(content))).is_err() {
                     break;
                 }
             }
