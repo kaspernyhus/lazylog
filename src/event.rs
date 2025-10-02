@@ -206,17 +206,66 @@ impl EventTask {
 
 /// Background task that reads lines from stdin and sends them as events.
 fn stdin_reader_task(sender: mpsc::UnboundedSender<Event>) {
+    use std::sync::mpsc as std_mpsc;
+    use std::time::Duration;
+
     let stdin = std::io::stdin();
     let reader = BufReader::new(stdin);
 
-    for line in reader.lines() {
-        match line {
-            Ok(content) => {
-                if sender.send(Event::App(AppEvent::NewLine(content))).is_err() {
-                    break;
+    let (line_sender, line_receiver) = std_mpsc::channel::<String>();
+
+    // Spawn a thread to read from stdin
+    std::thread::spawn(move || {
+        for line in reader.lines() {
+            match line {
+                Ok(content) => {
+                    if line_sender.send(content).is_err() {
+                        break;
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+    });
+
+    // Batch lines and send them periodically
+    const BATCH_INTERVAL: Duration = Duration::from_millis(50);
+    const MAX_BATCH_SIZE: usize = 100;
+
+    let mut batch = Vec::new();
+    loop {
+        // Try to receive lines for the batch interval
+        let deadline = std::time::Instant::now() + BATCH_INTERVAL;
+
+        loop {
+            let timeout = deadline.saturating_duration_since(std::time::Instant::now());
+            if timeout.is_zero() {
+                break;
+            }
+
+            match line_receiver.recv_timeout(timeout) {
+                Ok(line) => {
+                    batch.push(line);
+                    if batch.len() >= MAX_BATCH_SIZE {
+                        break;
+                    }
+                }
+                Err(std_mpsc::RecvTimeoutError::Timeout) => break,
+                Err(std_mpsc::RecvTimeoutError::Disconnected) => {
+                    // Send remaining batch and exit
+                    for line in batch.drain(..) {
+                        let _ = sender.send(Event::App(AppEvent::NewLine(line)));
+                    }
+                    return;
                 }
             }
-            Err(_) => break,
+        }
+
+        // Send batch
+        for line in batch.drain(..) {
+            if sender.send(Event::App(AppEvent::NewLine(line))).is_err() {
+                return;
+            }
         }
     }
 }
