@@ -1,5 +1,3 @@
-use tracing::info;
-
 #[derive(Debug, Default)]
 pub struct Viewport {
     pub width: usize,
@@ -16,7 +14,6 @@ impl Viewport {
     pub fn resize(&mut self, width: usize, height: usize) {
         self.width = width;
         self.height = height;
-        info!("Viewport resized: width={}, height={}", width, height);
     }
 
     pub fn set_total_lines(&mut self, total_lines: usize) {

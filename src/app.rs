@@ -12,7 +12,6 @@ use ratatui::{
     backend::Backend,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
 };
-use tracing::{debug, error, info};
 
 #[derive(Debug, PartialEq)]
 pub enum AppState {
@@ -80,22 +79,14 @@ impl App {
         if use_stdin {
             app.log_buffer.init_stdin_mode();
             app.viewport.follow_mode = true;
-            info!("Reading from stdin...");
         } else if let Some(file_path) = args.file {
-            info!("Loading file: {}", file_path);
             let error = app.log_buffer.load_from_file(file_path.as_str());
             if let Err(e) = error {
-                error!(file_path = file_path.as_str(), error = %e, "Failed to load file");
                 app.app_state = AppState::ErrorState(format!(
                     "Failed to load file: {}\nError: {}",
                     file_path, e
                 ));
             } else {
-                info!(
-                    lines_loaded = app.log_buffer.lines.len(),
-                    file_path = file_path.as_str(),
-                    "File loaded successfully"
-                );
                 app.update_view();
             }
         }
@@ -134,7 +125,6 @@ impl App {
     }
 
     fn next_state(&mut self, state: AppState) {
-        debug!("Next state: {:?}", state);
         self.app_state = state;
     }
 
@@ -351,8 +341,6 @@ impl App {
 
     /// Handles the key events and updates the state of [`App`].
     pub fn handle_key_events(&mut self, key_event: KeyEvent) -> color_eyre::Result<()> {
-        debug!("Key event: {:?}", key_event);
-
         // Global keybindings
         match key_event.code {
             KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
