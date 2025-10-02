@@ -4,6 +4,7 @@ use crate::{
     event::{AppEvent, Event, EventHandler},
     filter::Filter,
     help::Help,
+    highlighter::Highlighter,
     log::{Interval, LogBuffer},
     search::Search,
     viewport::Viewport,
@@ -38,6 +39,7 @@ pub struct App {
     pub search: Search,
     pub filter: Filter,
     pub display_options: DisplayOptions,
+    pub highlighter: Highlighter,
 }
 
 impl Default for App {
@@ -53,6 +55,7 @@ impl Default for App {
             search: Search::default(),
             filter: Filter::default(),
             display_options: DisplayOptions::default(),
+            highlighter: Highlighter::new(),
         }
     }
 }
@@ -79,6 +82,7 @@ impl App {
             search: Search::default(),
             filter: Filter::default(),
             display_options: DisplayOptions::default(),
+            highlighter: Highlighter::new(),
         };
 
         if use_stdin {
