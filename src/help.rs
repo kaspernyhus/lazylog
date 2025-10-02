@@ -66,6 +66,7 @@ impl Help {
             HelpItem::new("f", "Start filter", HelpItemType::Keybind),
             HelpItem::new("F", "View filter list", HelpItemType::Keybind),
             HelpItem::new("t", "Toggle follow mode", HelpItemType::Keybind),
+            HelpItem::new("o", "Display options", HelpItemType::Keybind),
             // Search Mode section
             HelpItem::new("", "", HelpItemType::Empty),
             HelpItem::new("Search Mode", "", HelpItemType::Header),
@@ -88,6 +89,11 @@ impl Help {
             HelpItem::new("Up/Down", "Navigate filters", HelpItemType::Keybind),
             HelpItem::new("Space", "Toggle filter on/off", HelpItemType::Keybind),
             HelpItem::new("Delete", "Remove selected filter", HelpItemType::Keybind),
+            // Display Options section
+            HelpItem::new("", "", HelpItemType::Empty),
+            HelpItem::new("Display Options", "", HelpItemType::Header),
+            HelpItem::new("Up/Down", "Navigate options", HelpItemType::Keybind),
+            HelpItem::new("Space", "Toggle option on/off", HelpItemType::Keybind),
         ];
 
         Self {

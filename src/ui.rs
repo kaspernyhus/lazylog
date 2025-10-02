@@ -204,6 +204,44 @@ impl App {
         }
     }
 
+    fn render_options_popup(&self, area: Rect, buf: &mut Buffer) {
+        Clear.render(area, buf);
+
+        let items: Vec<Line> = self
+            .display_options
+            .options
+            .iter()
+            .map(|option| {
+                let checkbox = if option.enabled { "[x]" } else { "[ ]" };
+                let content = format!("{} {}", checkbox, option.name);
+
+                if option.enabled {
+                    Line::from(content).style(Style::default().fg(Color::Green))
+                } else {
+                    Line::from(content).style(Style::default().fg(Color::White))
+                }
+            })
+            .collect();
+
+        let mut list_state = ListState::default();
+        if !self.display_options.options.is_empty() {
+            list_state.select(Some(self.display_options.selected_index));
+        }
+
+        let options_list = List::new(items)
+            .block(
+                Block::default()
+                    .title(" Display Options ")
+                    .title_alignment(Alignment::Center)
+                    .borders(ratatui::widgets::Borders::ALL)
+                    .border_style(Style::default().fg(Color::White)),
+            )
+            .highlight_symbol(RIGHT_ARROW)
+            .highlight_style(Style::default().add_modifier(Modifier::BOLD));
+
+        StatefulWidget::render(options_list, area, buf, &mut list_state);
+    }
+
     fn render_scrollbar(&self, area: Rect, buf: &mut Buffer) {
         let mut scrollbar_state = ScrollbarState::new(self.viewport.total_lines)
             .position(self.viewport.selected_line)
@@ -220,10 +258,10 @@ impl App {
 
     fn render_logview(&self, area: Rect, buf: &mut Buffer) {
         let (start, end) = self.viewport.visible();
-        let lines: Vec<&str> = self
+        let lines: Vec<String> = self
             .log_buffer
             .get_lines_iter(Interval::Range(start, end))
-            .map(|log_line| log_line.content())
+            .map(|log_line| self.display_options.apply_to_line(log_line.content()))
             .collect();
 
         let items: Vec<Line> = lines
@@ -379,6 +417,10 @@ impl Widget for &App {
         if self.app_state == AppState::FilterListView {
             let filter_area = popup_area(area, 50, 20);
             self.render_filter_list_popup(filter_area, buf);
+        }
+        if self.app_state == AppState::OptionsView {
+            let options_area = popup_area(area, 40, 10);
+            self.render_options_popup(options_area, buf);
         }
         if self.help.is_visible() {
             let help_area = popup_area(area, 45, 30);

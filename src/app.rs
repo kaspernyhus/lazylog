@@ -1,5 +1,6 @@
 use crate::{
     cli::Cli,
+    display_options::DisplayOptions,
     event::{AppEvent, Event, EventHandler},
     filter::Filter,
     help::Help,
@@ -20,6 +21,7 @@ pub enum AppState {
     GotoLineMode,
     FilterMode,
     FilterListView,
+    OptionsView,
     ErrorState(String),
 }
 
@@ -35,6 +37,7 @@ pub struct App {
     pub input_query: String,
     pub search: Search,
     pub filter: Filter,
+    pub display_options: DisplayOptions,
 }
 
 impl Default for App {
@@ -49,6 +52,7 @@ impl Default for App {
             input_query: String::new(),
             search: Search::default(),
             filter: Filter::default(),
+            display_options: DisplayOptions::default(),
         }
     }
 }
@@ -74,6 +78,7 @@ impl App {
             input_query: String::new(),
             search: Search::default(),
             filter: Filter::default(),
+            display_options: DisplayOptions::default(),
         };
 
         if use_stdin {
@@ -212,6 +217,9 @@ impl App {
                             AppState::FilterListView => {
                                 self.next_state(AppState::LogView);
                             }
+                            AppState::OptionsView => {
+                                self.next_state(AppState::LogView);
+                            }
                             AppState::ErrorState(_) => {}
                         };
                     }
@@ -220,6 +228,8 @@ impl App {
                             self.help.move_up();
                         } else if self.app_state == AppState::FilterListView {
                             self.filter.move_selection_up();
+                        } else if self.app_state == AppState::OptionsView {
+                            self.display_options.move_selection_up();
                         } else {
                             self.viewport.move_up();
                             self.viewport.follow_mode = false;
@@ -230,6 +240,8 @@ impl App {
                             self.help.move_down();
                         } else if self.app_state == AppState::FilterListView {
                             self.filter.move_selection_down();
+                        } else if self.app_state == AppState::OptionsView {
+                            self.display_options.move_selection_down();
                         } else {
                             self.viewport.move_down();
                         }
@@ -323,6 +335,12 @@ impl App {
                             self.viewport.goto_bottom();
                         }
                     }
+                    AppEvent::ActivateOptionsView => {
+                        self.next_state(AppState::OptionsView);
+                    }
+                    AppEvent::ToggleDisplayOption => {
+                        self.display_options.toggle_selected_option();
+                    }
                     AppEvent::NewLine(line) => {
                         let passes_filter = self.log_buffer.append_line(line, &self.filter);
                         if passes_filter {
@@ -382,6 +400,7 @@ impl App {
                 KeyCode::Char('N') => self.events.send(AppEvent::SearchPrevious),
                 KeyCode::Char('f') => self.events.send(AppEvent::ActivateFilterMode),
                 KeyCode::Char('t') => self.events.send(AppEvent::ToggleFollowMode),
+                KeyCode::Char('o') => self.events.send(AppEvent::ActivateOptionsView),
                 _ => {}
             },
 
@@ -433,6 +452,16 @@ impl App {
                 KeyCode::Char('A') => {} // TODO: All filters On/Off
                 KeyCode::Char('c') => {} // TODO: toggle case sensitive for selected filter
                 KeyCode::Char('m') => {} // TODO: toggle mode for selected filter
+                _ => {}
+            },
+
+            // OptionsView
+            AppState::OptionsView => match key_event.code {
+                KeyCode::Char('q') => self.events.send(AppEvent::Quit),
+                KeyCode::Char('h') => self.events.send(AppEvent::ToggleHelp),
+                KeyCode::Up => self.events.send(AppEvent::MoveUp),
+                KeyCode::Down => self.events.send(AppEvent::MoveDown),
+                KeyCode::Char(' ') => self.events.send(AppEvent::ToggleDisplayOption),
                 _ => {}
             },
 
