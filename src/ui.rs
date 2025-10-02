@@ -291,14 +291,12 @@ impl App {
     fn highlight_line<'a>(&self, content: &'a str) -> Line<'a> {
         let mut patterns_to_highlight = Vec::new();
 
-        if let Some(pattern) = self.search.get_pattern() {
-            if !pattern.is_empty() {
-                patterns_to_highlight.push((
-                    pattern.to_string(),
-                    self.search.is_case_sensitive(),
-                    Color::Yellow,
-                ));
-            }
+        for highlight in self.highlighter.get_patterns() {
+            patterns_to_highlight.push((
+                highlight.pattern.clone(),
+                false,
+                highlight.color,
+            ));
         }
 
         if self.app_state == AppState::FilterMode {
@@ -310,6 +308,16 @@ impl App {
                         Color::Cyan,
                     ));
                 }
+            }
+        }
+
+        if let Some(pattern) = self.search.get_pattern() {
+            if !pattern.is_empty() {
+                patterns_to_highlight.push((
+                    pattern.to_string(),
+                    self.search.is_case_sensitive(),
+                    Color::Yellow,
+                ));
             }
         }
 
@@ -365,8 +373,7 @@ impl App {
                 spans.push(ratatui::text::Span::styled(
                     &content[highlight_start..end],
                     Style::default()
-                        .bg(color)
-                        .fg(Color::Black)
+                        .fg(color)
                         .add_modifier(Modifier::BOLD),
                 ));
                 last_index = end;

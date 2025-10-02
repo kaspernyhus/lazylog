@@ -13,6 +13,7 @@ pub mod display_options;
 pub mod event;
 pub mod filter;
 pub mod help;
+pub mod highlighter;
 pub mod log;
 pub mod search;
 pub mod ui;

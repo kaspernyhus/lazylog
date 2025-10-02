@@ -23,3 +23,6 @@ clap = { version = "4.5.47", features = [
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 regex = "1.11.3"
+toml = "0.9.7"
+serde = { version = "1.0.228", features = ["derive"] }
+dirs = "6.0.0"
