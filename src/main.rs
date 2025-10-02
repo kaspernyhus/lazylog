@@ -20,11 +20,6 @@ pub mod viewport;
 
 #[tokio::main]
 async fn main() -> color_eyre::Result<()> {
-    use ratatui::crossterm::{execute, terminal::*};
-    use std::io::stderr;
-
-    crate::logging::init()?;
-
     let args = Cli::parse();
 
     set_panic_hook();
