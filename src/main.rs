@@ -9,6 +9,7 @@ use std::io::stderr;
 
 pub mod app;
 pub mod cli;
+pub mod display_options;
 pub mod event;
 pub mod filter;
 pub mod help;

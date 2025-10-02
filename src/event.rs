@@ -88,6 +88,10 @@ pub enum AppEvent {
     NewLine(String),
     /// Toggle follow mode
     ToggleFollowMode,
+    /// Activate options view
+    ActivateOptionsView,
+    /// Toggle selected display option
+    ToggleDisplayOption,
 }
 
 /// Terminal event handler.
