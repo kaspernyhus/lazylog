@@ -119,6 +119,14 @@ impl App {
         search_bar.render(area, buf);
     }
 
+    fn render_save_to_file_bar(&self, area: Rect, buf: &mut Buffer) {
+        let save_prompt = format!("Save to file: {}", self.input_query);
+        let save_bar = Paragraph::new(save_prompt)
+            .style(Style::default().bg(GRAY_COLOR))
+            .alignment(Alignment::Left);
+        save_bar.render(area, buf);
+    }
+
     fn render_filter_bar(&self, area: Rect, buf: &mut Buffer) {
         let filter_mode = match self.filter.get_mode() {
             crate::filter::FilterMode::Include => "IN",
@@ -242,6 +250,31 @@ impl App {
         StatefulWidget::render(options_list, area, buf, &mut list_state);
     }
 
+    fn render_message_popup(&self, message: &str, area: Rect, buf: &mut Buffer) {
+        let popup_width = 60;
+        let popup_height = 5;
+        let popup_area = popup_area(area, popup_width, popup_height);
+
+        Clear.render(popup_area, buf);
+
+        let text: Vec<Line> = message
+            .split('\n')
+            .map(|line| {
+                Line::from(line)
+                    .style(Style::default().fg(Color::White))
+                    .centered()
+            })
+            .collect();
+
+        let popup = Paragraph::new(text).block(
+            Block::default()
+                .borders(ratatui::widgets::Borders::ALL)
+                .border_style(Style::default().fg(Color::White)),
+        );
+
+        popup.render(popup_area, buf);
+    }
+
     fn render_scrollbar(&self, area: Rect, buf: &mut Buffer) {
         let mut scrollbar_state = ScrollbarState::new(self.viewport.total_lines)
             .position(self.viewport.selected_line)
@@ -297,11 +330,7 @@ impl App {
         let mut patterns_to_highlight = Vec::new();
 
         for highlight in self.highlighter.get_patterns() {
-            patterns_to_highlight.push((
-                highlight.pattern.clone(),
-                false,
-                highlight.color,
-            ));
+            patterns_to_highlight.push((highlight.pattern.clone(), false, highlight.color));
         }
 
         if self.app_state == AppState::FilterMode {
@@ -377,9 +406,7 @@ impl App {
                 let highlight_start = start.max(last_index);
                 spans.push(ratatui::text::Span::styled(
                     &content[highlight_start..end],
-                    Style::default()
-                        .fg(color)
-                        .add_modifier(Modifier::BOLD),
+                    Style::default().fg(color).add_modifier(Modifier::BOLD),
                 ));
                 last_index = end;
             }
@@ -422,6 +449,7 @@ impl Widget for &App {
             AppState::SearchMode => self.render_search_bar(bottom, buf),
             AppState::GotoLineMode => self.render_goto_line_bar(bottom, buf),
             AppState::FilterMode => self.render_filter_bar(bottom, buf),
+            AppState::SaveToFileMode => self.render_save_to_file_bar(bottom, buf),
             _ => self.render_footer(bottom, buf),
         }
 
@@ -437,6 +465,9 @@ impl Widget for &App {
         if self.help.is_visible() {
             let help_area = popup_area(area, 45, 30);
             self.help.render(help_area, buf);
+        }
+        if let AppState::Message(ref message) = self.app_state {
+            self.render_message_popup(message, area, buf);
         }
         if let AppState::ErrorState(ref error_msg) = self.app_state {
             let error_area = popup_area(area, 70, 6);

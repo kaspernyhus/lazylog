@@ -68,6 +68,7 @@ impl Help {
             HelpItem::new("t", "Toggle follow mode", HelpItemType::Keybind),
             HelpItem::new("o", "Display options", HelpItemType::Keybind),
             HelpItem::new("Ctrl+L", "Clear buffer (stdin mode)", HelpItemType::Keybind),
+            HelpItem::new("Ctrl+S", "Save to file (stdin mode)", HelpItemType::Keybind),
             // Search Mode section
             HelpItem::new("", "", HelpItemType::Empty),
             HelpItem::new("Search Mode", "", HelpItemType::Header),
