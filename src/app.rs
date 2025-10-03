@@ -22,6 +22,7 @@ pub enum AppState {
     GotoLineMode,
     FilterMode,
     FilterListView,
+    EditFilterMode,
     OptionsView,
     SaveToFileMode,
     Message(String),
@@ -221,6 +222,14 @@ impl App {
                                 self.next_state(AppState::LogView);
                             }
                         }
+                        AppState::EditFilterMode => {
+                            if !self.input_query.is_empty() {
+                                self.filter
+                                    .update_selected_pattern(self.input_query.clone());
+                                self.update_view();
+                            }
+                            self.next_state(AppState::FilterListView);
+                        }
                         _ => {}
                     },
                     AppEvent::Cancel => {
@@ -251,6 +260,9 @@ impl App {
                             }
                             AppState::SaveToFileMode => {
                                 self.next_state(AppState::LogView);
+                            }
+                            AppState::EditFilterMode => {
+                                self.next_state(AppState::FilterListView);
                             }
                             AppState::Message(_) => {
                                 self.next_state(AppState::LogView);
@@ -351,6 +363,28 @@ impl App {
                     AppEvent::RemoveFilterPattern => {
                         self.filter.remove_selected_pattern();
                         self.update_view();
+                    }
+                    AppEvent::ToggleFilterPatternCaseSensitive => {
+                        self.filter.toggle_selected_pattern_case_sensitive();
+                        self.update_view();
+                    }
+                    AppEvent::ToggleFilterPatternMode => {
+                        self.filter.toggle_selected_pattern_mode();
+                        self.update_view();
+                    }
+                    AppEvent::ToggleAllFilterPatterns => {
+                        self.filter.toggle_all_patterns();
+                        self.update_view();
+                    }
+                    AppEvent::ActivateEditFilterMode => {
+                        if let Some(pattern) = self.filter.get_selected_pattern() {
+                            self.input_query = pattern.pattern.clone();
+                            self.next_state(AppState::EditFilterMode);
+                        }
+                    }
+                    AppEvent::ActivateAddFilterMode => {
+                        self.input_query.clear();
+                        self.next_state(AppState::FilterMode);
                     }
                     AppEvent::SearchHistoryPrevious => {
                         if let Some(history_query) = self.search.history.previous_query() {
@@ -501,11 +535,11 @@ impl App {
                 KeyCode::Down => self.events.send(AppEvent::MoveDown),
                 KeyCode::Char(' ') => self.events.send(AppEvent::ToggleFilterPatternActive),
                 KeyCode::Delete => self.events.send(AppEvent::RemoveFilterPattern),
-                KeyCode::Char('e') => {} // TODO: Edit selected filter pattern
-                KeyCode::Char('a') => {} // TODO: Add "add new filter pattern" functionality
-                KeyCode::Char('A') => {} // TODO: All filters On/Off
-                KeyCode::Char('c') => {} // TODO: toggle case sensitive for selected filter
-                KeyCode::Char('m') => {} // TODO: toggle mode for selected filter
+                KeyCode::Char('e') => self.events.send(AppEvent::ActivateEditFilterMode),
+                KeyCode::Char('f') => self.events.send(AppEvent::ActivateAddFilterMode),
+                KeyCode::Char('a') => self.events.send(AppEvent::ToggleAllFilterPatterns),
+                KeyCode::Char('i') => self.events.send(AppEvent::ToggleFilterPatternCaseSensitive),
+                KeyCode::Char('m') => self.events.send(AppEvent::ToggleFilterPatternMode),
                 _ => {}
             },
 
@@ -532,6 +566,17 @@ impl App {
 
             // SaveToFileMode
             AppState::SaveToFileMode => match key_event.code {
+                KeyCode::Backspace => {
+                    self.input_query.pop();
+                }
+                KeyCode::Char(c) => {
+                    self.input_query.push(c);
+                }
+                _ => {}
+            },
+
+            // EditFilterMode
+            AppState::EditFilterMode => match key_event.code {
                 KeyCode::Backspace => {
                     self.input_query.pop();
                 }

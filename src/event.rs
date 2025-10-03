@@ -79,6 +79,16 @@ pub enum AppEvent {
     ToggleFilterPatternActive,
     /// Remove selected filter pattern
     RemoveFilterPattern,
+    /// Toggle selected filter pattern case sensitivity
+    ToggleFilterPatternCaseSensitive,
+    /// Toggle selected filter pattern mode (include/exclude)
+    ToggleFilterPatternMode,
+    /// Toggle all filter patterns on/off
+    ToggleAllFilterPatterns,
+    /// Activate edit filter pattern mode
+    ActivateEditFilterMode,
+    /// Activate add filter pattern mode
+    ActivateAddFilterMode,
     /// Navigate to previous search history
     SearchHistoryPrevious,
     /// Navigate to next search history
