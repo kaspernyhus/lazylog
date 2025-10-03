@@ -143,4 +143,46 @@ impl Filter {
             }
         }
     }
+
+    pub fn toggle_selected_pattern_case_sensitive(&mut self) {
+        if self.filter_list.selected_index < self.filter_list.patterns.len() {
+            self.filter_list.patterns[self.filter_list.selected_index].case_sensitive =
+                !self.filter_list.patterns[self.filter_list.selected_index].case_sensitive;
+        }
+    }
+
+    pub fn toggle_selected_pattern_mode(&mut self) {
+        if self.filter_list.selected_index < self.filter_list.patterns.len() {
+            self.filter_list.patterns[self.filter_list.selected_index].mode =
+                match self.filter_list.patterns[self.filter_list.selected_index].mode {
+                    FilterMode::Include => FilterMode::Exclude,
+                    FilterMode::Exclude => FilterMode::Include,
+                };
+        }
+    }
+
+    pub fn toggle_all_patterns(&mut self) {
+        if self.filter_list.patterns.is_empty() {
+            return;
+        }
+
+        let all_enabled = self.filter_list.patterns.iter().all(|p| p.enabled);
+        for pattern in &mut self.filter_list.patterns {
+            pattern.enabled = !all_enabled;
+        }
+    }
+
+    pub fn get_selected_pattern(&self) -> Option<&FilterPattern> {
+        if self.filter_list.selected_index < self.filter_list.patterns.len() {
+            Some(&self.filter_list.patterns[self.filter_list.selected_index])
+        } else {
+            None
+        }
+    }
+
+    pub fn update_selected_pattern(&mut self, new_pattern: String) {
+        if self.filter_list.selected_index < self.filter_list.patterns.len() {
+            self.filter_list.patterns[self.filter_list.selected_index].pattern = new_pattern;
+        }
+    }
 }

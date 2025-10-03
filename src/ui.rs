@@ -156,6 +156,14 @@ impl App {
         filter_bar.render(area, buf);
     }
 
+    fn render_edit_filter_bar(&self, area: Rect, buf: &mut Buffer) {
+        let edit_prompt = format!("Edit filter: {}", self.input_query);
+        let edit_bar = Paragraph::new(edit_prompt)
+            .style(Style::default().bg(GRAY_COLOR))
+            .alignment(Alignment::Left);
+        edit_bar.render(area, buf);
+    }
+
     fn render_filter_list_popup(&self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
 
@@ -449,6 +457,7 @@ impl Widget for &App {
             AppState::SearchMode => self.render_search_bar(bottom, buf),
             AppState::GotoLineMode => self.render_goto_line_bar(bottom, buf),
             AppState::FilterMode => self.render_filter_bar(bottom, buf),
+            AppState::EditFilterMode => self.render_edit_filter_bar(bottom, buf),
             AppState::SaveToFileMode => self.render_save_to_file_bar(bottom, buf),
             _ => self.render_footer(bottom, buf),
         }

@@ -91,6 +91,11 @@ impl Help {
             HelpItem::new("Up/Down", "Navigate filters", HelpItemType::Keybind),
             HelpItem::new("Space", "Toggle filter on/off", HelpItemType::Keybind),
             HelpItem::new("Delete", "Remove selected filter", HelpItemType::Keybind),
+            HelpItem::new("e", "Edit selected filter", HelpItemType::Keybind),
+            HelpItem::new("f", "Add new filter", HelpItemType::Keybind),
+            HelpItem::new("c", "Toggle case sensitive", HelpItemType::Keybind),
+            HelpItem::new("m", "Toggle include/exclude", HelpItemType::Keybind),
+            HelpItem::new("a", "Toggle all filters", HelpItemType::Keybind),
             // Display Options section
             HelpItem::new("", "", HelpItemType::Empty),
             HelpItem::new("Display Options", "", HelpItemType::Header),
