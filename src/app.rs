@@ -345,6 +345,13 @@ impl App {
                     AppEvent::ToggleDisplayOption => {
                         self.display_options.toggle_selected_option();
                     }
+                    AppEvent::ClearLogBuffer => {
+                        if self.log_buffer.streaming {
+                            self.log_buffer.clear_all();
+                            self.viewport.set_total_lines(0);
+                            self.viewport.selected_line = 0;
+                        }
+                    }
                     AppEvent::NewLine(line) => {
                         let passes_filter = self.log_buffer.append_line(line, &self.filter);
                         if passes_filter {
@@ -365,8 +372,11 @@ impl App {
     pub fn handle_key_events(&mut self, key_event: KeyEvent) -> color_eyre::Result<()> {
         // Global keybindings
         match key_event.code {
-            KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
+            KeyCode::Char('c') if key_event.modifiers == KeyModifiers::CONTROL => {
                 self.events.send(AppEvent::Quit)
+            }
+            KeyCode::Char('l') if key_event.modifiers == KeyModifiers::CONTROL => {
+                self.events.send(AppEvent::ClearLogBuffer)
             }
             KeyCode::Esc => self.events.send(AppEvent::Cancel),
             KeyCode::Enter => self.events.send(AppEvent::Confirm),
