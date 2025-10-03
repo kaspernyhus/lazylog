@@ -1,18 +1,32 @@
 use regex::Regex;
 
 #[derive(Debug, Clone)]
+pub enum DisplayOptionType {
+    HidePattern(Regex),
+    Toggle,
+}
+
+#[derive(Debug, Clone)]
 pub struct DisplayOption {
     pub name: String,
     pub enabled: bool,
-    pub pattern: Regex,
+    pub option_type: DisplayOptionType,
 }
 
 impl DisplayOption {
-    pub fn new(name: &str, pattern: &str) -> Self {
+    pub fn new_hide_pattern(name: &str, pattern: &str) -> Self {
         Self {
             name: name.to_string(),
             enabled: false,
-            pattern: Regex::new(pattern).unwrap(),
+            option_type: DisplayOptionType::HidePattern(Regex::new(pattern).unwrap()),
+        }
+    }
+
+    pub fn new_toggle(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            enabled: false,
+            option_type: DisplayOptionType::Toggle,
         }
     }
 }
@@ -27,8 +41,9 @@ impl Default for DisplayOptions {
     fn default() -> Self {
         Self {
             options: vec![
-                DisplayOption::new("Hide Date, Time & Hostname", r"^\w{3}\s+\d{2}\s+\d{2}:\d{2}:\d{2}\s+\S+\s+"),
-                DisplayOption::new("Hide ISO8601 Timestamp", r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{4}\s+"),
+                DisplayOption::new_hide_pattern("Hide Date, Time & Hostname", r"^\w{3}\s+\d{2}\s+\d{2}:\d{2}:\d{2}\s+\S+\s+"),
+                DisplayOption::new_hide_pattern("Hide ISO8601 Timestamp", r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{4}\s+"),
+                DisplayOption::new_toggle("Disable Colors"),
             ],
             selected_index: 0,
         }
@@ -63,10 +78,20 @@ impl DisplayOptions {
 
         for option in &self.options {
             if option.enabled {
-                result = option.pattern.replace_all(&result, "").to_string();
+                if let DisplayOptionType::HidePattern(pattern) = &option.option_type {
+                    result = pattern.replace_all(&result, "").to_string();
+                }
             }
         }
 
         result
+    }
+
+    pub fn is_enabled(&self, option_name: &str) -> bool {
+        self.options
+            .iter()
+            .find(|o| o.name == option_name)
+            .map(|o| o.enabled)
+            .unwrap_or(false)
     }
 }

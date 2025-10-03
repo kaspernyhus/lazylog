@@ -289,6 +289,11 @@ impl App {
     }
 
     fn highlight_line<'a>(&self, content: &'a str) -> Line<'a> {
+        // Check if colors are disabled
+        if self.display_options.is_enabled("Disable Colors") {
+            return Line::from(content);
+        }
+
         let mut patterns_to_highlight = Vec::new();
 
         for highlight in self.highlighter.get_patterns() {
