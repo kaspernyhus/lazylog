@@ -43,6 +43,7 @@ pub struct App {
     pub filter: Filter,
     pub display_options: DisplayOptions,
     pub highlighter: Highlighter,
+    pub streaming_paused: bool,
 }
 
 impl Default for App {
@@ -59,6 +60,7 @@ impl Default for App {
             filter: Filter::default(),
             display_options: DisplayOptions::default(),
             highlighter: Highlighter::new(),
+            streaming_paused: false,
         }
     }
 }
@@ -85,7 +87,8 @@ impl App {
             search: Search::default(),
             filter: Filter::default(),
             display_options: DisplayOptions::default(),
-            highlighter: Highlighter::new(),
+            highlighter,
+            streaming_paused: false,
         };
 
         if use_stdin {
@@ -404,6 +407,11 @@ impl App {
                             self.viewport.goto_bottom();
                         }
                     }
+                    AppEvent::TogglePauseMode => {
+                        if self.log_buffer.streaming {
+                            self.streaming_paused = !self.streaming_paused;
+                        }
+                    }
                     AppEvent::ActivateOptionsView => {
                         self.next_state(AppState::OptionsView);
                     }
@@ -422,12 +430,14 @@ impl App {
                         }
                     }
                     AppEvent::NewLine(line) => {
-                        let passes_filter = self.log_buffer.append_line(line, &self.filter);
-                        if passes_filter {
-                            let num_lines = self.log_buffer.get_lines_count();
-                            self.viewport.set_total_lines(num_lines);
-                            if self.viewport.follow_mode {
-                                self.viewport.goto_bottom();
+                        if !self.streaming_paused {
+                            let passes_filter = self.log_buffer.append_line(line, &self.filter);
+                            if passes_filter {
+                                let num_lines = self.log_buffer.get_lines_count();
+                                self.viewport.set_total_lines(num_lines);
+                                if self.viewport.follow_mode {
+                                    self.viewport.goto_bottom();
+                                }
                             }
                         }
                     }
@@ -488,6 +498,7 @@ impl App {
                 KeyCode::Char('N') => self.events.send(AppEvent::SearchPrevious),
                 KeyCode::Char('f') => self.events.send(AppEvent::ActivateFilterMode),
                 KeyCode::Char('t') => self.events.send(AppEvent::ToggleFollowMode),
+                KeyCode::Char('p') => self.events.send(AppEvent::TogglePauseMode),
                 KeyCode::Char('o') => self.events.send(AppEvent::ActivateOptionsView),
                 _ => {}
             },

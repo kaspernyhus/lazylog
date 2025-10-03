@@ -68,7 +68,13 @@ impl App {
             "".to_string()
         };
 
-        let left = Line::from(file_name).left_aligned();
+        let left = if self.streaming_paused && self.log_buffer.streaming {
+            Line::from("PAUSED")
+                .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+                .left_aligned()
+        } else {
+            Line::from(file_name).left_aligned()
+        };
         let middle = Line::from("h:View Help").centered();
 
         let (current_match, total_matches) = self.search.get_match_info();
