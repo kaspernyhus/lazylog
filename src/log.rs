@@ -75,6 +75,15 @@ impl LogBuffer {
         self.active_lines.clear();
     }
 
+    pub fn save_to_file(&self, path: &str) -> color_eyre::Result<()> {
+        use std::io::Write;
+        let mut file = std::fs::File::create(path)?;
+        for line in &self.lines {
+            writeln!(file, "{}", line.content)?;
+        }
+        Ok(())
+    }
+
     fn rebuild_active_lines(&mut self, filter: &Filter) {
         let filter_patterns = filter.get_filter_patterns();
         if filter_patterns.is_empty() {

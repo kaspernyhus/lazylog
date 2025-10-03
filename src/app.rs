@@ -23,6 +23,8 @@ pub enum AppState {
     FilterMode,
     FilterListView,
     OptionsView,
+    SaveToFileMode,
+    Message(String),
     ErrorState(String),
 }
 
@@ -196,6 +198,29 @@ impl App {
                             }
                             self.next_state(AppState::LogView);
                         }
+                        AppState::SaveToFileMode => {
+                            if !self.input_query.is_empty() {
+                                match self.log_buffer.save_to_file(&self.input_query) {
+                                    Ok(_) => {
+                                        let abs_path = std::fs::canonicalize(&self.input_query)
+                                            .map(|p| p.to_string_lossy().to_string())
+                                            .unwrap_or_else(|_| self.input_query.clone());
+                                        self.next_state(AppState::Message(format!(
+                                            "Log saved to file:\n{}",
+                                            abs_path
+                                        )));
+                                    }
+                                    Err(e) => {
+                                        self.next_state(AppState::ErrorState(format!(
+                                            "Failed to save file:\n{}",
+                                            e
+                                        )));
+                                    }
+                                }
+                            } else {
+                                self.next_state(AppState::LogView);
+                            }
+                        }
                         _ => {}
                     },
                     AppEvent::Cancel => {
@@ -222,6 +247,12 @@ impl App {
                                 self.next_state(AppState::LogView);
                             }
                             AppState::OptionsView => {
+                                self.next_state(AppState::LogView);
+                            }
+                            AppState::SaveToFileMode => {
+                                self.next_state(AppState::LogView);
+                            }
+                            AppState::Message(_) => {
                                 self.next_state(AppState::LogView);
                             }
                             AppState::ErrorState(_) => {}
@@ -345,6 +376,10 @@ impl App {
                     AppEvent::ToggleDisplayOption => {
                         self.display_options.toggle_selected_option();
                     }
+                    AppEvent::ActivateSaveToFileMode => {
+                        self.input_query.clear();
+                        self.next_state(AppState::SaveToFileMode);
+                    }
                     AppEvent::ClearLogBuffer => {
                         if self.log_buffer.streaming {
                             self.log_buffer.clear_all();
@@ -377,6 +412,11 @@ impl App {
             }
             KeyCode::Char('l') if key_event.modifiers == KeyModifiers::CONTROL => {
                 self.events.send(AppEvent::ClearLogBuffer)
+            }
+            KeyCode::Char('s') if key_event.modifiers == KeyModifiers::CONTROL => {
+                if self.log_buffer.streaming {
+                    self.events.send(AppEvent::ActivateSaveToFileMode)
+                }
             }
             KeyCode::Esc => self.events.send(AppEvent::Cancel),
             KeyCode::Enter => self.events.send(AppEvent::Confirm),
@@ -487,6 +527,24 @@ impl App {
                 KeyCode::Backspace => {
                     self.input_query.pop();
                 }
+                _ => {}
+            },
+
+            // SaveToFileMode
+            AppState::SaveToFileMode => match key_event.code {
+                KeyCode::Backspace => {
+                    self.input_query.pop();
+                }
+                KeyCode::Char(c) => {
+                    self.input_query.push(c);
+                }
+                _ => {}
+            },
+
+            // Message
+            AppState::Message(_) => match key_event.code {
+                KeyCode::Char('q') => self.events.send(AppEvent::Quit),
+                KeyCode::Char('h') => self.events.send(AppEvent::ToggleHelp),
                 _ => {}
             },
         }

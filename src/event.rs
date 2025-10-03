@@ -93,6 +93,8 @@ pub enum AppEvent {
     ToggleDisplayOption,
     /// Clear log buffer
     ClearLogBuffer,
+    /// Activate save to file mode
+    ActivateSaveToFileMode,
 }
 
 /// Terminal event handler.
