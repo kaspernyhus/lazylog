@@ -70,6 +70,11 @@ impl LogBuffer {
         self.active_lines = (0..self.lines.len()).collect();
     }
 
+    pub fn clear_all(&mut self) {
+        self.lines.clear();
+        self.active_lines.clear();
+    }
+
     fn rebuild_active_lines(&mut self, filter: &Filter) {
         let filter_patterns = filter.get_filter_patterns();
         if filter_patterns.is_empty() {

@@ -91,6 +91,8 @@ pub enum AppEvent {
     ActivateOptionsView,
     /// Toggle selected display option
     ToggleDisplayOption,
+    /// Clear log buffer
+    ClearLogBuffer,
 }
 
 /// Terminal event handler.
