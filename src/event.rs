@@ -97,6 +97,8 @@ pub enum AppEvent {
     NewLine(String),
     /// Toggle follow mode
     ToggleFollowMode,
+    /// Toggle pause mode
+    TogglePauseMode,
     /// Activate options view
     ActivateOptionsView,
     /// Toggle selected display option
