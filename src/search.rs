@@ -1,20 +1,31 @@
+/// Stores and navigates search query history.
 #[derive(Debug, Default)]
 pub struct SearchHistory {
+    /// List of previous search queries.
     history: Vec<String>,
+    /// Current position in history (None when not navigating history).
     index: Option<usize>,
 }
 
+/// Manages search pattern matching and navigation through search results.
 #[derive(Debug, Default)]
 pub struct Search {
-    search_pattern: Option<String>,
+    /// Active search pattern (set when user submits search).
+    active_pattern: Option<String>,
+    /// Whether search is case-sensitive.
     case_sensitive: bool,
+    /// Index of the current match in match_indices.
     current_match_index: usize,
+    /// Total number of matches found.
     total_matches: usize,
+    /// Line indices where matches were found.
     match_indices: Vec<usize>,
+    /// Search query history.
     pub history: SearchHistory,
 }
 
 impl SearchHistory {
+    /// Adds a query to the search history if it doesn't already exist.
     pub fn add_query(&mut self, pattern: String) {
         if !self.history.contains(&pattern) {
             self.history.push(pattern);
@@ -22,6 +33,9 @@ impl SearchHistory {
         self.index = None;
     }
 
+    /// Navigates to the previous query in history.
+    ///
+    /// Returns `None` if already at the oldest entry.
     pub fn previous_query(&mut self) -> Option<String> {
         if self.history.is_empty() {
             return None;
@@ -45,6 +59,10 @@ impl SearchHistory {
         }
     }
 
+    /// Navigates to the next query in history.
+    ///
+    /// Returns an empty string when reaching the newest entry to clear input.
+    /// Returns `None` if not currently in history mode.
     pub fn next_query(&mut self) -> Option<String> {
         if self.history.is_empty() {
             return None;
@@ -65,59 +83,52 @@ impl SearchHistory {
         }
     }
 
+    /// Resets history navigation state.
     pub fn reset(&mut self) {
         self.index = None;
     }
 }
 
 impl Search {
-    pub fn apply_pattern(&mut self, pattern: String, lines: &[&str]) {
-        self.history.add_query(pattern.clone());
-        self.set_pattern(pattern);
-        self.update_matches(lines);
-    }
-
-    pub fn set_pattern(&mut self, pattern: String) {
-        self.search_pattern = Some(pattern.clone());
-        self.reset_matches();
-    }
-
-    pub fn update_pattern(&mut self, input: &str, min_chars: usize) {
-        if input.is_empty() {
-            self.clear_pattern();
-            return;
-        }
-
-        if input.len() >= min_chars {
-            self.set_pattern(input.to_string());
+    /// Applies a search pattern and updates matches.
+    ///
+    /// Adds the pattern to search history list.
+    pub fn apply_pattern(&mut self, pattern: &str, lines: &[&str]) {
+        if !pattern.is_empty() {
+            self.active_pattern = Some(pattern.to_string());
+            self.history.add_query(pattern.to_string());
+            self.update_matches(pattern, lines);
         }
     }
 
-    pub fn get_pattern(&self) -> Option<&str> {
-        self.search_pattern.as_deref()
+    /// Clears all matches and active pattern.
+    pub fn clear_matches(&mut self) {
+        self.active_pattern = None;
+        self.match_indices.clear();
+        self.total_matches = 0;
+        self.current_match_index = 0;
     }
 
-    pub fn clear_pattern(&mut self) {
-        self.search_pattern = None;
-        self.reset_matches();
+    /// Returns the active search pattern (submitted search).
+    pub fn get_active_pattern(&self) -> Option<&str> {
+        self.active_pattern.as_deref()
     }
 
+    /// Returns whether search is case-sensitive.
     pub fn is_case_sensitive(&self) -> bool {
         self.case_sensitive
     }
 
+    /// Toggles case sensitivity.
     pub fn toggle_case_sensitive(&mut self) {
         self.case_sensitive = !self.case_sensitive;
     }
 
-    pub fn update_matches(&mut self, lines: &[&str]) {
+    /// Updates the list of matching line indices for a given pattern without storing in search history.
+    pub fn update_matches(&mut self, pattern: &str, lines: &[&str]) {
         self.match_indices.clear();
         self.total_matches = 0;
         self.current_match_index = 0;
-
-        let Some(pattern) = &self.search_pattern else {
-            return;
-        };
 
         if pattern.is_empty() {
             return;
@@ -137,6 +148,10 @@ impl Search {
         }
     }
 
+    /// Finds the next match after the current line.
+    ///
+    /// Wraps to the first match if no match is found after current line.
+    /// Returns `None` if there are no matches.
     pub fn next_match(&mut self, current_line: usize) -> Option<usize> {
         if self.match_indices.is_empty() {
             return None;
@@ -157,6 +172,10 @@ impl Search {
         }
     }
 
+    /// Finds the first match at or after the current line.
+    ///
+    /// Wraps to the first match if no match is found at or after current line.
+    /// Returns `None` if there are no matches.
     pub fn first_match_from(&mut self, current_line: usize) -> Option<usize> {
         if self.match_indices.is_empty() {
             return None;
@@ -177,6 +196,10 @@ impl Search {
         }
     }
 
+    /// Finds the previous match before the current line.
+    ///
+    /// Wraps to the last match if no match is found before current line.
+    /// Returns `None` if there are no matches.
     pub fn previous_match(&mut self, current_line: usize) -> Option<usize> {
         if self.match_indices.is_empty() {
             return None;
@@ -197,12 +220,9 @@ impl Search {
         }
     }
 
-    fn reset_matches(&mut self) {
-        self.current_match_index = 0;
-        self.total_matches = 0;
-        self.match_indices.clear();
-    }
-
+    /// Returns (current_match_number, total_matches).
+    ///
+    /// Returns (0, 0) if there are no matches.
     pub fn get_match_info(&self) -> (usize, usize) {
         if self.match_indices.is_empty() {
             (0, 0)

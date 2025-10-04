@@ -518,11 +518,9 @@ impl App {
                 KeyCode::Down => self.events.send(AppEvent::SearchHistoryNext),
                 KeyCode::Backspace => {
                     self.input_query.pop();
-                    self.search.history.reset();
                 }
                 KeyCode::Char(c) => {
                     self.input_query.push(c);
-                    self.search.history.reset();
                 }
                 _ => {}
             },

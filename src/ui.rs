@@ -394,8 +394,21 @@ impl App {
             }
         }
 
-        if let Some(pattern) = self.search.get_pattern() {
-            if !pattern.is_empty() {
+        // Highlight search pattern while typing in SearchMode
+        if self.app_state == AppState::SearchMode && !self.input_query.is_empty() {
+            let ranges = self.find_pattern_ranges(
+                full_line,
+                &self.input_query,
+                self.search.is_case_sensitive(),
+            );
+            for (start, end) in ranges {
+                ranges_with_style.push((start, end, Color::Black, Some(Color::Yellow)));
+            }
+        }
+
+        // Highlight active search pattern when search is applied
+        if let Some(pattern) = self.search.get_active_pattern() {
+            if !pattern.is_empty() && self.app_state != AppState::SearchMode {
                 let ranges =
                     self.find_pattern_ranges(full_line, pattern, self.search.is_case_sensitive());
                 for (start, end) in ranges {
@@ -461,8 +474,15 @@ impl App {
             return Line::from(content).style(Style::default().fg(line_color.unwrap()));
         }
 
-        // Sort ranges by start position
-        highlight_ranges.sort_by(|a, b| a.0.cmp(&b.0));
+        // Sort ranges: prioritize background highlights (search/filter), then by start position
+        highlight_ranges.sort_by(|a, b| {
+            // Ranges with background color (search/filter) come first at same position
+            match (a.3, b.3) {
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                _ => a.0.cmp(&b.0),
+            }
+        });
 
         let mut spans = Vec::new();
         let mut last_index = 0;
@@ -484,10 +504,21 @@ impl App {
             // Add highlighted text (only if we haven't already passed this range)
             if end > last_index {
                 let highlight_start = start.max(last_index);
-                let mut style = Style::default().fg(fg_color).add_modifier(Modifier::BOLD);
+                let mut style = Style::default();
+
+                // Use line color as foreground if available, otherwise use the highlight foreground
+                if let Some(color) = line_color {
+                    style = style.fg(color);
+                } else {
+                    style = style.fg(fg_color);
+                }
+
+                style = style.add_modifier(Modifier::BOLD);
+
                 if let Some(bg) = bg_color {
                     style = style.bg(bg);
                 }
+
                 spans.push(ratatui::text::Span::styled(
                     &content[highlight_start..end],
                     style,
