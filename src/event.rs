@@ -118,33 +118,24 @@ pub struct EventHandler {
     receiver: mpsc::UnboundedReceiver<Event>,
 }
 
-impl Default for EventHandler {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl EventHandler {
     /// Constructs a new instance of [`EventHandler`] and spawns a new thread to handle events.
-    pub fn new() -> Self {
-        let (sender, receiver) = mpsc::unbounded_channel();
-        let actor = EventTask::new(sender.clone());
-        tokio::spawn(async { actor.run().await });
-        Self { sender, receiver }
-    }
-
-    /// Constructs a new instance with stdin reader task enabled.
-    pub fn new_with_stdin() -> Self {
-        let (sender, receiver) = mpsc::unbounded_channel();
-        let actor = EventTask::new(sender.clone());
-        tokio::spawn(async { actor.run().await });
-
-        let stdin_sender = sender.clone();
-        tokio::spawn(async move {
-            stdin_reader_task(stdin_sender).await;
-        });
-
-        Self { sender, receiver }
+    pub fn new(use_stdin: bool) -> Self {
+        if use_stdin {
+            let (sender, receiver) = mpsc::unbounded_channel();
+            let actor = EventTask::new(sender.clone());
+            tokio::spawn(async { actor.run().await });
+            let stdin_sender = sender.clone();
+            tokio::spawn(async move {
+                stdin_reader_task(stdin_sender).await;
+            });
+            Self { sender, receiver }
+        } else {
+            let (sender, receiver) = mpsc::unbounded_channel();
+            let actor = EventTask::new(sender.clone());
+            tokio::spawn(async { actor.run().await });
+            Self { sender, receiver }
+        }
     }
 
     /// Receives an event from the sender.

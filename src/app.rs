@@ -76,11 +76,7 @@ impl App {
     pub fn new(args: Cli) -> Self {
         let use_stdin = args.should_use_stdin();
 
-        let events = if use_stdin {
-            EventHandler::new_with_stdin()
-        } else {
-            EventHandler::new()
-        };
+        let events = EventHandler::new(use_stdin);
 
         let config = Config::load(&args.config);
         let highlighter = Highlighter::new(&config);
