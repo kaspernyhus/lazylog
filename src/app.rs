@@ -184,7 +184,7 @@ impl App {
                                     .collect();
                                 self.search.apply_pattern(self.input_query.clone(), &lines);
                                 if let Some(line) =
-                                    self.search.next_match(self.viewport.selected_line)
+                                    self.search.first_match_from(self.viewport.selected_line)
                                 {
                                     self.viewport.goto_line(line, true);
                                 }
