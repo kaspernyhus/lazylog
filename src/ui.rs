@@ -382,6 +382,17 @@ impl App {
             }
         }
 
+        if self.app_state == AppState::EditFilterMode && self.input_query.len() >= 2 {
+            let ranges = self.find_pattern_ranges(
+                full_line,
+                &self.input_query,
+                self.filter.is_case_sensitive(),
+            );
+            for (start, end) in ranges {
+                ranges_with_style.push((start, end, Color::Black, Some(Color::Cyan)));
+            }
+        }
+
         if let Some(pattern) = self.search.get_pattern() {
             if !pattern.is_empty() {
                 let ranges =
