@@ -1,5 +1,6 @@
 use crate::{
     cli::Cli,
+    config::Config,
     display_options::DisplayOptions,
     event::{AppEvent, Event, EventHandler},
     filter::Filter,
@@ -33,6 +34,7 @@ pub enum AppState {
 #[derive(Debug)]
 pub struct App {
     pub running: bool,
+    pub config: Config,
     pub help: Help,
     pub app_state: AppState,
     pub events: EventHandler,
@@ -57,14 +59,12 @@ impl App {
             EventHandler::new()
         };
 
-        let highlighter = if let Some(config_path) = &args.config {
-            Highlighter::from_config(config_path)
-        } else {
-            Highlighter::new()
-        };
+        let config = Config::load(&args.config);
+        let highlighter = Highlighter::new(&config);
 
         let mut app = Self {
             running: true,
+            config,
             help: Help::new(),
             app_state: AppState::LogView,
             events,

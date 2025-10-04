@@ -1,7 +1,6 @@
+use crate::config::{Config, HighlightConfig, LineColorConfig};
 use ratatui::style::Color;
 use regex::Regex;
-use serde::Deserialize;
-use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub enum PatternMatcher {
@@ -40,88 +39,24 @@ pub struct LineColorPattern {
     pub color: Color,
 }
 
-#[derive(Debug, Deserialize)]
-struct HighlightConfig {
-    pattern: String,
-    #[serde(default)]
-    regex: bool,
-    #[serde(default)]
-    color: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct LineColorConfig {
-    pattern: String,
-    color: String,
-    #[serde(default)]
-    regex: bool,
-}
-
-#[derive(Debug, Deserialize)]
-struct Config {
-    #[serde(default)]
-    highlight_patterns: Vec<HighlightConfig>,
-    #[serde(default)]
-    line_colors: Vec<LineColorConfig>,
-}
-
 #[derive(Debug)]
 pub struct Highlighter {
     patterns: Vec<HighlightPattern>,
     line_colors: Vec<LineColorPattern>,
 }
 
-impl Default for Highlighter {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Highlighter {
-    pub fn new() -> Self {
-        let config_path = Self::default_config_path();
-        Self::load_from_path(&config_path)
-    }
-
-    pub fn from_config(path: &str) -> Self {
-        let config_path = PathBuf::from(path);
-        Self::load_from_path(&config_path)
-    }
-
-    fn load_from_path(config_path: &PathBuf) -> Self {
-        if config_path.exists() {
-            match std::fs::read_to_string(config_path) {
-                Ok(content) => match toml::from_str::<Config>(&content) {
-                    Ok(config) => {
-                        let patterns = Self::assign_colors(config.highlight_patterns);
-                        let line_colors = Self::parse_line_colors(config.line_colors);
-                        Self {
-                            patterns,
-                            line_colors,
-                        }
-                    }
-                    Err(_) => Self::empty(),
-                },
-                Err(_) => Self::empty(),
-            }
-        } else {
-            Self::empty()
-        }
-    }
-
-    fn empty() -> Self {
+    pub fn new(config: &Config) -> Self {
+        let patterns = Self::assign_colors(config.highlight_patterns.clone());
+        let line_colors = Self::parse_line_colors(config.line_colors.clone());
         Self {
-            patterns: Vec::new(),
-            line_colors: Vec::new(),
+            patterns,
+            line_colors,
         }
     }
 
-    fn default_config_path() -> PathBuf {
-        if let Some(config_dir) = dirs::config_dir() {
-            config_dir.join("lazylog").join("config.toml")
-        } else {
-            PathBuf::from(".lazylog.toml")
-        }
+    pub fn is_empty(&self) -> bool {
+        self.patterns.is_empty() && self.line_colors.is_empty()
     }
 
     fn assign_colors(configs: Vec<HighlightConfig>) -> Vec<HighlightPattern> {
@@ -136,7 +71,8 @@ impl Highlighter {
 
                 matcher.map(|m| {
                     let color = if let Some(color_str) = &config.color {
-                        Self::parse_color(color_str).unwrap_or_else(|| Self::hash_to_color(&config.pattern))
+                        Self::parse_color(color_str)
+                            .unwrap_or_else(|| Self::hash_to_color(&config.pattern))
                     } else {
                         Self::hash_to_color(&config.pattern)
                     };
