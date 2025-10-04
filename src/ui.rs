@@ -335,55 +335,66 @@ impl App {
         StatefulWidget::render(log_list, area, buf, &mut list_state);
     }
 
-    fn highlight_line<'a>(&self, full_line: &'a str, visible_text: &'a str, offset: usize) -> Line<'a> {
-        // Check if colors are disabled
-        if self.display_options.is_enabled("Disable Colors") {
-            return Line::from(visible_text);
-        }
+    fn highlight_line<'a>(
+        &self,
+        full_line: &'a str,
+        visible_text: &'a str,
+        offset: usize,
+    ) -> Line<'a> {
+        let colors_disabled = self.display_options.is_enabled("Disable Colors");
 
-        // Check for line-level colors first (check against full line)
-        if let Some(line_color) = self.highlighter.get_line_color(full_line) {
-            return Line::from(visible_text).style(Style::default().fg(line_color));
-        }
+        let mut ranges_with_style: Vec<(usize, usize, Color, Option<Color>)> = Vec::new();
 
-        // Get highlight ranges from highlighter (using full line)
-        let mut highlight_ranges = self.highlighter.get_highlight_ranges(full_line);
-
-        // Add search pattern highlighting (using full line)
-        if let Some(pattern) = self.search.get_pattern() {
-            if !pattern.is_empty() {
-                let ranges = self.find_pattern_ranges(full_line, pattern, self.search.is_case_sensitive());
-                for (start, end) in ranges {
-                    highlight_ranges.push((start, end, Color::Yellow));
-                }
+        if !colors_disabled {
+            if let Some(line_color) = self.highlighter.get_line_color(full_line) {
+                return Line::from(visible_text).style(Style::default().fg(line_color));
             }
+
+            let highlight_ranges = self.highlighter.get_highlight_ranges(full_line);
+            ranges_with_style = highlight_ranges
+                .into_iter()
+                .map(|(start, end, color)| (start, end, color, None))
+                .collect();
         }
 
-        // Add filter pattern highlighting (using full line)
         if self.app_state == AppState::FilterMode {
             if let Some(pattern) = self.filter.get_filter_pattern() {
                 if !pattern.is_empty() {
-                    let ranges = self.find_pattern_ranges(full_line, pattern, self.filter.is_case_sensitive());
+                    let ranges = self.find_pattern_ranges(
+                        full_line,
+                        pattern,
+                        self.filter.is_case_sensitive(),
+                    );
                     for (start, end) in ranges {
-                        highlight_ranges.push((start, end, Color::Cyan));
+                        ranges_with_style.push((start, end, Color::Black, Some(Color::Cyan)));
                     }
                 }
             }
         }
 
+        if let Some(pattern) = self.search.get_pattern() {
+            if !pattern.is_empty() {
+                let ranges =
+                    self.find_pattern_ranges(full_line, pattern, self.search.is_case_sensitive());
+                for (start, end) in ranges {
+                    ranges_with_style.push((start, end, Color::Black, Some(Color::Yellow)));
+                }
+            }
+        }
+
         // Adjust ranges for horizontal offset
-        let adjusted_ranges: Vec<(usize, usize, Color)> = highlight_ranges
+        let adjusted_ranges: Vec<(usize, usize, Color, Option<Color>)> = ranges_with_style
             .into_iter()
-            .filter_map(|(start, end, color)| {
+            .filter_map(|(start, end, fg, bg)| {
                 if end <= offset {
                     // Range is completely before visible area
                     None
                 } else if start >= offset {
                     // Range is in visible area, adjust coordinates
-                    Some((start - offset, end - offset, color))
+                    Some((start - offset, end - offset, fg, bg))
                 } else {
                     // Range starts before offset but ends in visible area
-                    Some((0, end - offset, color))
+                    Some((0, end - offset, fg, bg))
                 }
             })
             .collect();
@@ -395,7 +406,12 @@ impl App {
         self.build_highlighted_line(visible_text, adjusted_ranges)
     }
 
-    fn find_pattern_ranges(&self, text: &str, pattern: &str, case_sensitive: bool) -> Vec<(usize, usize)> {
+    fn find_pattern_ranges(
+        &self,
+        text: &str,
+        pattern: &str,
+        case_sensitive: bool,
+    ) -> Vec<(usize, usize)> {
         let (search_content, search_pattern) = if case_sensitive {
             (text.to_string(), pattern.to_string())
         } else {
@@ -411,7 +427,7 @@ impl App {
     fn build_highlighted_line<'a>(
         &self,
         content: &'a str,
-        mut highlight_ranges: Vec<(usize, usize, Color)>,
+        mut highlight_ranges: Vec<(usize, usize, Color, Option<Color>)>,
     ) -> Line<'a> {
         if highlight_ranges.is_empty() {
             return Line::from(content);
@@ -423,7 +439,7 @@ impl App {
         let mut spans = Vec::new();
         let mut last_index = 0;
 
-        for (start, end, color) in highlight_ranges {
+        for (start, end, fg_color, bg_color) in highlight_ranges {
             // Add unhighlighted text before this range
             if start > last_index {
                 spans.push(ratatui::text::Span::raw(&content[last_index..start]));
@@ -432,9 +448,13 @@ impl App {
             // Add highlighted text (only if we haven't already passed this range)
             if end > last_index {
                 let highlight_start = start.max(last_index);
+                let mut style = Style::default().fg(fg_color).add_modifier(Modifier::BOLD);
+                if let Some(bg) = bg_color {
+                    style = style.bg(bg);
+                }
                 spans.push(ratatui::text::Span::styled(
                     &content[highlight_start..end],
-                    Style::default().fg(color).add_modifier(Modifier::BOLD),
+                    style,
                 ));
                 last_index = end;
             }
