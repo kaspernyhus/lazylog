@@ -18,33 +18,56 @@ use ratatui::{
 
 #[derive(Debug, PartialEq)]
 pub enum AppState {
+    /// Normal mode for viewing logs.
     LogView,
+    /// Active search mode where a search query is highlighted and can be navigated.
     SearchMode,
+    /// Active goto line mode where the user can input a line number to jump to.
     GotoLineMode,
+    /// Active filter mode where the user can input a filter pattern to filter log lines.
     FilterMode,
+    /// View for managing existing filter patterns.
     FilterListView,
+    /// Edit an existing filter pattern.
     EditFilterMode,
+    /// View for adjusting display options.
     OptionsView,
+    /// Active mode for entering a file name for saving the current log buffer to a file.
     SaveToFileMode,
+    /// Display a message to the user.
     Message(String),
+    /// Display an error message to the user.
     ErrorState(String),
 }
 
 /// Application.
 #[derive(Debug)]
 pub struct App {
+    /// Indicates whether the application is running.
     pub running: bool,
+    /// Application configuration.
     pub config: Config,
-    pub help: Help,
+    /// Current state of the application.
     pub app_state: AppState,
+    /// Event handler for managing app events such as user input.
     pub events: EventHandler,
+    /// Log buffer containing the log lines.
     pub log_buffer: LogBuffer,
+    /// Viewport for displaying log lines.
     pub viewport: Viewport,
-    pub input_query: String,
+    /// Help menu state.
+    pub help: Help,
+    /// Search state.
     pub search: Search,
+    /// Filter state.
     pub filter: Filter,
-    pub display_options: DisplayOptions,
+    /// Syntax highlighter.
     pub highlighter: Highlighter,
+    /// Display options state.
+    pub display_options: DisplayOptions,
+    /// Current user input query (for search, filter, goto line, etc.).
+    pub input_query: String,
+    /// Indicates whether streaming is paused (only relevant in stdin/streaming mode).
     pub streaming_paused: bool,
 }
 
@@ -156,14 +179,14 @@ impl App {
                     AppEvent::Confirm => match self.app_state {
                         AppState::SearchMode => {
                             if self.input_query.is_empty() {
-                                self.search.clear_pattern();
+                                self.search.clear_matches();
                             } else {
                                 let lines: Vec<&str> = self
                                     .log_buffer
                                     .get_lines_iter(Interval::All)
                                     .map(|log_line| log_line.content())
                                     .collect();
-                                self.search.apply_pattern(self.input_query.clone(), &lines);
+                                self.search.apply_pattern(&self.input_query, &lines);
                                 if let Some(line) =
                                     self.search.first_match_from(self.viewport.selected_line)
                                 {
@@ -229,7 +252,7 @@ impl App {
                         }
                         match self.app_state {
                             AppState::SearchMode => {
-                                self.search.clear_pattern();
+                                self.search.clear_matches();
                                 self.next_state(AppState::LogView);
                             }
                             AppState::GotoLineMode => {
@@ -240,7 +263,7 @@ impl App {
                                 self.next_state(AppState::LogView);
                             }
                             AppState::LogView => {
-                                self.search.clear_pattern();
+                                self.search.clear_matches();
                             }
                             AppState::FilterListView => {
                                 self.next_state(AppState::LogView);
@@ -302,20 +325,20 @@ impl App {
                     }
                     AppEvent::ActivateSearchMode => {
                         self.input_query.clear();
-                        self.search.clear_pattern();
+                        self.search.clear_matches();
                         self.search.history.reset();
                         self.next_state(AppState::SearchMode);
                     }
                     AppEvent::ToggleCaseSensitive => {
                         self.search.toggle_case_sensitive();
                         self.filter.toggle_case_sensitive();
-                        if self.search.get_pattern().is_some() {
+                        if !self.input_query.is_empty() && self.app_state == AppState::SearchMode {
                             let lines: Vec<&str> = self
                                 .log_buffer
                                 .get_lines_iter(Interval::All)
                                 .map(|log_line| log_line.content())
                                 .collect();
-                            self.search.update_matches(&lines);
+                            self.search.update_matches(&self.input_query, &lines);
                         }
                     }
                     AppEvent::ActivateGotoLineMode => {
@@ -379,13 +402,11 @@ impl App {
                     AppEvent::SearchHistoryPrevious => {
                         if let Some(history_query) = self.search.history.previous_query() {
                             self.input_query = history_query;
-                            self.search.update_pattern(&self.input_query, 0);
                         }
                     }
                     AppEvent::SearchHistoryNext => {
                         if let Some(history_query) = self.search.history.next_query() {
                             self.input_query = history_query;
-                            self.search.update_pattern(&self.input_query, 0);
                         }
                     }
                     AppEvent::ToggleFollowMode => {
@@ -497,12 +518,10 @@ impl App {
                 KeyCode::Down => self.events.send(AppEvent::SearchHistoryNext),
                 KeyCode::Backspace => {
                     self.input_query.pop();
-                    self.search.update_pattern(&self.input_query, 2);
                     self.search.history.reset();
                 }
                 KeyCode::Char(c) => {
                     self.input_query.push(c);
-                    self.search.update_pattern(&self.input_query, 2);
                     self.search.history.reset();
                 }
                 _ => {}
