@@ -1,36 +1,50 @@
 use crate::filter::{Filter, FilterMode, FilterPattern};
 
+/// A single log line with its content and original index.
 #[derive(Debug, Clone)]
 pub struct LogLine {
+    /// The text content of the log line.
     pub content: String,
+    /// The original index of the line in the source.
     pub index: usize,
 }
 
+/// Buffer for storing and managing log lines with filtering support.
 #[derive(Debug, Default)]
 pub struct LogBuffer {
+    /// Optional path to the file being viewed.
     pub file_path: Option<String>,
+    /// All log lines (unfiltered).
     pub lines: Vec<LogLine>,
-    active_lines: Vec<usize>, // Indices of lines that pass the applied filters
+    /// Indices of lines that pass the applied filters.
+    active_lines: Vec<usize>,
+    /// Whether the buffer is in streaming mode (reading from stdin).
     pub streaming: bool,
 }
 
+/// Specifies which interval range of lines (potentially with filters) to retrieve from the buffer.
 #[derive(Debug)]
 pub enum Interval {
+    /// All active lines.
     All,
+    /// Range of active lines by index (start, end).
     Range(usize, usize),
 }
 
 impl LogLine {
+    /// Creates a new log line.
     pub fn new(content: String, index: usize) -> Self {
         Self { content, index }
     }
 
+    /// Returns the log message content of the log line.
     pub fn content(&self) -> &str {
         &self.content
     }
 }
 
 impl LogBuffer {
+    /// Loads log lines from a file. (Not streaming mode.)
     pub fn load_from_file(&mut self, path: &str) -> color_eyre::Result<()> {
         let content = std::fs::read_to_string(path)?;
         self.file_path = Some(path.to_string());
@@ -44,6 +58,7 @@ impl LogBuffer {
         Ok(())
     }
 
+    /// Initializes the buffer for stdin streaming mode.
     pub fn init_stdin_mode(&mut self) {
         self.file_path = Some("<stdin>".to_string());
         self.streaming = true;
@@ -51,6 +66,9 @@ impl LogBuffer {
         self.clear_filters();
     }
 
+    /// Appends a new line to the buffer and applies filters.
+    ///
+    /// Returns `true` if the line passes the current filters.
     pub fn append_line(&mut self, content: String, filter: &Filter) -> bool {
         let index = self.lines.len();
         let log_line = LogLine::new(content, index);
@@ -62,29 +80,10 @@ impl LogBuffer {
         passes_filter
     }
 
+    /// Applies the given filter to all lines in the buffer.
+    ///
+    /// Rebuilds the active_lines list based on the filter criteria.
     pub fn apply_filters(&mut self, filter: &Filter) {
-        self.rebuild_active_lines(filter);
-    }
-
-    pub fn clear_filters(&mut self) {
-        self.active_lines = (0..self.lines.len()).collect();
-    }
-
-    pub fn clear_all(&mut self) {
-        self.lines.clear();
-        self.active_lines.clear();
-    }
-
-    pub fn save_to_file(&self, path: &str) -> color_eyre::Result<()> {
-        use std::io::Write;
-        let mut file = std::fs::File::create(path)?;
-        for line in &self.lines {
-            writeln!(file, "{}", line.content)?;
-        }
-        Ok(())
-    }
-
-    fn rebuild_active_lines(&mut self, filter: &Filter) {
         let filter_patterns = filter.get_filter_patterns();
         if filter_patterns.is_empty() {
             self.clear_filters();
@@ -99,6 +98,30 @@ impl LogBuffer {
         }
     }
 
+    /// Clears all filters.
+    pub fn clear_filters(&mut self) {
+        self.active_lines = (0..self.lines.len()).collect();
+    }
+
+    /// Remove all lines and filters from the buffer. (Only in streaming mode.)
+    pub fn clear_all(&mut self) {
+        if self.streaming {
+            self.lines.clear();
+            self.active_lines.clear();
+        }
+    }
+
+    /// Saves all log lines to a file.
+    pub fn save_to_file(&self, path: &str) -> color_eyre::Result<()> {
+        use std::io::Write;
+        let mut file = std::fs::File::create(path)?;
+        for line in &self.lines {
+            writeln!(file, "{}", line.content)?;
+        }
+        Ok(())
+    }
+
+    /// Returns an iterator over active log lines in the specified interval.
     pub fn get_lines_iter(&self, interval: Interval) -> impl Iterator<Item = &LogLine> {
         let active_indices = match interval {
             Interval::All => &self.active_lines[..],
@@ -115,6 +138,7 @@ impl LogBuffer {
         active_indices.iter().map(move |&idx| &self.lines[idx])
     }
 
+    /// Returns the maximum line length in the specified interval.
     pub fn get_lines_max_length(&self, interval: Interval) -> usize {
         let (start_index, end) = match interval {
             Interval::All => (0, self.active_lines.len()),
@@ -133,10 +157,14 @@ impl LogBuffer {
             .unwrap_or(0)
     }
 
+    /// Returns the count of active (filtered) lines.
     pub fn get_lines_count(&self) -> usize {
         self.active_lines.len()
     }
 
+    /// Returns the original log line index for an active line index.
+    ///
+    /// Returns `None` if the line_index is out of bounds.
     pub fn get_log_line_index(&self, line_index: usize) -> Option<usize> {
         if line_index >= self.active_lines.len() {
             return None;
@@ -145,6 +173,10 @@ impl LogBuffer {
         Some(self.lines[actual_index].index)
     }
 
+    /// Finds the active line index closest to a target original log line index.
+    ///
+    /// Useful for maintaining cursor position when filters change.
+    /// Returns `None` if there are no active lines.
     pub fn find_closest_line_by_index(&self, target_log_line_index: usize) -> Option<usize> {
         if self.active_lines.is_empty() {
             return None;
