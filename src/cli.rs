@@ -6,6 +6,10 @@ use std::io::IsTerminal;
 pub struct Cli {
     /// Log file path (if not provided, reads from stdin)
     pub file: Option<String>,
+
+    /// Path to config file
+    #[arg(short, long)]
+    pub config: Option<String>,
 }
 
 impl Cli {
