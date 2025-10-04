@@ -354,12 +354,13 @@ impl App {
         let colors_disabled = self.display_options.is_enabled("Disable Colors");
 
         let mut ranges_with_style: Vec<(usize, usize, Color, Option<Color>)> = Vec::new();
+        let line_color = if !colors_disabled {
+            self.highlighter.get_line_color(full_line)
+        } else {
+            None
+        };
 
         if !colors_disabled {
-            if let Some(line_color) = self.highlighter.get_line_color(full_line) {
-                return Line::from(visible_text).style(Style::default().fg(line_color));
-            }
-
             let highlight_ranges = self.highlighter.get_highlight_ranges(full_line);
             ranges_with_style = highlight_ranges
                 .into_iter()
@@ -420,11 +421,11 @@ impl App {
             })
             .collect();
 
-        if adjusted_ranges.is_empty() {
+        if adjusted_ranges.is_empty() && line_color.is_none() {
             return Line::from(visible_text);
         }
 
-        self.build_highlighted_line(visible_text, adjusted_ranges)
+        self.build_highlighted_line(visible_text, adjusted_ranges, line_color)
     }
 
     fn find_pattern_ranges(
@@ -449,9 +450,15 @@ impl App {
         &self,
         content: &'a str,
         mut highlight_ranges: Vec<(usize, usize, Color, Option<Color>)>,
+        line_color: Option<Color>,
     ) -> Line<'a> {
-        if highlight_ranges.is_empty() {
+        if highlight_ranges.is_empty() && line_color.is_none() {
             return Line::from(content);
+        }
+
+        if highlight_ranges.is_empty() {
+            // Only line color, no highlights
+            return Line::from(content).style(Style::default().fg(line_color.unwrap()));
         }
 
         // Sort ranges by start position
@@ -461,9 +468,17 @@ impl App {
         let mut last_index = 0;
 
         for (start, end, fg_color, bg_color) in highlight_ranges {
-            // Add unhighlighted text before this range
+            // Add unhighlighted text before this range (with line color if set)
             if start > last_index {
-                spans.push(ratatui::text::Span::raw(&content[last_index..start]));
+                let span = if let Some(color) = line_color {
+                    ratatui::text::Span::styled(
+                        &content[last_index..start],
+                        Style::default().fg(color),
+                    )
+                } else {
+                    ratatui::text::Span::raw(&content[last_index..start])
+                };
+                spans.push(span);
             }
 
             // Add highlighted text (only if we haven't already passed this range)
@@ -481,9 +496,14 @@ impl App {
             }
         }
 
-        // Add any remaining unhighlighted text
+        // Add any remaining unhighlighted text (with line color if set)
         if last_index < content.len() {
-            spans.push(ratatui::text::Span::raw(&content[last_index..]));
+            let span = if let Some(color) = line_color {
+                ratatui::text::Span::styled(&content[last_index..], Style::default().fg(color))
+            } else {
+                ratatui::text::Span::raw(&content[last_index..])
+            };
+            spans.push(span);
         }
 
         Line::from(spans)
