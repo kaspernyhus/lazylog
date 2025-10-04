@@ -46,25 +46,6 @@ pub struct App {
     pub streaming_paused: bool,
 }
 
-impl Default for App {
-    fn default() -> Self {
-        Self {
-            running: true,
-            help: Help::new(),
-            app_state: AppState::LogView,
-            events: EventHandler::new(),
-            log_buffer: LogBuffer::default(),
-            viewport: Viewport::default(),
-            input_query: String::new(),
-            search: Search::default(),
-            filter: Filter::default(),
-            display_options: DisplayOptions::default(),
-            highlighter: Highlighter::new(),
-            streaming_paused: false,
-        }
-    }
-}
-
 impl App {
     /// Constructs a new instance of [`App`].
     pub fn new(args: Cli) -> Self {
