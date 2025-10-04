@@ -76,6 +76,12 @@ impl App {
             EventHandler::new()
         };
 
+        let highlighter = if let Some(config_path) = &args.config {
+            Highlighter::from_config(config_path)
+        } else {
+            Highlighter::new()
+        };
+
         let mut app = Self {
             running: true,
             help: Help::new(),

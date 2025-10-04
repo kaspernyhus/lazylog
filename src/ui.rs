@@ -319,7 +319,7 @@ impl App {
                 } else {
                     &line[self.viewport.horizontal_offset..]
                 };
-                self.highlight_line(text)
+                self.highlight_line(line, text, self.viewport.horizontal_offset)
             })
             .collect();
 
@@ -335,70 +335,84 @@ impl App {
         StatefulWidget::render(log_list, area, buf, &mut list_state);
     }
 
-    fn highlight_line<'a>(&self, content: &'a str) -> Line<'a> {
+    fn highlight_line<'a>(&self, full_line: &'a str, visible_text: &'a str, offset: usize) -> Line<'a> {
         // Check if colors are disabled
         if self.display_options.is_enabled("Disable Colors") {
-            return Line::from(content);
+            return Line::from(visible_text);
         }
 
-        let mut patterns_to_highlight = Vec::new();
-
-        for highlight in self.highlighter.get_patterns() {
-            patterns_to_highlight.push((highlight.pattern.clone(), false, highlight.color));
+        // Check for line-level colors first (check against full line)
+        if let Some(line_color) = self.highlighter.get_line_color(full_line) {
+            return Line::from(visible_text).style(Style::default().fg(line_color));
         }
 
-        if self.app_state == AppState::FilterMode {
-            if let Some(pattern) = self.filter.get_filter_pattern() {
-                if !pattern.is_empty() {
-                    patterns_to_highlight.push((
-                        pattern.to_string(),
-                        self.filter.is_case_sensitive(),
-                        Color::Cyan,
-                    ));
+        // Get highlight ranges from highlighter (using full line)
+        let mut highlight_ranges = self.highlighter.get_highlight_ranges(full_line);
+
+        // Add search pattern highlighting (using full line)
+        if let Some(pattern) = self.search.get_pattern() {
+            if !pattern.is_empty() {
+                let ranges = self.find_pattern_ranges(full_line, pattern, self.search.is_case_sensitive());
+                for (start, end) in ranges {
+                    highlight_ranges.push((start, end, Color::Yellow));
                 }
             }
         }
 
-        if let Some(pattern) = self.search.get_pattern() {
-            if !pattern.is_empty() {
-                patterns_to_highlight.push((
-                    pattern.to_string(),
-                    self.search.is_case_sensitive(),
-                    Color::Yellow,
-                ));
+        // Add filter pattern highlighting (using full line)
+        if self.app_state == AppState::FilterMode {
+            if let Some(pattern) = self.filter.get_filter_pattern() {
+                if !pattern.is_empty() {
+                    let ranges = self.find_pattern_ranges(full_line, pattern, self.filter.is_case_sensitive());
+                    for (start, end) in ranges {
+                        highlight_ranges.push((start, end, Color::Cyan));
+                    }
+                }
             }
         }
 
-        if patterns_to_highlight.is_empty() {
-            return Line::from(content);
+        // Adjust ranges for horizontal offset
+        let adjusted_ranges: Vec<(usize, usize, Color)> = highlight_ranges
+            .into_iter()
+            .filter_map(|(start, end, color)| {
+                if end <= offset {
+                    // Range is completely before visible area
+                    None
+                } else if start >= offset {
+                    // Range is in visible area, adjust coordinates
+                    Some((start - offset, end - offset, color))
+                } else {
+                    // Range starts before offset but ends in visible area
+                    Some((0, end - offset, color))
+                }
+            })
+            .collect();
+
+        if adjusted_ranges.is_empty() {
+            return Line::from(visible_text);
         }
 
-        self.apply_highlights(content, patterns_to_highlight)
+        self.build_highlighted_line(visible_text, adjusted_ranges)
     }
 
-    fn apply_highlights<'a>(
+    fn find_pattern_ranges(&self, text: &str, pattern: &str, case_sensitive: bool) -> Vec<(usize, usize)> {
+        let (search_content, search_pattern) = if case_sensitive {
+            (text.to_string(), pattern.to_string())
+        } else {
+            (text.to_lowercase(), pattern.to_lowercase())
+        };
+
+        search_content
+            .match_indices(&search_pattern)
+            .map(|(start, matched)| (start, start + matched.len()))
+            .collect()
+    }
+
+    fn build_highlighted_line<'a>(
         &self,
         content: &'a str,
-        patterns: Vec<(String, bool, Color)>,
+        mut highlight_ranges: Vec<(usize, usize, Color)>,
     ) -> Line<'a> {
-        let mut highlight_ranges = Vec::new();
-
-        for (pattern, case_sensitive, color) in patterns {
-            let (search_content, search_pattern) = if case_sensitive {
-                (content.to_string(), pattern)
-            } else {
-                (content.to_lowercase(), pattern.to_lowercase())
-            };
-
-            let mut start_pos = 0;
-            while let Some(index) = search_content[start_pos..].find(&search_pattern) {
-                let start = start_pos + index;
-                let end = start + search_pattern.len();
-                highlight_ranges.push((start, end, color));
-                start_pos = start + 1; // Move forward to find overlapping matches
-            }
-        }
-
         if highlight_ranges.is_empty() {
             return Line::from(content);
         }
