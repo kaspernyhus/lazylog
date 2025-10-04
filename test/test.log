@@ -1,110 +1,49 @@
-2024-09-16 10:00:01 INFO Starting application server on port 8080
-2024-09-16 10:00:02 DEBUG Database connection pool initialized with 10 connections
-2024-09-16 10:00:03 INFO User login successful: john.doe@example.com
-2024-09-16 10:00:04 WARN Failed authentication attempt from 192.168.1.100
-2024-09-16 10:00:05 ERROR Database timeout - retrying connection in 5 seconds
-2024-09-16 10:00:06 INFO Database connection restored successfully
-2024-09-16 10:00:07 DEBUG Processing HTTP request ID: 12345 from client 192.168.1.50
-2024-09-16 10:00:08 INFO Request completed successfully in 150ms
-2024-09-16 10:00:09 WARN Memory usage at 85% - garbage collection triggered
-2024-09-16 10:00:10 INFO System running normally
-2024-09-16 10:00:11 DEBUG Cache hit for key: user_session_abc123
-2024-09-16 10:00:12 INFO New user registration: jane.smith@example.com
-2024-09-16 10:00:13 ERROR Failed to send email notification: SMTP timeout
-2024-09-16 10:00:14 WARN Rate limit exceeded for IP 10.0.0.5: 100 requests/minute
-2024-09-16 10:00:15 INFO Background job started: daily_cleanup_task
-2024-09-16 10:00:16 DEBUG SQL query executed in 25ms: SELECT * FROM users WHERE active = 1
-2024-09-16 10:00:17 INFO File upload completed: document.pdf (2.5MB)
-2024-09-16 10:00:18 ERROR Invalid API key provided by client 192.168.1.75
-2024-09-16 10:00:19 WARN Disk space low on /var/log partition: 15% remaining
-2024-09-16 10:00:20 INFO Health check passed: all services operational
-2024-09-16 10:00:21 DEBUG Scheduled task executed: backup_user_data
-2024-09-16 10:00:22 INFO Load balancer routed request to server-02
-2024-09-16 10:00:23 ERROR Connection refused to external API: payment_gateway
-2024-09-16 10:00:24 WARN SSL certificate expires in 7 days
-2024-09-16 10:00:25 INFO User logout: john.doe@example.com (session duration: 2h 15m)
-2024-09-16 10:00:26 DEBUG Redis cache updated with new product catalog
-2024-09-16 10:00:27 INFO Order processed successfully: ORDER_789123
-2024-09-16 10:00:28 ERROR Payment processing failed: insufficient funds
-2024-09-16 10:00:29 WARN High CPU usage detected: 92% average over 5 minutes
-2024-09-16 10:00:30 INFO Backup completed successfully: 1.2GB archived
-2024-09-16 10:00:31 DEBUG WebSocket connection established with client_id: ws_456
-2024-09-16 10:00:32 INFO Password reset requested for user: admin@example.com
-2024-09-16 10:00:33 ERROR Database connection lost - attempting reconnection
-2024-09-16 10:00:34 WARN Failed login attempt #3 for user: hacker@malicious.com
-2024-09-16 10:00:35 INFO Security scan completed: 0 vulnerabilities found
-2024-09-16 10:00:36 DEBUG Cron job triggered: send_weekly_reports
-2024-09-16 10:00:37 INFO API response time improved: average 120ms (was 180ms)
-2024-09-16 10:00:38 ERROR File system error: permission denied on /tmp/uploads
-2024-09-16 10:00:39 WARN Queue depth high: 850 messages pending processing
-2024-09-16 10:00:40 INFO Microservice deployment completed: user-service v1.2.3
-2024-09-16 10:00:41 DEBUG Elasticsearch index updated: product_search_v2
-2024-09-16 10:00:42 INFO Mobile app session started: iOS 16.0 user_id:7890
-2024-09-16 10:00:43 ERROR OAuth token validation failed: expired token
-2024-09-16 10:00:44 WARN Network latency spike detected: 500ms to region us-west
-2024-09-16 10:00:45 INFO CDN cache purged for domain: static.example.com
-2024-09-16 10:00:46 DEBUG Message queue consumer processed 100 items
-2024-09-16 10:00:47 INFO Customer support ticket created: TICKET_555
-2024-09-16 10:00:48 ERROR Third-party integration timeout: analytics_service
-2024-09-16 10:00:49 WARN Auto-scaling triggered: adding 2 additional instances
-2024-09-16 10:00:50 INFO Real-time dashboard updated: 1,247 active users
-2024-09-16 10:00:51 DEBUG Configuration reload completed: feature_flags.json
-2024-09-16 10:00:52 INFO Search query executed: "machine learning tutorials" (0.05s)
-2024-09-16 10:00:53 ERROR Image processing failed: unsupported format .webp
-2024-09-16 10:00:54 WARN Concurrent user limit approaching: 950/1000
-2024-09-16 10:00:55 INFO Video encoding completed: tutorial_video.mp4 (1080p)
-2024-09-16 10:00:56 DEBUG Log rotation performed: archived 500MB of old logs
-2024-09-16 10:00:57 INFO A/B test results: variant B shows 12% improvement
-2024-09-16 10:00:58 ERROR Webhook delivery failed: endpoint unreachable
-2024-09-16 10:00:59 WARN Database slow query detected: 3.2s execution time
-2024-09-16 10:01:00 INFO Scheduled maintenance window starts in 4 hours
-2024-09-16 10:01:01 DEBUG Cache warming completed: 10,000 popular items preloaded
-2024-09-16 10:01:02 INFO User preference updated: dark_mode enabled
-2024-09-16 10:01:03 ERROR GDPR data deletion request processing failed
-2024-09-16 10:01:04 WARN Fraud detection triggered for transaction: TXN_9876
-2024-09-16 10:01:05 INFO Newsletter sent successfully to 15,000 subscribers
-2024-09-16 10:01:06 DEBUG Thread pool size adjusted: 50 -> 75 workers
-2024-09-16 10:01:07 INFO Two-factor authentication enabled for admin@example.com
-2024-09-16 10:01:08 ERROR Backup verification failed: checksum mismatch
-2024-09-16 10:01:09 WARN Session cleanup removed 200 expired sessions
-2024-09-16 10:01:10 INFO Report generation completed: monthly_analytics.pdf
-2024-09-16 10:01:11 DEBUG Metrics collection interval updated to 30 seconds
-2024-09-16 10:01:12 INFO Feature flag toggled: new_checkout_flow = true
-2024-09-16 10:01:13 ERROR Memory leak detected in image_processor module
-2024-09-16 10:01:14 WARN DNS resolution slow for external_api.service.com
-2024-09-16 10:01:15 INFO Machine learning model retrained: accuracy 94.2%
-2024-09-16 10:01:16 DEBUG Docker container started: worker_instance_08
-2024-09-16 10:01:17 INFO User feedback submitted: 5-star rating with comment
-2024-09-16 10:01:18 ERROR License validation failed: expired enterprise license
-2024-09-16 10:01:19 WARN Anomaly detected in user behavior: unusual location
-2024-09-16 10:01:20 INFO System restart scheduled for 03:00 AM maintenance
-2024-09-16 10:01:21 DEBUG Profiler data collected: top 10 bottlenecks identified
-2024-09-16 10:01:22 INFO New API endpoint deployed: /api/v2/recommendations
-2024-09-16 10:01:23 ERROR Circuit breaker opened for payment_processor service
-2024-09-16 10:01:24 WARN Temperature warning: server room at 28°C
-2024-09-16 10:01:25 INFO Customer onboarding completed: welcome email sent
-2024-09-16 10:01:26 DEBUG Load test completed: 1000 concurrent users handled
-2024-09-16 10:01:27 INFO Data export request fulfilled: user_data_export.zip
-2024-09-16 10:01:28 ERROR SSL handshake failed with client 203.0.113.42
-2024-09-16 10:01:29 WARN Retry limit exceeded for message_id: msg_12345
-2024-09-16 10:01:30 INFO Inventory sync completed: 50,000 products updated
-2024-09-16 10:01:31 DEBUG Performance monitoring alert: response time > 500ms
-2024-09-16 10:01:32 INFO Comment moderation completed: 25 comments approved
-2024-09-16 10:01:33 ERROR Encryption key rotation failed: HSM unreachable
-2024-09-16 10:01:34 WARN Bandwidth utilization high: 85% of allocated capacity
-2024-09-16 10:01:35 INFO Push notification sent to 5,000 mobile devices
-2024-09-16 10:01:36 DEBUG Garbage collection completed: 200MB memory freed
-2024-09-16 10:01:37 INFO Competitor price monitoring update: 500 products checked
-2024-09-16 10:01:38 ERROR Data validation failed: invalid phone number format
-2024-09-16 10:01:39 WARN CDN edge server offline: routing to backup location
-2024-09-16 10:01:40 INFO Social media integration successful: 10 posts synchronized
-2024-09-16 10:01:41 DEBUG Index optimization completed: query performance improved 40%
-2024-09-16 10:01:42 INFO Customer survey response collected: NPS score 8/10
-2024-09-16 10:01:43 ERROR Blockchain transaction failed: network congestion
-2024-09-16 10:01:44 WARN Resource utilization alert: 90% memory usage
-2024-09-16 10:01:45 INFO Live chat session ended: customer issue resolved
-2024-09-16 10:01:46 DEBUG WebRTC connection established for video call
-2024-09-16 10:01:47 INFO Content delivery optimization: 15% faster load times
-2024-09-16 10:01:48 ERROR Microservice health check failed: order-service timeout
-2024-09-16 10:01:49 WARN Suspicious activity detected: rapid API calls from 10.0.0.100
-2024-09-16 10:01:50 INFO System monitoring dashboard updated: all green indicators
+2024-01-15T10:30:45 INFO Server starting on port :8080
+2024-01-15T10:30:46 INFO Loading configuration from /etc/myapp/config.yaml
+2024-01-15T10:30:47 DEBUG Connecting to database at 192.168.1.100:5432
+2024-01-15T10:30:48 INFO Database connection established successfully with connection pool size=50, timeout=30s, max_lifetime=1800s
+2024-01-15T10:30:49 INFO Application started successfully - environment=production, version=2.5.1, build=abc123def456, deployed_at=2024-01-15T08:00:00Z
+2024-01-15T10:31:12 WARNING Cache miss for key: user_profile_12345, fetching from database (query_time=45ms, cache_hit_ratio=0.87)
+2024-01-15T10:31:15 INFO HTTP 200 GET /api/users/12345 - response_time=123ms, user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", client_ip=203.0.113.45
+2024-01-15T10:31:18 ERROR Failed to connect to external service at https://api.example.com/data - network unreachable, DNS resolution failed for api.example.com, attempted endpoints: [192.168.1.50:443, 192.168.1.51:443]
+2024-01-15T10:31:18 ERROR Connection timeout after 30s - retry_count=3, backoff_strategy=exponential, next_retry_in=60s, circuit_breaker_state=open
+2024-01-15T10:31:20 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
+2024-01-15T10:31:22 CRITICAL Database pool exhausted, max connections: 100 - waiting_requests=250, avg_wait_time=5.2s, connections_in_use=100, idle_connections=0, consider increasing pool size
+2024-01-15T10:31:23 ERROR Exception in request handler: NullPointerException at line 42 - request_id=req_a1b2c3d4, session_id=sess_xyz789, user_id=12345, endpoint=/api/orders, method=POST
+2024-01-15T10:31:23 ERROR   at com.example.service.OrderService.process(OrderService.java:42) - stacktrace_hash=8f7e6d5c, error_count_last_hour=15, similar_errors_today=47
+2024-01-15T10:31:25 WARNING Retrying request, attempt 1/3 - endpoint=https://payment-gateway.example.com/charge, amount=99.99, currency=USD, merchant_id=MERCH_12345
+2024-01-15T10:31:28 INFO HTTP 201 POST /api/orders (retry successful) - order_created=ORD-2024-001235, items_count=3, total_amount=299.97, payment_status=pending, shipping_address="123 Main St, City, ST 12345"
+2024-01-15T10:31:30 DEBUG Session created: f7b3c4d2-8e9a-4b1c-9d2e-3f4a5b6c7d8e - user_id=12345, session_duration=3600s, device_fingerprint=fp_abc123, geolocation="40.7128,-74.0060", browser="Chrome/120.0"
+2024-01-15T10:31:35 TRACE Query executed in 145ms: SELECT u.*, p.preferences, o.order_count FROM users u LEFT JOIN profiles p ON u.id=p.user_id LEFT JOIN (SELECT user_id, COUNT(*) as order_count FROM orders GROUP BY user_id) o ON u.id=o.user_id WHERE u.id = 12345
+2024-01-15T10:31:40 INFO User 12345 logged in from 203.0.113.45 - username="john.doe@example.com", authentication_method=oauth2, provider=google, mfa_enabled=true, login_count_today=3
+2024-01-15T10:31:45 WARNING Rate limit exceeded for IP 203.0.113.45 - requests_in_window=1500/1000, window_duration=60s, blocked_until=2024-01-15T10:32:45, endpoint=/api/search, user_agent="custom-bot/1.0"
+2024-01-15T10:31:48 ERROR HTTP 429 GET /api/data - Too many requests from IP 203.0.113.45, rate_limit_policy=strict, quota_reset_in=57s, upgrade_url="https://example.com/pricing"
+2024-01-15T10:31:50 INFO Cache cleared, freed 256MB - cache_type=redis, keys_cleared=15432, eviction_policy=lru, memory_before=512MB, memory_after=256MB, operation_duration=234ms
+2024-01-15T10:31:55 FATAL Unrecoverable error in core module - component=OrderProcessor, error=SegmentationFault, memory_address=0x00007fff5fbff000, core_dump_saved=/var/crashes/core.12345
+2024-01-15T10:31:55 FATAL System shutdown initiated - reason=critical_error, graceful_shutdown_timeout=30s, active_connections=47, pending_tasks=123, backup_status=in_progress
+2024-01-15T10:31:56 INFO Service stopped gracefully - uptime=14d 6h 32m, total_requests_served=15234567, avg_response_time=87ms, error_rate=0.003%, peak_memory_usage=2.1GB
+2024-01-15T10:32:01 INFO server1 systemd[1]: Starting application service - service_version=2.5.1, start_timeout=90s, restart_policy=always, max_restarts=5
+2024-01-15T10:32:02 INFO server1 app[1234]: Listening on 192.168.0.2:3000 - workers=8, pid=1234, worker_pids=[1235,1236,1237,1238,1239,1240,1241,1242], load_balancer=round_robin
+2024-01-15T10:32:05 INFO server1 app[1234]: Worker process 5678 started - cpu_affinity=cores[0-3], memory_limit=512MB, queue_depth=1000, health_check_interval=10s
+2024-01-15T10:32:10 INFO server1 app[1234]: Request failed with status 404 - path=/api/v1/legacy/endpoint, referer="https://old-client.example.com/page", suggestion="use /api/v2/new-endpoint instead"
+2024-01-15T10:32:15 INFO server1 app[1234]: WARNING: Disk space low on /var/data - available=2.1GB, total=50GB, used=47.9GB, usage_percent=95.8%, largest_files=[logs/app.log:15GB, cache/assets:12GB]
+2024-01-15T10:32:20 INFO server1 kernel: [12345.678] Out of memory: process killed - process=node, pid=9876, oom_score=800, memory_usage=4.2GB, total_system_memory=4GB, swap_used=100%
+2024-01-15T10:32:25 DEBUG Initializing metrics collector - prometheus_port=:9090, scrape_interval=15s, retention_period=30d, storage_path=/var/lib/metrics, tsdb_size=10GB
+2024-01-15T10:32:30 INFO Background job started: data_cleanup_task - schedule="0 2 * * *", target_tables=[sessions, temp_uploads, expired_tokens], expected_duration=45m, last_run=2024-01-14T02:00:00Z
+2024-01-15T10:32:35 ERROR Failed to send notification email to customer@example.com - smtp_host=smtp.gmail.com:587, error="Authentication failed", retry_queue_length=156, will_retry_in=300s
+2024-01-15T10:32:40 WARNING SSL certificate for *.example.com expires in 7 days - expiry_date=2024-01-22T23:59:59Z, issuer="Let's Encrypt", renewal_url="https://certbot.eff.org/", auto_renewal_enabled=false
+2024-01-15T10:32:45 INFO Scheduled backup completed successfully - backup_type=incremental, destination=s3://backups/prod/2024-01-15/, size=15.2GB, duration=1234s, files_backed_up=45678, compression_ratio=0.42
+2024-01-15T10:32:50 DEBUG WebSocket connection established - client_id=ws_abc123, protocol_version=13, compression=true, heartbeat_interval=30s, max_message_size=1MB, endpoint=/ws/realtime
+2024-01-15T10:32:55 ERROR Payment processing failed for order ORD-2024-001236 - payment_gateway=stripe, decline_reason="insufficient_funds", amount=149.99, currency=EUR, customer_id=CUST_789, card_last4=4242
+2024-01-15T10:33:00 WARNING High memory usage detected - current=3.2GB, threshold=3.0GB, available=0.8GB, swap_usage=2.1GB, top_processes=[java:1.2GB, postgres:0.8GB, redis:0.5GB], gc_pressure=high
+2024-01-15T10:33:05 INFO API request completed - method=POST, path=/api/v2/analytics/events, status=201, duration=234ms, request_size=45KB, response_size=512B, user_id=12345, api_key_id=key_prod_xyz789
+2024-01-15T10:33:10 CRITICAL Circuit breaker opened for service payment_processor - failure_rate=65%, threshold=50%, failures_last_minute=195/300, half_open_timeout=30s, fallback_strategy=queue_for_retry
+2024-01-15T10:33:15 DEBUG Cache warming completed - cache_type=application, preloaded_keys=10000, hit_rate_improvement=+15%, warming_duration=12.5s, memory_allocated=128MB, eviction_candidates=0
+2024-01-15T10:33:20 INFO Database migration applied successfully - version=20240115_001_add_user_preferences, direction=up, duration=5.2s, tables_modified=[users, user_settings], rows_affected=125000
+2024-01-15T10:33:25 ERROR Failed to acquire distributed lock for task process_payments - lock_key=lock:payments:batch_001, holder=worker-node-03, ttl=300s, retry_strategy=exponential_backoff, max_attempts=5
+2024-01-15T10:33:30 WARNING Query performance degraded - query_hash=qh_abc123, avg_execution_time=2.5s, normal_execution_time=150ms, slowdown_factor=16.7x, affected_indexes=[idx_users_email, idx_orders_status]
+2024-01-15T10:33:35 INFO Feature flag updated - flag_name=enable_new_checkout, old_value=false, new_value=true, rollout_percentage=25%, target_segments=[beta_users, premium_customers], updated_by=admin@example.com
+2024-01-15T10:33:40 DEBUG Elasticsearch reindex completed - source_index=products_v1, destination_index=products_v2, documents_processed=500000, duration=1245s, conflicts_resolved=23, mapping_version=2.0
+2024-01-15T10:33:45 ERROR Webhook delivery failed - webhook_id=wh_evt_abc123, destination_url="https://customer-api.example.com/webhooks", event_type=order.created, http_status=503, retry_count=3/5, next_retry_in=120s
+2024-01-15T10:33:50 INFO Load balancer health check passed - backend_servers=8, healthy_servers=8, unhealthy_servers=0, avg_response_time=45ms, checks_per_interval=60, interval=10s
+2024-01-15T10:33:55 WARNING Anomaly detected in user behavior - user_id=54321, anomaly_type=location_change, previous_location="New York, US", current_location="Tokyo, JP", time_difference=15m, confidence=0.92
