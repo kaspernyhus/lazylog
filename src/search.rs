@@ -157,6 +157,26 @@ impl Search {
         }
     }
 
+    pub fn first_match_from(&mut self, current_line: usize) -> Option<usize> {
+        if self.match_indices.is_empty() {
+            return None;
+        }
+
+        // Find the first match at or after the current line
+        if let Some(next_index) = self
+            .match_indices
+            .iter()
+            .position(|&pos| pos >= current_line)
+        {
+            self.current_match_index = next_index;
+            Some(self.match_indices[self.current_match_index])
+        } else {
+            // No match at or after current line, wrap to first match
+            self.current_match_index = 0;
+            Some(self.match_indices[self.current_match_index])
+        }
+    }
+
     pub fn previous_match(&mut self, current_line: usize) -> Option<usize> {
         if self.match_indices.is_empty() {
             return None;
