@@ -162,12 +162,22 @@ impl App {
         filter_bar.render(area, buf);
     }
 
-    fn render_edit_filter_bar(&self, area: Rect, buf: &mut Buffer) {
-        let edit_prompt = format!("Edit filter: {}", self.input_query);
-        let edit_bar = Paragraph::new(edit_prompt)
-            .style(Style::default().bg(GRAY_COLOR))
+    fn render_edit_filter_popup(&self, area: Rect, buf: &mut Buffer) {
+        Clear.render(area, buf);
+
+        let edit_prompt = self.input_query.clone();
+        let popup = Paragraph::new(edit_prompt)
+            .block(
+                Block::default()
+                    .title(" Edit Filter ")
+                    .title_alignment(Alignment::Center)
+                    .borders(ratatui::widgets::Borders::ALL)
+                    .border_style(Style::default().fg(Color::White)),
+            )
+            .style(Style::default().fg(Color::White))
             .alignment(Alignment::Left);
-        edit_bar.render(area, buf);
+
+        popup.render(area, buf);
     }
 
     fn render_filter_list_popup(&self, area: Rect, buf: &mut Buffer) {
@@ -497,7 +507,6 @@ impl Widget for &App {
             AppState::SearchMode => self.render_search_bar(bottom, buf),
             AppState::GotoLineMode => self.render_goto_line_bar(bottom, buf),
             AppState::FilterMode => self.render_filter_bar(bottom, buf),
-            AppState::EditFilterMode => self.render_edit_filter_bar(bottom, buf),
             AppState::SaveToFileMode => self.render_save_to_file_bar(bottom, buf),
             _ => self.render_footer(bottom, buf),
         }
@@ -506,6 +515,10 @@ impl Widget for &App {
         if self.app_state == AppState::FilterListView {
             let filter_area = popup_area(area, 50, 20);
             self.render_filter_list_popup(filter_area, buf);
+        }
+        if self.app_state == AppState::EditFilterMode {
+            let edit_area = popup_area(area, 60, 3);
+            self.render_edit_filter_popup(edit_area, buf);
         }
         if self.app_state == AppState::OptionsView {
             let options_area = popup_area(area, 40, 10);
