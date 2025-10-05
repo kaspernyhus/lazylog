@@ -7,6 +7,7 @@ use ratatui::widgets::{
     StatefulWidget, Widget,
 };
 
+/// Manages the help popup display with keybindings and navigation.
 #[derive(Debug, Default)]
 pub struct Help {
     selected_index: usize,
@@ -14,22 +15,31 @@ pub struct Help {
     visible: bool,
 }
 
+/// Type of help item.
 #[derive(Debug, Default, PartialEq)]
 pub enum HelpItemType {
+    /// A keybinding with key and description.
     #[default]
     Keybind,
+    /// A section header.
     Header,
+    /// An empty line for spacing.
     Empty,
 }
 
+/// A single help item entry.
 #[derive(Debug, Default)]
 pub struct HelpItem {
+    /// The key or header text.
     pub key: String,
+    /// Description of what the key does.
     pub description: String,
+    /// Type of this help item.
     pub item_type: HelpItemType,
 }
 
 impl HelpItem {
+    /// Creates a new help item.
     pub fn new(key: &str, description: &str, item_type: HelpItemType) -> Self {
         Self {
             key: key.to_string(),
@@ -38,16 +48,19 @@ impl HelpItem {
         }
     }
 
+    /// Returns whether this item can be selected (only keybindings are selectable).
     pub fn is_selectable(&self) -> bool {
         self.item_type == HelpItemType::Keybind
     }
 
+    /// Returns whether this item is a header.
     pub fn is_header(&self) -> bool {
         self.item_type == HelpItemType::Header
     }
 }
 
 impl Help {
+    /// Creates a new Help instance with all keybinding documentation.
     pub fn new() -> Self {
         let help_items = vec![
             // LogView Mode section (no empty line above first header)
@@ -110,15 +123,18 @@ impl Help {
         }
     }
 
+    /// Toggles help visibility and resets selection.
     pub fn toggle_visibility(&mut self) {
         self.visible = !self.visible;
         self.reset();
     }
 
+    /// Returns whether the help popup is currently visible.
     pub fn is_visible(&self) -> bool {
         self.visible
     }
 
+    /// Finds the next selectable item in the given direction.
     fn find_next_selectable(&self, start: usize, direction: i32) -> Option<usize> {
         let len = self.help_items.len();
         let mut current = start as i32;
@@ -137,18 +153,21 @@ impl Help {
         }
     }
 
+    /// Moves selection to the previous selectable item.
     pub fn move_up(&mut self) {
         if let Some(new_index) = self.find_next_selectable(self.selected_index, -1) {
             self.selected_index = new_index;
         }
     }
 
+    /// Moves selection to the next selectable item.
     pub fn move_down(&mut self) {
         if let Some(new_index) = self.find_next_selectable(self.selected_index, 1) {
             self.selected_index = new_index;
         }
     }
 
+    /// Resets selection to the first selectable item.
     pub fn reset(&mut self) {
         for i in 0..self.help_items.len() {
             if self.help_items[i].is_selectable() {
@@ -159,6 +178,7 @@ impl Help {
         self.selected_index = 0;
     }
 
+    /// Returns formatted display lines for rendering.
     pub fn get_display_lines(&self) -> Vec<Line<'static>> {
         self.help_items
             .iter()
@@ -177,6 +197,7 @@ impl Help {
             .collect()
     }
 
+    /// Renders the help popup to the buffer.
     pub fn render(&self, popup_area: Rect, buf: &mut Buffer) {
         Clear.render(popup_area, buf);
 
