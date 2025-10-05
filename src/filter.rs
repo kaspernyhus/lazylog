@@ -33,35 +33,11 @@ pub struct FilterList {
 #[derive(Debug, Default)]
 pub struct Filter {
     filter_list: FilterList,
-    filter_pattern: Option<String>,
     filter_mode: FilterMode,
     case_sensitive: bool,
 }
 
 impl Filter {
-    pub fn set_filter_pattern(&mut self, pattern: String) {
-        self.filter_pattern = Some(pattern);
-    }
-
-    pub fn update_filter_pattern(&mut self, input: &str, min_chars: usize) {
-        if input.is_empty() {
-            self.clear_filter_pattern();
-            return;
-        }
-
-        if input.len() >= min_chars {
-            self.set_filter_pattern(input.to_string());
-        }
-    }
-
-    pub fn get_filter_pattern(&self) -> Option<&str> {
-        self.filter_pattern.as_deref()
-    }
-
-    pub fn clear_filter_pattern(&mut self) {
-        self.filter_pattern = None;
-    }
-
     pub fn toggle_mode(&mut self) {
         self.filter_mode = match self.filter_mode {
             FilterMode::Include => FilterMode::Exclude,
@@ -89,7 +65,6 @@ impl Filter {
                 self.case_sensitive,
             ));
         }
-        self.clear_filter_pattern();
     }
 
     fn pattern_exists(&self, pattern: &str, mode: FilterMode) -> bool {

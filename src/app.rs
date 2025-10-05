@@ -100,15 +100,19 @@ impl App {
         if use_stdin {
             app.log_buffer.init_stdin_mode();
             app.viewport.follow_mode = true;
-        } else if let Some(file_path) = args.file {
-            let error = app.log_buffer.load_from_file(file_path.as_str());
-            if let Err(e) = error {
-                app.app_state = AppState::ErrorState(format!(
-                    "Failed to load file: {}\nError: {}",
-                    file_path, e
-                ));
-            } else {
-                app.update_view();
+            app.update_view();
+            return app;
+        }
+
+        if let Some(file_path) = args.file {
+            match app.log_buffer.load_from_file(file_path.as_str()) {
+                Ok(_) => app.update_view(),
+                Err(e) => {
+                    app.app_state = AppState::ErrorState(format!(
+                        "Failed to load file: {}\nError: {}",
+                        file_path, e
+                    ))
+                }
             }
         }
 
@@ -192,9 +196,7 @@ impl App {
                             self.next_state(AppState::LogView);
                         }
                         AppState::FilterMode => {
-                            if self.input_query.is_empty() {
-                                self.filter.clear_filter_pattern();
-                            } else {
+                            if !self.input_query.is_empty() {
                                 self.filter.add_filter(self.input_query.clone());
                                 self.update_view();
                             }
@@ -255,7 +257,6 @@ impl App {
                                 self.next_state(AppState::LogView);
                             }
                             AppState::FilterMode => {
-                                self.filter.clear_filter_pattern();
                                 self.next_state(AppState::LogView);
                             }
                             AppState::LogView => {
@@ -358,9 +359,6 @@ impl App {
                     }
                     AppEvent::ToggleFilterMode => {
                         self.filter.toggle_mode();
-                        if self.filter.get_filter_pattern().is_some() {
-                            self.log_buffer.apply_filters(&self.filter);
-                        }
                     }
                     AppEvent::ActivateFilterListView => {
                         self.next_state(AppState::FilterListView);
@@ -529,11 +527,9 @@ impl App {
                 KeyCode::Delete => self.events.send(AppEvent::RemoveFilterPattern),
                 KeyCode::Backspace => {
                     self.input_query.pop();
-                    self.filter.update_filter_pattern(&self.input_query, 2);
                 }
                 KeyCode::Char(c) => {
                     self.input_query.push(c);
-                    self.filter.update_filter_pattern(&self.input_query, 2);
                 }
                 _ => {}
             },
