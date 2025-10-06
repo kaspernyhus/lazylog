@@ -153,6 +153,44 @@ impl App {
         self.app_state = state;
     }
 
+    fn update_temporary_highlights(&mut self) {
+        self.highlighter.clear_temporary_highlights();
+
+        // Add filter mode preview highlight
+        if (self.app_state == AppState::FilterMode || self.app_state == AppState::EditFilterMode)
+            && self.input_query.len() >= 2
+        {
+            self.highlighter.add_temporary_highlight(
+                self.input_query.clone(),
+                ratatui::style::Color::Black,
+                Some(ratatui::style::Color::Cyan),
+                self.filter.is_case_sensitive(),
+            );
+        }
+
+        // Add search mode preview highlight
+        if self.app_state == AppState::SearchMode && self.input_query.len() >= 2 {
+            self.highlighter.add_temporary_highlight(
+                self.input_query.clone(),
+                ratatui::style::Color::Black,
+                Some(ratatui::style::Color::Yellow),
+                self.search.is_case_sensitive(),
+            );
+        }
+
+        // Add active search highlight
+        if let Some(pattern) = self.search.get_active_pattern() {
+            if !pattern.is_empty() && self.app_state != AppState::SearchMode {
+                self.highlighter.add_temporary_highlight(
+                    pattern.to_string(),
+                    ratatui::style::Color::Black,
+                    Some(ratatui::style::Color::Yellow),
+                    self.search.is_case_sensitive(),
+                );
+            }
+        }
+    }
+
     /// Run the application's main loop.
     pub async fn run<B: Backend>(mut self, mut terminal: Terminal<B>) -> color_eyre::Result<()> {
         let terminal_size = terminal.size()?;
@@ -607,7 +645,9 @@ impl App {
     ///
     /// The tick event is where you can update the state of your application with any logic that
     /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
-    pub fn tick(&self) {}
+    pub fn tick(&mut self) {
+        self.update_temporary_highlights()
+    }
 
     /// Set running to false to quit the application.
     pub fn quit(&mut self) {

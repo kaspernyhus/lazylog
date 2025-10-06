@@ -353,65 +353,17 @@ impl App {
     ) -> Line<'a> {
         let colors_disabled = self.display_options.is_enabled("Disable Colors");
 
-        let mut ranges_with_style: Vec<(usize, usize, Color, Option<Color>)> = Vec::new();
         let line_color = if !colors_disabled {
             self.highlighter.get_line_color(full_line)
         } else {
             None
         };
 
-        if !colors_disabled {
-            let highlight_ranges = self.highlighter.get_highlight_ranges(full_line);
-            ranges_with_style = highlight_ranges
-                .into_iter()
-                .map(|(start, end, color)| (start, end, color, None))
-                .collect();
-        }
-
-        if self.app_state == AppState::FilterMode && !self.input_query.is_empty() {
-            let ranges = self.find_pattern_ranges(
-                full_line,
-                &self.input_query,
-                self.filter.is_case_sensitive(),
-            );
-            for (start, end) in ranges {
-                ranges_with_style.push((start, end, Color::Black, Some(Color::Cyan)));
-            }
-        }
-
-        if self.app_state == AppState::EditFilterMode && self.input_query.len() >= 2 {
-            let ranges = self.find_pattern_ranges(
-                full_line,
-                &self.input_query,
-                self.filter.is_case_sensitive(),
-            );
-            for (start, end) in ranges {
-                ranges_with_style.push((start, end, Color::Black, Some(Color::Cyan)));
-            }
-        }
-
-        // Highlight search pattern while typing in SearchMode
-        if self.app_state == AppState::SearchMode && !self.input_query.is_empty() {
-            let ranges = self.find_pattern_ranges(
-                full_line,
-                &self.input_query,
-                self.search.is_case_sensitive(),
-            );
-            for (start, end) in ranges {
-                ranges_with_style.push((start, end, Color::Black, Some(Color::Yellow)));
-            }
-        }
-
-        // Highlight active search pattern when search is applied
-        if let Some(pattern) = self.search.get_active_pattern() {
-            if !pattern.is_empty() && self.app_state != AppState::SearchMode {
-                let ranges =
-                    self.find_pattern_ranges(full_line, pattern, self.search.is_case_sensitive());
-                for (start, end) in ranges {
-                    ranges_with_style.push((start, end, Color::Black, Some(Color::Yellow)));
-                }
-            }
-        }
+        let ranges_with_style = if !colors_disabled {
+            self.highlighter.get_all_highlight_ranges(full_line)
+        } else {
+            Vec::new()
+        };
 
         // Adjust ranges for horizontal offset
         let adjusted_ranges: Vec<(usize, usize, Color, Option<Color>)> = ranges_with_style
@@ -435,24 +387,6 @@ impl App {
         }
 
         self.build_highlighted_line(visible_text, adjusted_ranges, line_color)
-    }
-
-    fn find_pattern_ranges(
-        &self,
-        text: &str,
-        pattern: &str,
-        case_sensitive: bool,
-    ) -> Vec<(usize, usize)> {
-        let (search_content, search_pattern) = if case_sensitive {
-            (text.to_string(), pattern.to_string())
-        } else {
-            (text.to_lowercase(), pattern.to_lowercase())
-        };
-
-        search_content
-            .match_indices(&search_pattern)
-            .map(|(start, matched)| (start, start + matched.len()))
-            .collect()
     }
 
     fn build_highlighted_line<'a>(
