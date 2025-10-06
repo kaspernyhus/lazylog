@@ -2,13 +2,17 @@ use crate::config::{Config, HighlightConfig, LineColorConfig};
 use ratatui::style::Color;
 use regex::Regex;
 
+/// Pattern matching strategy for text highlighting.
 #[derive(Debug, Clone)]
 pub enum PatternMatcher {
+    /// Plain string matching.
     Plain(String),
+    /// Regular expression matching.
     Regex(Regex),
 }
 
 impl PatternMatcher {
+    /// Checks if the pattern matches the given text.
     pub fn matches(&self, text: &str) -> bool {
         match self {
             PatternMatcher::Plain(s) => text.contains(s),
@@ -16,6 +20,9 @@ impl PatternMatcher {
         }
     }
 
+    /// Finds all occurrences of the pattern in the text.
+    ///
+    /// Returns a list of (start, end) byte positions for each match.
     pub fn find_all(&self, text: &str) -> Vec<(usize, usize)> {
         match self {
             PatternMatcher::Plain(s) => text
@@ -27,27 +34,37 @@ impl PatternMatcher {
     }
 }
 
+/// Pattern with associated color for text highlighting.
 #[derive(Debug, Clone)]
 pub struct HighlightPattern {
+    /// Matcher to identify text spans to highlight.
     pub matcher: PatternMatcher,
+    /// Color to apply to matched text.
     pub color: Color,
 }
 
+/// Pattern with associated color for line coloring.
 #[derive(Debug, Clone)]
 pub struct LineColorPattern {
+    /// Matcher to identify lines to color.
     pub matcher: PatternMatcher,
+    /// Color to apply to matched lines.
     pub color: Color,
 }
 
+/// Manages text highlighting and line coloring based on configured patterns.
 #[derive(Debug)]
 pub struct Highlighter {
+    /// Patterns for text highlighting.
     patterns: Vec<HighlightPattern>,
+    /// Patterns for line coloring.
     line_colors: Vec<LineColorPattern>,
 }
 
 impl Highlighter {
+    /// Creates a new highlighter from configuration.
     pub fn new(config: &Config) -> Self {
-        let patterns = Self::assign_colors(config.highlight_patterns.clone());
+        let patterns = Self::parse_highlight_patterns(config.highlight_patterns.clone());
         let line_colors = Self::parse_line_colors(config.line_colors.clone());
         Self {
             patterns,
@@ -55,11 +72,15 @@ impl Highlighter {
         }
     }
 
+    /// Returns whether there are no highlight or line color patterns.
     pub fn is_empty(&self) -> bool {
         self.patterns.is_empty() && self.line_colors.is_empty()
     }
 
-    fn assign_colors(configs: Vec<HighlightConfig>) -> Vec<HighlightPattern> {
+    /// Converts highlight configurations into patterns with assigned colors.
+    ///
+    /// Uses explicit color if provided, otherwise generates a deterministic color from pattern hash.
+    fn parse_highlight_patterns(configs: Vec<HighlightConfig>) -> Vec<HighlightPattern> {
         configs
             .into_iter()
             .filter_map(|config| {
@@ -82,6 +103,9 @@ impl Highlighter {
             .collect()
     }
 
+    /// Converts line color configurations into patterns.
+    ///
+    /// Filters out configurations with invalid colors or regex patterns.
     fn parse_line_colors(configs: Vec<LineColorConfig>) -> Vec<LineColorPattern> {
         configs
             .into_iter()
@@ -100,6 +124,9 @@ impl Highlighter {
             .collect()
     }
 
+    /// Parses a color name string into a Color.
+    ///
+    /// Returns `None` for unrecognized color names.
     fn parse_color(color_str: &str) -> Option<Color> {
         match color_str.to_lowercase().as_str() {
             "red" => Some(Color::Red),
@@ -122,31 +149,32 @@ impl Highlighter {
         }
     }
 
+    /// Generates a deterministic bright color from a pattern string using djb2 hash.
     fn hash_to_color(pattern: &str) -> Color {
         let mut hash: u32 = 5381;
         for byte in pattern.bytes() {
             hash = hash.wrapping_mul(33).wrapping_add(byte as u32);
         }
 
-        // Map to brighter color indices, avoiding dark colors
-        // Using ranges: 82-87 (bright greens/cyans), 118-123 (bright greens),
-        // 154-159 (greens), 190-195 (yellows), 196-201 (oranges/reds),
-        // 202-207 (reds/pinks), 208-213 (pinks), 214-219 (pinks/purples),
-        // 220-225 (purples), 226-231 (yellows)
         let bright_ranges = [82, 118, 154, 190, 196, 202, 208, 214, 220, 226];
         let range_start = bright_ranges[(hash as usize) % bright_ranges.len()];
         let color_index = range_start + (hash % 6) as u8;
         Color::Indexed(color_index)
     }
 
+    /// Returns all highlight patterns.
     pub fn get_patterns(&self) -> &[HighlightPattern] {
         &self.patterns
     }
 
+    /// Returns all line color patterns.
     pub fn get_line_colors(&self) -> &[LineColorPattern] {
         &self.line_colors
     }
 
+    /// Returns the color for a line if it matches any line color pattern.
+    ///
+    /// Returns the first matching pattern's color, or `None` if no pattern matches.
     pub fn get_line_color(&self, text: &str) -> Option<Color> {
         for line_color in &self.line_colors {
             if line_color.matcher.matches(text) {
@@ -156,6 +184,9 @@ impl Highlighter {
         None
     }
 
+    /// Finds all highlight ranges in the given text.
+    ///
+    /// Returns a list of (start, end, color) tuples for each match.
     pub fn get_highlight_ranges(&self, text: &str) -> Vec<(usize, usize, Color)> {
         let mut ranges = Vec::new();
         for pattern in &self.patterns {
