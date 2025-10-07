@@ -42,6 +42,21 @@ pub struct TemporaryHighlight {
     pub case_sensitive: bool,
 }
 
+/// Styled range for rendering.
+#[derive(Debug, Clone)]
+pub struct StyledRange {
+    /// Start position in text.
+    pub start: usize,
+    /// End position in text.
+    pub end: usize,
+    /// Foreground color.
+    pub fg_color: Color,
+    /// Background color.
+    pub bg_color: Option<Color>,
+    /// Whether text should be bold.
+    pub bold: bool,
+}
+
 /// Manages text highlighting and line coloring based on configured patterns.
 #[derive(Debug)]
 pub struct Highlighter {
@@ -230,6 +245,56 @@ impl Highlighter {
         }
 
         ranges
+    }
+
+    /// Returns styled ranges adjusted for horizontal offset, ready for rendering.
+    ///
+    /// Returns (styled_ranges, line_color).
+    pub fn get_styled_ranges_for_viewport(
+        &self,
+        full_line: &str,
+        horizontal_offset: usize,
+    ) -> (Vec<StyledRange>, Option<Color>) {
+        let line_color = self.get_line_color(full_line);
+        let ranges = self.get_all_highlight_ranges(full_line);
+
+        // Adjust ranges for horizontal offset
+        let mut styled_ranges: Vec<StyledRange> = ranges
+            .into_iter()
+            .filter_map(|(start, end, fg, bg)| {
+                if end <= horizontal_offset {
+                    // Range is completely before visible area
+                    None
+                } else if start >= horizontal_offset {
+                    // Range is in visible area, adjust coordinates
+                    Some(StyledRange {
+                        start: start - horizontal_offset,
+                        end: end - horizontal_offset,
+                        fg_color: fg,
+                        bg_color: bg,
+                        bold: bg.is_some(), // Background highlights (search/filter) are bold
+                    })
+                } else {
+                    // Range starts before offset but ends in visible area
+                    Some(StyledRange {
+                        start: 0,
+                        end: end - horizontal_offset,
+                        fg_color: fg,
+                        bg_color: bg,
+                        bold: bg.is_some(),
+                    })
+                }
+            })
+            .collect();
+
+        // Sort ranges: prioritize background highlights, then by start position
+        styled_ranges.sort_by(|a, b| match (a.bg_color, b.bg_color) {
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            _ => a.start.cmp(&b.start),
+        });
+
+        (styled_ranges, line_color)
     }
 }
 

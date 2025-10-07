@@ -1,3 +1,5 @@
+use crate::app::{App, AppState};
+use crate::highlighter::StyledRange;
 use crate::log::Interval;
 use ratatui::text::Line;
 use ratatui::widgets::{Clear, ListState};
@@ -11,12 +13,16 @@ use ratatui::{
     },
 };
 
-use crate::app::{App, AppState};
-
+/// Symbol used to indicate the selected line.
 pub const RIGHT_ARROW: &str = "▶ ";
+/// Maximum length for file path display in footer.
 const MAX_PATH_LENGTH: usize = 42;
+/// Background color for footer and title bars.
 const GRAY_COLOR: Color = Color::Indexed(237);
 
+/// Calculates a centered popup area within the given rect.
+///
+/// The popup will be centered with at least 2 characters margin on all sides.
 fn popup_area(area: Rect, width: u16, height: u16) -> Rect {
     let min_margin = 2;
 
@@ -38,6 +44,9 @@ fn popup_area(area: Rect, width: u16, height: u16) -> Rect {
 }
 
 impl App {
+    /// Returns current line information (progression in the file).
+    ///
+    /// Returns (current_line, total_lines, percent).
     fn get_progression(&self) -> (usize, usize, usize) {
         let total_lines = self.viewport.total_lines;
         let current_line = self.viewport.selected_line + 1;
@@ -53,6 +62,7 @@ impl App {
         (current_line, total_lines, percent)
     }
 
+    /// Renders the default footer bar in LogView mode.
     fn render_footer(&self, area: Rect, buf: &mut Buffer) {
         let file_name = if let Some(path) = &self.log_buffer.file_path {
             let name = std::path::Path::new(path)
@@ -97,6 +107,7 @@ impl App {
         footer.render(area, buf);
     }
 
+    /// Renders the search bar footer in SearchMode.
     fn render_search_bar(&self, area: Rect, buf: &mut Buffer) {
         let case_sensitive = if self.search.is_case_sensitive() {
             "Aa"
@@ -117,6 +128,7 @@ impl App {
         search_bar.render(area, buf);
     }
 
+    /// Renders the goto line bar footer in GotoLineMode.
     fn render_goto_line_bar(&self, area: Rect, buf: &mut Buffer) {
         let search_prompt = format!("Go to line: {}", self.input_query);
         let search_bar = Paragraph::new(search_prompt)
@@ -125,6 +137,7 @@ impl App {
         search_bar.render(area, buf);
     }
 
+    /// Renders the save to file bar footer in SaveToFileMode.
     fn render_save_to_file_bar(&self, area: Rect, buf: &mut Buffer) {
         let save_prompt = format!("Save to file: {}", self.input_query);
         let save_bar = Paragraph::new(save_prompt)
@@ -133,6 +146,7 @@ impl App {
         save_bar.render(area, buf);
     }
 
+    /// Renders the filter bar footer in FilterMode.
     fn render_filter_bar(&self, area: Rect, buf: &mut Buffer) {
         let filter_mode = match self.filter.get_mode() {
             crate::filter::FilterMode::Include => "IN",
@@ -162,6 +176,7 @@ impl App {
         filter_bar.render(area, buf);
     }
 
+    /// Renders the edit filter popup in EditFilterMode.
     fn render_edit_filter_popup(&self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
 
@@ -180,6 +195,7 @@ impl App {
         popup.render(area, buf);
     }
 
+    /// Renders the filter list popup in FilterListView mode.
     fn render_filter_list_popup(&self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
 
@@ -236,6 +252,7 @@ impl App {
         }
     }
 
+    /// Renders the display options popup in OptionsView mode.
     fn render_options_popup(&self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
 
@@ -274,6 +291,7 @@ impl App {
         StatefulWidget::render(options_list, area, buf, &mut list_state);
     }
 
+    /// Renders a centered message popup.
     fn render_message_popup(&self, message: &str, area: Rect, buf: &mut Buffer) {
         let popup_width = 60;
         let popup_height = 5;
@@ -299,6 +317,24 @@ impl App {
         popup.render(popup_area, buf);
     }
 
+    /// Renders a centered error popup with the given error message.
+    fn render_error_popup(&self, error_msg: &str, area: Rect, buf: &mut Buffer) {
+        let error_area = popup_area(area, 60, 5);
+        Clear.render(error_area, buf);
+        let error_popup = Paragraph::new(error_msg)
+            .block(
+                Block::default()
+                    .title(" Error ")
+                    .title_style(Style::default().fg(Color::Red))
+                    .title_alignment(Alignment::Center)
+                    .borders(ratatui::widgets::Borders::ALL),
+            )
+            .alignment(Alignment::Center);
+
+        error_popup.render(error_area, buf);
+    }
+
+    /// Renders the vertical scrollbar.
     fn render_scrollbar(&self, area: Rect, buf: &mut Buffer) {
         let mut scrollbar_state = ScrollbarState::new(self.viewport.total_lines)
             .position(self.viewport.selected_line)
@@ -313,6 +349,7 @@ impl App {
         StatefulWidget::render(scrollbar, area, buf, &mut scrollbar_state);
     }
 
+    /// Renders the main log view.
     fn render_logview(&self, area: Rect, buf: &mut Buffer) {
         let (start, end) = self.viewport.visible();
         let lines: Vec<String> = self
@@ -345,130 +382,103 @@ impl App {
         StatefulWidget::render(log_list, area, buf, &mut list_state);
     }
 
+    /// Applies syntax highlighting to a single line.
+    ///
+    /// Uses the highlighter to compute styled ranges based on patterns and offset,
+    /// then delegates to `build_line_from_ranges` for final rendering.
     fn highlight_line<'a>(
         &self,
         full_line: &'a str,
         visible_text: &'a str,
         offset: usize,
     ) -> Line<'a> {
-        let colors_disabled = self.display_options.is_enabled("Disable Colors");
-
-        let line_color = if !colors_disabled {
-            self.highlighter.get_line_color(full_line)
-        } else {
-            None
-        };
-
-        let ranges_with_style = if !colors_disabled {
-            self.highlighter.get_all_highlight_ranges(full_line)
-        } else {
-            Vec::new()
-        };
-
-        // Adjust ranges for horizontal offset
-        let adjusted_ranges: Vec<(usize, usize, Color, Option<Color>)> = ranges_with_style
-            .into_iter()
-            .filter_map(|(start, end, fg, bg)| {
-                if end <= offset {
-                    // Range is completely before visible area
-                    None
-                } else if start >= offset {
-                    // Range is in visible area, adjust coordinates
-                    Some((start - offset, end - offset, fg, bg))
-                } else {
-                    // Range starts before offset but ends in visible area
-                    Some((0, end - offset, fg, bg))
-                }
-            })
-            .collect();
-
-        if adjusted_ranges.is_empty() && line_color.is_none() {
+        if self.display_options.is_enabled("Disable Colors") {
             return Line::from(visible_text);
         }
 
-        self.build_highlighted_line(visible_text, adjusted_ranges, line_color)
+        let (styled_ranges, line_color) = self
+            .highlighter
+            .get_styled_ranges_for_viewport(full_line, offset);
+
+        if styled_ranges.is_empty() && line_color.is_none() {
+            return Line::from(visible_text);
+        }
+
+        build_line_from_ranges(visible_text, styled_ranges, line_color)
+    }
+}
+
+/// Builds a styled Line from styled ranges and optional line color.
+fn build_line_from_ranges<'a>(
+    content: &'a str,
+    styled_ranges: Vec<StyledRange>,
+    line_color: Option<Color>,
+) -> Line<'a> {
+    if styled_ranges.is_empty() && line_color.is_none() {
+        return Line::from(content);
     }
 
-    fn build_highlighted_line<'a>(
-        &self,
-        content: &'a str,
-        mut highlight_ranges: Vec<(usize, usize, Color, Option<Color>)>,
-        line_color: Option<Color>,
-    ) -> Line<'a> {
-        if highlight_ranges.is_empty() && line_color.is_none() {
-            return Line::from(content);
-        }
+    if styled_ranges.is_empty() {
+        // Only line color, no highlights
+        return Line::from(content).style(Style::default().fg(line_color.unwrap()));
+    }
 
-        if highlight_ranges.is_empty() {
-            // Only line color, no highlights
-            return Line::from(content).style(Style::default().fg(line_color.unwrap()));
-        }
+    let mut spans = Vec::new();
+    let mut last_index = 0;
 
-        // Sort ranges: prioritize background highlights (search/filter), then by start position
-        highlight_ranges.sort_by(|a, b| {
-            // Ranges with background color (search/filter) come first at same position
-            match (a.3, b.3) {
-                (Some(_), None) => std::cmp::Ordering::Less,
-                (None, Some(_)) => std::cmp::Ordering::Greater,
-                _ => a.0.cmp(&b.0),
-            }
-        });
-
-        let mut spans = Vec::new();
-        let mut last_index = 0;
-
-        for (start, end, fg_color, bg_color) in highlight_ranges {
-            // Add unhighlighted text before this range (with line color if set)
-            if start > last_index {
-                let span = if let Some(color) = line_color {
-                    ratatui::text::Span::styled(
-                        &content[last_index..start],
-                        Style::default().fg(color),
-                    )
-                } else {
-                    ratatui::text::Span::raw(&content[last_index..start])
-                };
-                spans.push(span);
-            }
-
-            // Add highlighted text (only if we haven't already passed this range)
-            if end > last_index {
-                let highlight_start = start.max(last_index);
-                let mut style = Style::default();
-
-                // Use line color as foreground if available, otherwise use the highlight foreground
-                if let Some(color) = line_color {
-                    style = style.fg(color);
-                } else {
-                    style = style.fg(fg_color);
-                }
-
-                style = style.add_modifier(Modifier::BOLD);
-
-                if let Some(bg) = bg_color {
-                    style = style.bg(bg);
-                }
-
-                spans.push(ratatui::text::Span::styled(
-                    &content[highlight_start..end],
-                    style,
-                ));
-                last_index = end;
-            }
-        }
-
-        // Add any remaining unhighlighted text (with line color if set)
-        if last_index < content.len() {
+    for range in styled_ranges {
+        // Add unhighlighted text before this range (with line color if set)
+        if range.start > last_index {
             let span = if let Some(color) = line_color {
-                ratatui::text::Span::styled(&content[last_index..], Style::default().fg(color))
+                ratatui::text::Span::styled(
+                    &content[last_index..range.start],
+                    Style::default().fg(color),
+                )
             } else {
-                ratatui::text::Span::raw(&content[last_index..])
+                ratatui::text::Span::raw(&content[last_index..range.start])
             };
             spans.push(span);
         }
 
-        Line::from(spans)
+        // Add highlighted text (only if we haven't already passed this range)
+        if range.end > last_index {
+            let highlight_start = range.start.max(last_index);
+            let mut style = Style::default();
+
+            // Use line color as foreground if available, otherwise use the highlight foreground
+            if let Some(color) = line_color {
+                style = style.fg(color);
+            } else {
+                style = style.fg(range.fg_color);
+            }
+
+            if range.bold {
+                style = style.add_modifier(Modifier::BOLD);
+            }
+
+            if let Some(bg) = range.bg_color {
+                style = style.bg(bg);
+            }
+
+            spans.push(ratatui::text::Span::styled(
+                &content[highlight_start..range.end],
+                style,
+            ));
+            last_index = range.end;
+        }
     }
+
+    // Add any remaining unhighlighted text (with line color if set)
+    if last_index < content.len() {
+        let span = if let Some(color) = line_color {
+            ratatui::text::Span::styled(&content[last_index..], Style::default().fg(color))
+        } else {
+            ratatui::text::Span::raw(&content[last_index..])
+        };
+        spans.push(span);
+    }
+
+    Line::from(spans)
 }
 
 impl Widget for &App {
@@ -524,18 +534,7 @@ impl Widget for &App {
             self.render_message_popup(message, area, buf);
         }
         if let AppState::ErrorState(ref error_msg) = self.app_state {
-            let error_area = popup_area(area, 70, 6);
-            Clear.render(error_area, buf);
-            let error_popup = Paragraph::new(error_msg.as_str())
-                .block(
-                    Block::default()
-                        .title(" Error ")
-                        .title_alignment(Alignment::Center)
-                        .borders(ratatui::widgets::Borders::ALL),
-                )
-                .alignment(Alignment::Center);
-
-            error_popup.render(error_area, buf);
+            self.render_error_popup(error_msg, area, buf);
         }
     }
 }
