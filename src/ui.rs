@@ -291,47 +291,46 @@ impl App {
         StatefulWidget::render(options_list, area, buf, &mut list_state);
     }
 
-    /// Renders a centered message popup.
-    fn render_message_popup(&self, message: &str, area: Rect, buf: &mut Buffer) {
-        let popup_width = 60;
-        let popup_height = 5;
+    /// Renders a centered popup that adapts to content size.
+    fn render_popup(
+        &self,
+        message: &str,
+        title: &str,
+        title_color: Color,
+        area: Rect,
+        buf: &mut Buffer,
+    ) {
+        let lines: Vec<&str> = message.split('\n').collect();
+        let max_line_width = lines.iter().map(|line| line.len()).max().unwrap_or(0);
+
+        let popup_width = (max_line_width as u16 + 6).min(area.width.saturating_sub(4));
+        let popup_height = (lines.len() as u16 + 4).min(area.height.saturating_sub(4));
         let popup_area = popup_area(area, popup_width, popup_height);
 
         Clear.render(popup_area, buf);
 
-        let text: Vec<Line> = message
-            .split('\n')
-            .map(|line| {
-                Line::from(line)
-                    .style(Style::default().fg(Color::White))
-                    .centered()
-            })
-            .collect();
+        let block = Block::default()
+            .title(format!(" {} ", title))
+            .title_style(Style::default().fg(title_color))
+            .title_alignment(Alignment::Center)
+            .borders(ratatui::widgets::Borders::ALL)
+            .padding(ratatui::widgets::Padding::uniform(1));
 
-        let popup = Paragraph::new(text).block(
-            Block::default()
-                .borders(ratatui::widgets::Borders::ALL)
-                .border_style(Style::default().fg(Color::White)),
-        );
+        let popup = Paragraph::new(message)
+            .block(block)
+            .alignment(Alignment::Center);
 
         popup.render(popup_area, buf);
     }
 
-    /// Renders a centered error popup with the given error message.
-    fn render_error_popup(&self, error_msg: &str, area: Rect, buf: &mut Buffer) {
-        let error_area = popup_area(area, 60, 5);
-        Clear.render(error_area, buf);
-        let error_popup = Paragraph::new(error_msg)
-            .block(
-                Block::default()
-                    .title(" Error ")
-                    .title_style(Style::default().fg(Color::Red))
-                    .title_alignment(Alignment::Center)
-                    .borders(ratatui::widgets::Borders::ALL),
-            )
-            .alignment(Alignment::Center);
+    /// Renders a centered message popup that adapts to content size.
+    fn render_message_popup(&self, message: &str, area: Rect, buf: &mut Buffer) {
+        self.render_popup(message, "Message", Color::White, area, buf);
+    }
 
-        error_popup.render(error_area, buf);
+    /// Renders a centered error popup that adapts to content size.
+    fn render_error_popup(&self, error_msg: &str, area: Rect, buf: &mut Buffer) {
+        self.render_popup(error_msg, "Error", Color::Red, area, buf);
     }
 
     /// Renders the vertical scrollbar.
