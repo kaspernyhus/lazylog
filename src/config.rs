@@ -1,3 +1,4 @@
+use crate::highlighter::{hash_to_color, parse_color, HighlightPattern, Highlighter, LineColorPattern};
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -75,5 +76,37 @@ impl Config {
         }
         // Fallback to local .lazylog.toml (might not exist)
         PathBuf::from(".lazylog.toml")
+    }
+
+    /// Builds a Highlighter from the configuration.
+    pub fn build_highlighter(&self) -> Highlighter {
+        let patterns = self.parse_highlight_patterns();
+        let line_colors = self.parse_line_colors();
+        Highlighter::new(patterns, line_colors)
+    }
+
+    fn parse_highlight_patterns(&self) -> Vec<HighlightPattern> {
+        self.highlight_patterns
+            .iter()
+            .filter_map(|config| {
+                let color = config
+                    .color
+                    .as_ref()
+                    .and_then(|c| parse_color(c))
+                    .unwrap_or_else(|| hash_to_color(&config.pattern));
+
+                HighlightPattern::new(&config.pattern, config.regex, color)
+            })
+            .collect()
+    }
+
+    fn parse_line_colors(&self) -> Vec<LineColorPattern> {
+        self.line_colors
+            .iter()
+            .filter_map(|config| {
+                let color = parse_color(&config.color)?;
+                LineColorPattern::new(&config.pattern, config.regex, color)
+            })
+            .collect()
     }
 }

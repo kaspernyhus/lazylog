@@ -1,4 +1,3 @@
-use crate::config::{Config, HighlightConfig, LineColorConfig};
 use ratatui::style::Color;
 use regex::Regex;
 
@@ -20,6 +19,19 @@ pub struct HighlightPattern {
     pub color: Color,
 }
 
+impl HighlightPattern {
+    /// Creates a new highlight pattern.
+    pub fn new(pattern: &str, is_regex: bool, color: Color) -> Option<Self> {
+        let matcher = if is_regex {
+            Regex::new(pattern).ok().map(PatternMatcher::Regex)?
+        } else {
+            PatternMatcher::Plain(pattern.to_string())
+        };
+
+        Some(Self { matcher, color })
+    }
+}
+
 /// Pattern with associated color for line coloring.
 #[derive(Debug, Clone)]
 pub struct LineColorPattern {
@@ -27,6 +39,19 @@ pub struct LineColorPattern {
     pub matcher: PatternMatcher,
     /// Color to apply to matched lines.
     pub color: Color,
+}
+
+impl LineColorPattern {
+    /// Creates a new line color pattern.
+    pub fn new(pattern: &str, is_regex: bool, color: Color) -> Option<Self> {
+        let matcher = if is_regex {
+            Regex::new(pattern).ok().map(PatternMatcher::Regex)?
+        } else {
+            PatternMatcher::Plain(pattern.to_string())
+        };
+
+        Some(Self { matcher, color })
+    }
 }
 
 /// Temporary highlight.
@@ -103,57 +128,13 @@ impl PatternMatcher {
 }
 
 impl Highlighter {
-    /// Creates a new highlighter from configuration.
-    pub fn new(config: &Config) -> Self {
-        let patterns = Self::parse_highlight_patterns(config.highlight_patterns.clone());
-        let line_colors = Self::parse_line_colors(config.line_colors.clone());
+    /// Creates a new highlighter with the given patterns.
+    pub fn new(patterns: Vec<HighlightPattern>, line_colors: Vec<LineColorPattern>) -> Self {
         Self {
             patterns,
             line_colors,
             temporary_highlights: Vec::new(),
         }
-    }
-
-    /// Converts highlight config into patterns.
-    fn parse_highlight_patterns(highlight_patterns: Vec<HighlightConfig>) -> Vec<HighlightPattern> {
-        highlight_patterns
-            .into_iter()
-            .filter_map(|config| {
-                let matcher = if config.regex {
-                    Regex::new(&config.pattern).ok().map(PatternMatcher::Regex)
-                } else {
-                    Some(PatternMatcher::Plain(config.pattern.clone()))
-                };
-
-                matcher.map(|m| {
-                    let color = if let Some(color_str) = &config.color {
-                        parse_color(color_str).unwrap_or_else(|| hash_to_color(&config.pattern))
-                    } else {
-                        hash_to_color(&config.pattern)
-                    };
-                    HighlightPattern { matcher: m, color }
-                })
-            })
-            .collect()
-    }
-
-    /// Converts line color config into patterns.
-    fn parse_line_colors(configs: Vec<LineColorConfig>) -> Vec<LineColorPattern> {
-        configs
-            .into_iter()
-            .filter_map(|config| {
-                let color = parse_color(&config.color)?;
-                let matcher = if config.regex {
-                    Regex::new(&config.pattern)
-                        .ok()
-                        .map(PatternMatcher::Regex)?
-                } else {
-                    PatternMatcher::Plain(config.pattern)
-                };
-
-                Some(LineColorPattern { matcher, color })
-            })
-            .collect()
     }
 
     /// Returns whether there are no highlight or line color patterns.
@@ -330,7 +311,7 @@ fn contains_ignore_case(haystack: &str, needle: &str) -> bool {
 /// Parses a color name string into a Color.
 ///
 /// Returns `None` for unrecognized color names.
-fn parse_color(color_str: &str) -> Option<Color> {
+pub fn parse_color(color_str: &str) -> Option<Color> {
     match color_str.to_lowercase().as_str() {
         "red" => Some(Color::Red),
         "green" => Some(Color::Green),
@@ -352,8 +333,8 @@ fn parse_color(color_str: &str) -> Option<Color> {
     }
 }
 
-/// Generates a deterministic color from a pattern.
-fn hash_to_color(pattern: &str) -> Color {
+/// Generates a deterministic color from a pattern using djb2 hash.
+pub fn hash_to_color(pattern: &str) -> Color {
     let mut hash: u32 = 5381;
     for byte in pattern.bytes() {
         hash = hash.wrapping_mul(33).wrapping_add(byte as u32);

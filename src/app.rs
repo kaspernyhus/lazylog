@@ -79,7 +79,7 @@ impl App {
         let events = EventHandler::new(use_stdin);
 
         let config = Config::load(&args.config);
-        let highlighter = Highlighter::new(&config);
+        let highlighter = config.build_highlighter();
 
         let mut app = Self {
             running: true,
