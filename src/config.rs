@@ -1,6 +1,32 @@
-use crate::highlighter::{hash_to_color, parse_color, HighlightPattern, Highlighter, LineColorPattern};
+use crate::highlighter::{
+    EventPattern, HighlightPattern, Highlighter, PatternStyle, hash_to_color, parse_color,
+};
 use serde::Deserialize;
 use std::path::PathBuf;
+
+#[derive(Debug, Deserialize, Default)]
+pub struct Config {
+    path: Option<String>,
+    /// Inline patterns to highlight.
+    #[serde(default)]
+    pub highlights: Vec<HighlightConfig>,
+    /// Event patterns for coloring and tracking.
+    #[serde(default)]
+    pub events: Vec<EventConfig>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct StyleConfig {
+    /// Foreground color.
+    #[serde(default)]
+    pub fg: Option<String>,
+    /// Background color.
+    #[serde(default)]
+    pub bg: Option<String>,
+    /// Bold text.
+    #[serde(default)]
+    pub bold: bool,
+}
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct HighlightConfig {
@@ -9,31 +35,23 @@ pub struct HighlightConfig {
     /// Whether the pattern is a regex or a simple substring.
     #[serde(default)]
     pub regex: bool,
-    /// Color to use for highlighting. If None, a color will be generated.
+    /// Style to use for highlighting. If None, a style will be generated.
     #[serde(default)]
-    pub color: Option<String>,
+    pub style: Option<StyleConfig>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct LineColorConfig {
+pub struct EventConfig {
+    /// Name of the event.
+    pub name: String,
     /// Match pattern. Can be a substring or regex.
     pub pattern: String,
-    /// Color to use for the whole line.
-    pub color: String,
     /// Whether the pattern is a regex or a simple substring.
     #[serde(default)]
     pub regex: bool,
-}
-
-#[derive(Debug, Deserialize, Default)]
-pub struct Config {
-    path: Option<String>,
-    /// Single patterns to color highlight
+    /// Style to use for the whole line. If None, default style is applied.
     #[serde(default)]
-    pub highlight_patterns: Vec<HighlightConfig>,
-    /// Whole lines to color when pattern matches
-    #[serde(default)]
-    pub line_colors: Vec<LineColorConfig>,
+    pub style: Option<StyleConfig>,
 }
 
 impl Config {
@@ -81,32 +99,49 @@ impl Config {
     /// Builds a Highlighter from the configuration.
     pub fn build_highlighter(&self) -> Highlighter {
         let patterns = self.parse_highlight_patterns();
-        let line_colors = self.parse_line_colors();
-        Highlighter::new(patterns, line_colors)
+        let events = self.parse_event_patterns();
+        Highlighter::new(patterns, events)
     }
 
     fn parse_highlight_patterns(&self) -> Vec<HighlightPattern> {
-        self.highlight_patterns
+        self.highlights
             .iter()
-            .filter_map(|config| {
-                let color = config
-                    .color
-                    .as_ref()
-                    .and_then(|c| parse_color(c))
-                    .unwrap_or_else(|| hash_to_color(&config.pattern));
+            .filter_map(|hl_config| {
+                let style = if let Some(style_config) = &hl_config.style {
+                    Self::parse_style_config(style_config)
+                } else {
+                    PatternStyle {
+                        fg_color: Some(hash_to_color(&hl_config.pattern)),
+                        bg_color: None,
+                        bold: false,
+                    }
+                };
 
-                HighlightPattern::new(&config.pattern, config.regex, color)
+                HighlightPattern::new(&hl_config.pattern, hl_config.regex, style)
             })
             .collect()
     }
 
-    fn parse_line_colors(&self) -> Vec<LineColorPattern> {
-        self.line_colors
+    fn parse_event_patterns(&self) -> Vec<EventPattern> {
+        self.events
             .iter()
-            .filter_map(|config| {
-                let color = parse_color(&config.color)?;
-                LineColorPattern::new(&config.pattern, config.regex, color)
+            .filter_map(|ev_config| {
+                let style = ev_config
+                    .style
+                    .as_ref()
+                    .map(Self::parse_style_config)
+                    .unwrap_or_else(PatternStyle::default_event_style);
+
+                EventPattern::new(&ev_config.name, &ev_config.pattern, ev_config.regex, style)
             })
             .collect()
+    }
+
+    fn parse_style_config(style_config: &StyleConfig) -> PatternStyle {
+        PatternStyle {
+            fg_color: style_config.fg.as_ref().and_then(|c| parse_color(c)),
+            bg_color: style_config.bg.as_ref().and_then(|c| parse_color(c)),
+            bold: style_config.bold,
+        }
     }
 }

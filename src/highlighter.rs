@@ -10,47 +10,75 @@ pub enum PatternMatcher {
     Regex(Regex),
 }
 
+/// Style configuration for text rendering.
+#[derive(Debug, Clone)]
+pub struct PatternStyle {
+    /// Foreground color.
+    pub fg_color: Option<Color>,
+    /// Background color.
+    pub bg_color: Option<Color>,
+    /// Bold text.
+    pub bold: bool,
+}
+
+impl PatternStyle {
+    /// Creates a default style for events.
+    pub fn default_event_style() -> Self {
+        Self {
+            fg_color: Some(Color::Rgb(255, 255, 255)),
+            bg_color: Some(Color::Blue),
+            bold: false,
+        }
+    }
+}
+
 /// Pattern with associated color for text highlighting.
 #[derive(Debug, Clone)]
 pub struct HighlightPattern {
     /// Matcher to identify text spans to highlight.
     pub matcher: PatternMatcher,
-    /// Color to apply to matched text.
-    pub color: Color,
+    /// Style to apply to matched text.
+    pub style: PatternStyle,
 }
 
 impl HighlightPattern {
     /// Creates a new highlight pattern.
-    pub fn new(pattern: &str, is_regex: bool, color: Color) -> Option<Self> {
+    pub fn new(pattern: &str, is_regex: bool, style: PatternStyle) -> Option<Self> {
         let matcher = if is_regex {
             Regex::new(pattern).ok().map(PatternMatcher::Regex)?
         } else {
             PatternMatcher::Plain(pattern.to_string())
         };
 
-        Some(Self { matcher, color })
+        Some(Self { matcher, style })
     }
 }
 
-/// Pattern with associated color for line coloring.
+/// Event pattern with associated style for line coloring and tracking.
 #[derive(Debug, Clone)]
-pub struct LineColorPattern {
-    /// Matcher to identify lines to color.
+pub struct EventPattern {
+    /// Name of the event.
+    pub name: String,
+    /// Matcher to identify lines matching this event.
     pub matcher: PatternMatcher,
-    /// Color to apply to matched lines.
-    pub color: Color,
+    /// Style to apply to matched lines.
+    pub style: PatternStyle,
 }
 
-impl LineColorPattern {
-    /// Creates a new line color pattern.
-    pub fn new(pattern: &str, is_regex: bool, color: Color) -> Option<Self> {
+impl EventPattern {
+    /// Creates a new event pattern.
+    pub fn new(name: &str, pattern: &str, is_regex: bool, style: PatternStyle) -> Option<Self> {
         let matcher = if is_regex {
             Regex::new(pattern).ok().map(PatternMatcher::Regex)?
         } else {
             PatternMatcher::Plain(pattern.to_string())
         };
 
-        Some(Self { matcher, color })
+        Some(Self {
+            name: name.to_string(),
+            matcher,
+            style,
+        })
     }
 }
 
@@ -74,12 +102,8 @@ pub struct StyledRange {
     pub start: usize,
     /// End position in text.
     pub end: usize,
-    /// Foreground color.
-    pub fg_color: Color,
-    /// Background color.
-    pub bg_color: Option<Color>,
-    /// Whether text should be bold.
-    pub bold: bool,
+    /// Pattern style
+    pub style: PatternStyle,
 }
 
 /// Manages text highlighting and line coloring based on configured patterns.
@@ -87,8 +111,8 @@ pub struct StyledRange {
 pub struct Highlighter {
     /// Patterns for text highlighting.
     patterns: Vec<HighlightPattern>,
-    /// Patterns for full line coloring.
-    line_colors: Vec<LineColorPattern>,
+    /// Event patterns for line coloring and tracking.
+    events: Vec<EventPattern>,
     /// Temporary highlights.
     temporary_highlights: Vec<TemporaryHighlight>,
 }
@@ -129,17 +153,17 @@ impl PatternMatcher {
 
 impl Highlighter {
     /// Creates a new highlighter with the given patterns.
-    pub fn new(patterns: Vec<HighlightPattern>, line_colors: Vec<LineColorPattern>) -> Self {
+    pub fn new(patterns: Vec<HighlightPattern>, events: Vec<EventPattern>) -> Self {
         Self {
             patterns,
-            line_colors,
+            events,
             temporary_highlights: Vec::new(),
         }
     }
 
-    /// Returns whether there are no highlight or line color patterns.
+    /// Returns whether there are no highlight or event patterns.
     pub fn is_empty(&self) -> bool {
-        self.patterns.is_empty() && self.line_colors.is_empty()
+        self.patterns.is_empty() && self.events.is_empty()
     }
 
     /// Returns all highlight patterns.
@@ -147,18 +171,18 @@ impl Highlighter {
         &self.patterns
     }
 
-    /// Returns all line color patterns.
-    pub fn get_line_colors(&self) -> &[LineColorPattern] {
-        &self.line_colors
+    /// Returns all event patterns.
+    pub fn get_events(&self) -> &[EventPattern] {
+        &self.events
     }
 
-    /// Returns the color for a line if it matches any line color pattern.
+    /// Returns the style for a line if it matches any event pattern.
     ///
-    /// Returns the first matching pattern's color, or `None` if no pattern matches.
-    pub fn get_line_color(&self, text: &str) -> Option<Color> {
-        for line_color in &self.line_colors {
-            if line_color.matcher.matches(text, true) {
-                return Some(line_color.color);
+    /// Returns the first matching event's style, or `None` if no pattern matches.
+    pub fn get_line_style(&self, text: &str) -> Option<&PatternStyle> {
+        for event in &self.events {
+            if event.matcher.matches(text, true) {
+                return Some(&event.style);
             }
         }
         None
@@ -170,8 +194,10 @@ impl Highlighter {
     pub fn get_highlight_ranges(&self, text: &str) -> Vec<(usize, usize, Color)> {
         let mut ranges = Vec::new();
         for pattern in &self.patterns {
-            for (start, end) in pattern.matcher.find_all(text, true) {
-                ranges.push((start, end, pattern.color));
+            if let Some(fg_color) = pattern.style.fg_color {
+                for (start, end) in pattern.matcher.find_all(text, true) {
+                    ranges.push((start, end, fg_color));
+                }
             }
         }
         ranges
@@ -209,8 +235,10 @@ impl Highlighter {
 
         // Add config highlights (no background color)
         for pattern in &self.patterns {
-            for (start, end) in pattern.matcher.find_all(text, true) {
-                ranges.push((start, end, pattern.color, None));
+            if let Some(fg_color) = pattern.style.fg_color {
+                for (start, end) in pattern.matcher.find_all(text, true) {
+                    ranges.push((start, end, fg_color, pattern.style.bg_color));
+                }
             }
         }
 
@@ -230,13 +258,13 @@ impl Highlighter {
 
     /// Returns styled ranges adjusted for horizontal offset, ready for rendering.
     ///
-    /// Returns (styled_ranges, line_color).
+    /// Returns (styled_ranges, line_style).
     pub fn get_styled_ranges_for_viewport(
         &self,
         full_line: &str,
         horizontal_offset: usize,
-    ) -> (Vec<StyledRange>, Option<Color>) {
-        let line_color = self.get_line_color(full_line);
+    ) -> (Vec<StyledRange>, Option<&PatternStyle>) {
+        let line_style = self.get_line_style(full_line);
         let ranges = self.get_all_highlight_ranges(full_line);
 
         // Adjust ranges for horizontal offset
@@ -251,31 +279,35 @@ impl Highlighter {
                     Some(StyledRange {
                         start: start - horizontal_offset,
                         end: end - horizontal_offset,
-                        fg_color: fg,
-                        bg_color: bg,
-                        bold: bg.is_some(), // Background highlights (search/filter) are bold
+                        style: PatternStyle {
+                            fg_color: Some(fg),
+                            bg_color: bg,
+                            bold: bg.is_some(), // Background highlights (search/filter) are bold
+                        },
                     })
                 } else {
                     // Range starts before offset but ends in visible area
                     Some(StyledRange {
                         start: 0,
                         end: end - horizontal_offset,
-                        fg_color: fg,
-                        bg_color: bg,
-                        bold: bg.is_some(),
+                        style: PatternStyle {
+                            fg_color: Some(fg),
+                            bg_color: bg,
+                            bold: bg.is_some(),
+                        },
                     })
                 }
             })
             .collect();
 
         // Sort ranges: prioritize background highlights, then by start position
-        styled_ranges.sort_by(|a, b| match (a.bg_color, b.bg_color) {
+        styled_ranges.sort_by(|a, b| match (a.style.bg_color, b.style.bg_color) {
             (Some(_), None) => std::cmp::Ordering::Less,
             (None, Some(_)) => std::cmp::Ordering::Greater,
             _ => a.start.cmp(&b.start),
         });
 
-        (styled_ranges, line_color)
+        (styled_ranges, line_style)
     }
 }
 

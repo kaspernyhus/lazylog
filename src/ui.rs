@@ -1,5 +1,5 @@
 use crate::app::{App, AppState};
-use crate::highlighter::StyledRange;
+use crate::highlighter::{PatternStyle, StyledRange};
 use crate::log::Interval;
 use ratatui::text::Line;
 use ratatui::widgets::{Clear, ListState};
@@ -395,44 +395,63 @@ impl App {
             return Line::from(visible_text);
         }
 
-        let (styled_ranges, line_color) = self
+        let (styled_ranges, line_style) = self
             .highlighter
             .get_styled_ranges_for_viewport(full_line, offset);
 
-        if styled_ranges.is_empty() && line_color.is_none() {
+        if styled_ranges.is_empty() && line_style.is_none() {
             return Line::from(visible_text);
         }
 
-        build_line_from_ranges(visible_text, styled_ranges, line_color)
+        build_line_from_ranges(visible_text, styled_ranges, line_style)
     }
 }
 
-/// Builds a styled Line from styled ranges and optional line color.
+/// Builds a styled Line from styled ranges and optional line style.
 fn build_line_from_ranges<'a>(
     content: &'a str,
     styled_ranges: Vec<StyledRange>,
-    line_color: Option<Color>,
+    line_style: Option<&PatternStyle>,
 ) -> Line<'a> {
-    if styled_ranges.is_empty() && line_color.is_none() {
+    if styled_ranges.is_empty() && line_style.is_none() {
         return Line::from(content);
     }
 
     if styled_ranges.is_empty() {
-        // Only line color, no highlights
-        return Line::from(content).style(Style::default().fg(line_color.unwrap()));
+        // Only line style, no highlights
+        if let Some(style) = line_style {
+            let mut ratatui_style = Style::default();
+            if let Some(fg) = style.fg_color {
+                ratatui_style = ratatui_style.fg(fg);
+            }
+            if let Some(bg) = style.bg_color {
+                ratatui_style = ratatui_style.bg(bg);
+            }
+            if style.bold {
+                ratatui_style = ratatui_style.add_modifier(Modifier::BOLD);
+            }
+            return Line::from(vec![ratatui::text::Span::styled(content, ratatui_style)]);
+        }
     }
 
     let mut spans = Vec::new();
     let mut last_index = 0;
 
     for range in styled_ranges {
-        // Add unhighlighted text before this range (with line color if set)
+        // Add unhighlighted text before this range (with line style if set)
         if range.start > last_index {
-            let span = if let Some(color) = line_color {
-                ratatui::text::Span::styled(
-                    &content[last_index..range.start],
-                    Style::default().fg(color),
-                )
+            let span = if let Some(style) = line_style {
+                let mut ratatui_style = Style::default();
+                if let Some(fg) = style.fg_color {
+                    ratatui_style = ratatui_style.fg(fg);
+                }
+                if let Some(bg) = style.bg_color {
+                    ratatui_style = ratatui_style.bg(bg);
+                }
+                if style.bold {
+                    ratatui_style = ratatui_style.add_modifier(Modifier::BOLD);
+                }
+                ratatui::text::Span::styled(&content[last_index..range.start], ratatui_style)
             } else {
                 ratatui::text::Span::raw(&content[last_index..range.start])
             };
@@ -442,35 +461,54 @@ fn build_line_from_ranges<'a>(
         // Add highlighted text (only if we haven't already passed this range)
         if range.end > last_index {
             let highlight_start = range.start.max(last_index);
-            let mut style = Style::default();
+            let mut ratatui_style = Style::default();
 
-            // Use line color as foreground if available, otherwise use the highlight foreground
-            if let Some(color) = line_color {
-                style = style.fg(color);
-            } else {
-                style = style.fg(range.fg_color);
+            // Use line style as base if available
+            if let Some(line_s) = line_style {
+                if let Some(fg) = line_s.fg_color {
+                    ratatui_style = ratatui_style.fg(fg);
+                }
+                if let Some(bg) = line_s.bg_color {
+                    ratatui_style = ratatui_style.bg(bg);
+                }
+                if line_s.bold {
+                    ratatui_style = ratatui_style.add_modifier(Modifier::BOLD);
+                }
             }
 
-            if range.bold {
-                style = style.add_modifier(Modifier::BOLD);
+            // Override with range style
+            if let Some(fg) = range.style.fg_color {
+                ratatui_style = ratatui_style.fg(fg);
             }
-
-            if let Some(bg) = range.bg_color {
-                style = style.bg(bg);
+            if let Some(bg) = range.style.bg_color {
+                ratatui_style = ratatui_style.bg(bg);
+            }
+            if range.style.bold {
+                ratatui_style = ratatui_style.add_modifier(Modifier::BOLD);
             }
 
             spans.push(ratatui::text::Span::styled(
                 &content[highlight_start..range.end],
-                style,
+                ratatui_style,
             ));
             last_index = range.end;
         }
     }
 
-    // Add any remaining unhighlighted text (with line color if set)
+    // Add any remaining unhighlighted text (with line style if set)
     if last_index < content.len() {
-        let span = if let Some(color) = line_color {
-            ratatui::text::Span::styled(&content[last_index..], Style::default().fg(color))
+        let span = if let Some(style) = line_style {
+            let mut ratatui_style = Style::default();
+            if let Some(fg) = style.fg_color {
+                ratatui_style = ratatui_style.fg(fg);
+            }
+            if let Some(bg) = style.bg_color {
+                ratatui_style = ratatui_style.bg(bg);
+            }
+            if style.bold {
+                ratatui_style = ratatui_style.add_modifier(Modifier::BOLD);
+            }
+            ratatui::text::Span::styled(&content[last_index..], ratatui_style)
         } else {
             ratatui::text::Span::raw(&content[last_index..])
         };
