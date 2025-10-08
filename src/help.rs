@@ -79,6 +79,7 @@ impl Help {
             HelpItem::new("f", "Start filter", HelpItemType::Keybind),
             HelpItem::new("F", "View filter list", HelpItemType::Keybind),
             HelpItem::new("t", "Toggle follow mode", HelpItemType::Keybind),
+            HelpItem::new("p", "Toggle pause mode (stdin)", HelpItemType::Keybind),
             HelpItem::new("o", "Display options", HelpItemType::Keybind),
             HelpItem::new("Ctrl+L", "Clear buffer (stdin mode)", HelpItemType::Keybind),
             HelpItem::new("Ctrl+S", "Save to file (stdin mode)", HelpItemType::Keybind),
@@ -106,7 +107,7 @@ impl Help {
             HelpItem::new("Delete", "Remove selected filter", HelpItemType::Keybind),
             HelpItem::new("e", "Edit selected filter", HelpItemType::Keybind),
             HelpItem::new("f", "Add new filter", HelpItemType::Keybind),
-            HelpItem::new("c", "Toggle case sensitive", HelpItemType::Keybind),
+            HelpItem::new("i", "Toggle case sensitive", HelpItemType::Keybind),
             HelpItem::new("m", "Toggle include/exclude", HelpItemType::Keybind),
             HelpItem::new("a", "Toggle all filters", HelpItemType::Keybind),
             // Display Options section
