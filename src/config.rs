@@ -13,6 +13,9 @@ pub struct Config {
     /// Event patterns for coloring and tracking.
     #[serde(default)]
     pub events: Vec<EventConfig>,
+    /// Predefined filters.
+    #[serde(default)]
+    pub filters: Vec<FilterConfig>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -52,6 +55,25 @@ pub struct EventConfig {
     /// Style to use for the whole line. If None, default style is applied.
     #[serde(default)]
     pub style: Option<StyleConfig>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct FilterConfig {
+    /// Match pattern.
+    pub pattern: String,
+    /// Filter mode: "include" or "exclude".
+    #[serde(default)]
+    pub mode: String,
+    /// Whether the pattern matching is case-sensitive.
+    #[serde(default)]
+    pub case_sensitive: bool,
+    /// Whether this filter is enabled by default.
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Config {
@@ -101,6 +123,28 @@ impl Config {
         let patterns = self.parse_highlight_patterns();
         let events = self.parse_event_patterns();
         Highlighter::new(patterns, events)
+    }
+
+    /// Parses filter configurations and returns a list of FilterPatterns.
+    pub fn parse_filter_patterns(&self) -> Vec<crate::filter::FilterPattern> {
+        use crate::filter::{FilterMode, FilterPattern};
+
+        self.filters
+            .iter()
+            .map(|filter_config| {
+                let mode = match filter_config.mode.to_lowercase().as_str() {
+                    "exclude" => FilterMode::Exclude,
+                    _ => FilterMode::Include, // Default to Include
+                };
+
+                FilterPattern {
+                    pattern: filter_config.pattern.clone(),
+                    mode,
+                    case_sensitive: filter_config.case_sensitive,
+                    enabled: filter_config.enabled,
+                }
+            })
+            .collect()
     }
 
     fn parse_highlight_patterns(&self) -> Vec<HighlightPattern> {

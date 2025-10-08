@@ -80,6 +80,7 @@ impl App {
 
         let config = Config::load(&args.config);
         let highlighter = config.build_highlighter();
+        let filter_patterns = config.parse_filter_patterns();
 
         let mut app = Self {
             running: true,
@@ -91,7 +92,7 @@ impl App {
             viewport: Viewport::default(),
             input_query: String::new(),
             search: Search::default(),
-            filter: Filter::default(),
+            filter: Filter::with_patterns(filter_patterns),
             display_options: DisplayOptions::default(),
             highlighter,
             streaming_paused: false,

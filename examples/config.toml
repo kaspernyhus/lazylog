@@ -28,3 +28,9 @@ events = [
     { name = "Job Started", pattern = "Background job started", regex = false },
     { name = "Application Started", pattern = "Application started successfully", regex = false },
 ]
+
+# Predefined filters.
+filters = [
+    { pattern = "DEBUG", mode = "exclude", case_sensitive = false, enabled = true },
+    { pattern = "INFO", mode = "include", case_sensitive = true, enabled = false },
+]

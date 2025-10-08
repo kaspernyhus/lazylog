@@ -15,10 +15,10 @@ pub struct FilterPattern {
     pub pattern: String,
     /// Whether to include or exclude matching lines.
     pub mode: FilterMode,
-    /// Whether this pattern is currently active.
-    pub enabled: bool,
     /// Whether the pattern matching is case-sensitive.
     pub case_sensitive: bool,
+    /// Whether this pattern is currently active.
+    pub enabled: bool,
 }
 
 impl FilterPattern {
@@ -27,8 +27,8 @@ impl FilterPattern {
         Self {
             pattern,
             mode,
-            enabled: true,
             case_sensitive,
+            enabled: true,
         }
     }
 }
@@ -141,6 +141,20 @@ pub struct Filter {
     filter_list: FilterList,
     filter_mode: FilterMode,
     case_sensitive: bool,
+}
+
+impl Filter {
+    /// Creates a new Filter with preconfigured patterns.
+    pub fn with_patterns(patterns: Vec<FilterPattern>) -> Self {
+        Self {
+            filter_list: FilterList {
+                patterns,
+                selected_index: 0,
+            },
+            filter_mode: FilterMode::default(),
+            case_sensitive: false,
+        }
+    }
 }
 
 impl Filter {
