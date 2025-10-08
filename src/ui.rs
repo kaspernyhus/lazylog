@@ -391,13 +391,11 @@ impl App {
         visible_text: &'a str,
         offset: usize,
     ) -> Line<'a> {
-        if self.display_options.is_enabled("Disable Colors") {
-            return Line::from(visible_text);
-        }
+        let enable_colors = !self.display_options.is_enabled("Disable Colors");
 
-        let (styled_ranges, line_style) = self
-            .highlighter
-            .get_styled_ranges_for_viewport(full_line, offset);
+        let (styled_ranges, line_style) =
+            self.highlighter
+                .get_styled_ranges_for_viewport(full_line, offset, enable_colors);
 
         if styled_ranges.is_empty() && line_style.is_none() {
             return Line::from(visible_text);

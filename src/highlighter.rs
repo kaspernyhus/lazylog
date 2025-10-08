@@ -263,9 +263,19 @@ impl Highlighter {
         &self,
         full_line: &str,
         horizontal_offset: usize,
+        enable_colors: bool,
     ) -> (Vec<StyledRange>, Option<&PatternStyle>) {
-        let line_style = self.get_line_style(full_line);
-        let ranges = self.get_all_highlight_ranges(full_line);
+        let mut ranges = Vec::new();
+
+        // Always include temporary highlights
+        ranges.extend(self.get_temporary_highlight_ranges(full_line));
+
+        let line_style = if enable_colors {
+            ranges.extend(self.get_config_highlight_ranges(full_line));
+            self.get_line_style(full_line)
+        } else {
+            None
+        };
 
         // Adjust ranges for horizontal offset
         let mut styled_ranges: Vec<StyledRange> = ranges
@@ -308,6 +318,41 @@ impl Highlighter {
         });
 
         (styled_ranges, line_style)
+    }
+
+    /// Gets only config-based highlight ranges.
+    fn get_config_highlight_ranges(&self, text: &str) -> Vec<(usize, usize, Color, Option<Color>)> {
+        let mut ranges = Vec::new();
+
+        for pattern in &self.patterns {
+            if let Some(fg_color) = pattern.style.fg_color {
+                for (start, end) in pattern.matcher.find_all(text, true) {
+                    ranges.push((start, end, fg_color, pattern.style.bg_color));
+                }
+            }
+        }
+
+        ranges
+    }
+
+    /// Gets only temporary highlight ranges.
+    fn get_temporary_highlight_ranges(
+        &self,
+        text: &str,
+    ) -> Vec<(usize, usize, Color, Option<Color>)> {
+        let mut ranges = Vec::new();
+
+        for highlight in &self.temporary_highlights {
+            if highlight.pattern.is_empty() {
+                continue;
+            }
+            let matcher = PatternMatcher::Plain(highlight.pattern.clone());
+            for (start, end) in matcher.find_all(text, highlight.case_sensitive) {
+                ranges.push((start, end, highlight.fg_color, highlight.bg_color));
+            }
+        }
+
+        ranges
     }
 }
 
