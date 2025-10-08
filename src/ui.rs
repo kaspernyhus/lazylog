@@ -245,8 +245,12 @@ impl App {
                         .borders(ratatui::widgets::Borders::ALL)
                         .border_style(Style::default().fg(Color::White)),
                 )
-                .highlight_symbol(RIGHT_ARROW)
-                .highlight_style(Style::default().add_modifier(Modifier::BOLD));
+                .highlight_symbol("")
+                .highlight_style(
+                    Style::default()
+                        .bg(Color::Black)
+                        .add_modifier(Modifier::BOLD),
+                );
 
             StatefulWidget::render(filter_list, area, buf, &mut list_state);
         }
