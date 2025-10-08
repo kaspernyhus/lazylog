@@ -42,23 +42,32 @@ lazylog -c /path/to/config.toml myapp.log
 
 ### Color Configuration
 
-**Line Colors** - Color entire lines when patterns match:
+**Highlights** - Highlight specific patterns within lines:
 ```toml
-line_colors = [
-    { pattern = " ERROR ", color = "lightred", regex = false },
-    { pattern = " WARN", color = "yellow", regex = false },
-]
-```
-
-**Highlight Patterns** - Highlight specific patterns within lines:
-```toml
-highlight_patterns = [
+highlights = [
     { pattern = "\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}", regex = true },  # IP addresses
-    { pattern = "TODO", color = "lightmagenta", regex = false },  # Custom color
+    { pattern = "TODO", regex = false, style = { fg = "lightmagenta" } },  # Custom style
 ]
 ```
 
-If no `color` is specified for highlight patterns, a unique color is auto-assigned.
+If no `style` is specified for highlights, a unique color is auto-assigned.
+
+**Events** - Color entire lines and track events when patterns match:
+```toml
+events = [
+    { name = "Error", pattern = " ERROR ", regex = false, style = { fg = "lightred", bold = true } },
+    { name = "Warning", pattern = " WARN", regex = false, style = { fg = "yellow" } },
+    { name = "Critical", pattern = " CRITICAL ", regex = false, style = { bg = "red" } },
+]
+```
+
+**Filters** - Predefined filters.
+```toml
+filters = [
+    { pattern = "DEBUG", mode = "exclude", case_sensitive = false, enabled = true },
+    { pattern = "INFO", mode = "include", case_sensitive = true, enabled = false },
+]
+```
 
 **Supported colors:** red, green, yellow, blue, magenta, cyan, white, black, gray, lightred, lightgreen, lightyellow, lightblue, lightmagenta, lightcyan, darkgray
 
