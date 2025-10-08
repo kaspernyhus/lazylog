@@ -82,6 +82,8 @@ impl App {
             Line::from("PAUSED")
                 .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
                 .left_aligned()
+        } else if self.viewport.follow_mode && self.log_buffer.streaming {
+            Line::from(format!("{} {}", file_name, "| follow")).left_aligned()
         } else {
             Line::from(file_name).left_aligned()
         };
