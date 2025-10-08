@@ -476,6 +476,19 @@ impl App {
                             if passes_filter {
                                 let num_lines = self.log_buffer.get_lines_count();
                                 self.viewport.set_total_lines(num_lines);
+
+                                // Update search matches if there's an active search
+                                if let Some(pattern) =
+                                    self.search.get_active_pattern().map(|p| p.to_string())
+                                {
+                                    let lines: Vec<&str> = self
+                                        .log_buffer
+                                        .get_lines_iter(Interval::All)
+                                        .map(|log_line| log_line.content())
+                                        .collect();
+                                    self.search.update_matches(&pattern, &lines);
+                                }
+
                                 if self.viewport.follow_mode {
                                     self.viewport.goto_bottom();
                                 }
