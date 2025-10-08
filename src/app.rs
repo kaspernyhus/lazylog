@@ -212,290 +212,295 @@ impl App {
                     }
                     _ => {}
                 },
-                Event::App(app_event) => match app_event {
-                    AppEvent::Quit => self.quit(),
-                    AppEvent::Confirm => match self.app_state {
-                        AppState::SearchMode => {
-                            if self.input_query.is_empty() {
-                                self.search.clear_matches();
-                            } else {
-                                let lines: Vec<&str> = self
-                                    .log_buffer
-                                    .get_lines_iter(Interval::All)
-                                    .map(|log_line| log_line.content())
-                                    .collect();
-                                self.search.apply_pattern(&self.input_query, &lines);
-                                if let Some(line) =
-                                    self.search.first_match_from(self.viewport.selected_line)
-                                {
-                                    self.viewport.goto_line(line, true);
-                                }
-                                self.viewport.follow_mode = false;
-                            }
-                            self.next_state(AppState::LogView);
-                        }
-                        AppState::FilterMode => {
-                            if !self.input_query.is_empty() {
-                                self.filter.add_filter(self.input_query.clone());
-                                self.update_view();
-                            }
-                            self.next_state(AppState::LogView);
-                        }
-                        AppState::GotoLineMode => {
-                            if let Ok(line_number) = self.input_query.parse::<usize>() {
-                                if line_number > 0 && line_number <= self.log_buffer.lines.len() {
-                                    self.viewport.goto_line(line_number - 1, true);
-                                }
-                            }
-                            self.next_state(AppState::LogView);
-                        }
-                        AppState::SaveToFileMode => {
-                            if !self.input_query.is_empty() {
-                                match self.log_buffer.save_to_file(&self.input_query) {
-                                    Ok(_) => {
-                                        let abs_path = std::fs::canonicalize(&self.input_query)
-                                            .map(|p| p.to_string_lossy().to_string())
-                                            .unwrap_or_else(|_| self.input_query.clone());
-                                        self.next_state(AppState::Message(format!(
-                                            "Log saved to file:\n{}",
-                                            abs_path
-                                        )));
-                                    }
-                                    Err(e) => {
-                                        self.next_state(AppState::ErrorState(format!(
-                                            "Failed to save file:\n{}",
-                                            e
-                                        )));
-                                    }
-                                }
-                            } else {
-                                self.next_state(AppState::LogView);
-                            }
-                        }
-                        AppState::EditFilterMode => {
-                            if !self.input_query.is_empty() {
-                                self.filter
-                                    .update_selected_pattern(self.input_query.clone());
-                                self.update_view();
-                            }
-                            self.next_state(AppState::FilterListView);
-                        }
-                        _ => {}
-                    },
-                    AppEvent::Cancel => {
-                        if self.help.is_visible() {
-                            self.help.toggle_visibility();
-                            continue;
-                        }
-                        match self.app_state {
-                            AppState::SearchMode => {
-                                self.search.clear_matches();
-                                self.next_state(AppState::LogView);
-                            }
-                            AppState::GotoLineMode => {
-                                self.next_state(AppState::LogView);
-                            }
-                            AppState::FilterMode => {
-                                self.next_state(AppState::LogView);
-                            }
-                            AppState::LogView => {
-                                self.search.clear_matches();
-                            }
-                            AppState::FilterListView => {
-                                self.next_state(AppState::LogView);
-                            }
-                            AppState::OptionsView => {
-                                self.next_state(AppState::LogView);
-                            }
-                            AppState::SaveToFileMode => {
-                                self.next_state(AppState::LogView);
-                            }
-                            AppState::EditFilterMode => {
-                                self.next_state(AppState::FilterListView);
-                            }
-                            AppState::Message(_) => {
-                                self.next_state(AppState::LogView);
-                            }
-                            AppState::ErrorState(_) => {}
-                        };
-                    }
-                    AppEvent::MoveUp => {
-                        if self.help.is_visible() {
-                            self.help.move_up();
-                        } else if self.app_state == AppState::FilterListView {
-                            self.filter.move_selection_up();
-                        } else if self.app_state == AppState::OptionsView {
-                            self.display_options.move_selection_up();
-                        } else {
-                            self.viewport.move_up();
-                            self.viewport.follow_mode = false;
-                        }
-                    }
-                    AppEvent::MoveDown => {
-                        if self.help.is_visible() {
-                            self.help.move_down();
-                        } else if self.app_state == AppState::FilterListView {
-                            self.filter.move_selection_down();
-                        } else if self.app_state == AppState::OptionsView {
-                            self.display_options.move_selection_down();
-                        } else {
-                            self.viewport.move_down();
-                        }
-                    }
-                    AppEvent::PageUp => self.viewport.page_up(),
-                    AppEvent::PageDown => self.viewport.page_down(),
-                    AppEvent::CenterSelected => self.viewport.center_selected(),
-                    AppEvent::GotoTop => self.viewport.goto_top(),
-                    AppEvent::GotoBottom => self.viewport.goto_bottom(),
-                    AppEvent::ScrollLeft => self.viewport.scroll_left(),
-                    AppEvent::ScrollRight => {
-                        let (start, end) = self.viewport.visible();
-                        let max_line_length = self
-                            .log_buffer
-                            .get_lines_max_length(Interval::Range(start, end));
-                        self.viewport.scroll_right(max_line_length)
-                    }
-                    AppEvent::ResetHorizontal => self.viewport.reset_horizontal(),
-                    AppEvent::ToggleHelp => {
-                        self.help.toggle_visibility();
-                    }
-                    AppEvent::ActivateSearchMode => {
-                        self.input_query.clear();
+                Event::App(app_event) => self.handle_app_event(app_event)?,
+            }
+        }
+        Ok(())
+    }
+
+    /// Handles application events and updates the state of [`App`].
+    fn handle_app_event(&mut self, app_event: AppEvent) -> color_eyre::Result<()> {
+        match app_event {
+            AppEvent::Quit => self.quit(),
+            AppEvent::Confirm => match self.app_state {
+                AppState::SearchMode => {
+                    if self.input_query.is_empty() {
                         self.search.clear_matches();
-                        self.search.history.reset();
-                        self.next_state(AppState::SearchMode);
+                    } else {
+                        let lines: Vec<&str> = self
+                            .log_buffer
+                            .get_lines_iter(Interval::All)
+                            .map(|log_line| log_line.content())
+                            .collect();
+                        self.search.apply_pattern(&self.input_query, &lines);
+                        if let Some(line) =
+                            self.search.first_match_from(self.viewport.selected_line)
+                        {
+                            self.viewport.goto_line(line, true);
+                        }
+                        self.viewport.follow_mode = false;
                     }
-                    AppEvent::ToggleCaseSensitive => {
-                        self.search.toggle_case_sensitive();
-                        self.filter.toggle_case_sensitive();
-                        if !self.input_query.is_empty() && self.app_state == AppState::SearchMode {
+                    self.next_state(AppState::LogView);
+                }
+                AppState::FilterMode => {
+                    if !self.input_query.is_empty() {
+                        self.filter.add_filter(self.input_query.clone());
+                        self.update_view();
+                    }
+                    self.next_state(AppState::LogView);
+                }
+                AppState::GotoLineMode => {
+                    if let Ok(line_number) = self.input_query.parse::<usize>() {
+                        if line_number > 0 && line_number <= self.log_buffer.lines.len() {
+                            self.viewport.goto_line(line_number - 1, true);
+                        }
+                    }
+                    self.next_state(AppState::LogView);
+                }
+                AppState::SaveToFileMode => {
+                    if !self.input_query.is_empty() {
+                        match self.log_buffer.save_to_file(&self.input_query) {
+                            Ok(_) => {
+                                let abs_path = std::fs::canonicalize(&self.input_query)
+                                    .map(|p| p.to_string_lossy().to_string())
+                                    .unwrap_or_else(|_| self.input_query.clone());
+                                self.next_state(AppState::Message(format!(
+                                    "Log saved to file:\n{}",
+                                    abs_path
+                                )));
+                            }
+                            Err(e) => {
+                                self.next_state(AppState::ErrorState(format!(
+                                    "Failed to save file:\n{}",
+                                    e
+                                )));
+                            }
+                        }
+                    } else {
+                        self.next_state(AppState::LogView);
+                    }
+                }
+                AppState::EditFilterMode => {
+                    if !self.input_query.is_empty() {
+                        self.filter
+                            .update_selected_pattern(self.input_query.clone());
+                        self.update_view();
+                    }
+                    self.next_state(AppState::FilterListView);
+                }
+                _ => {}
+            },
+            AppEvent::Cancel => {
+                if self.help.is_visible() {
+                    self.help.toggle_visibility();
+                    return Ok(());
+                }
+                match self.app_state {
+                    AppState::SearchMode => {
+                        self.search.clear_matches();
+                        self.next_state(AppState::LogView);
+                    }
+                    AppState::GotoLineMode => {
+                        self.next_state(AppState::LogView);
+                    }
+                    AppState::FilterMode => {
+                        self.next_state(AppState::LogView);
+                    }
+                    AppState::LogView => {
+                        self.search.clear_matches();
+                    }
+                    AppState::FilterListView => {
+                        self.next_state(AppState::LogView);
+                    }
+                    AppState::OptionsView => {
+                        self.next_state(AppState::LogView);
+                    }
+                    AppState::SaveToFileMode => {
+                        self.next_state(AppState::LogView);
+                    }
+                    AppState::EditFilterMode => {
+                        self.next_state(AppState::FilterListView);
+                    }
+                    AppState::Message(_) => {
+                        self.next_state(AppState::LogView);
+                    }
+                    AppState::ErrorState(_) => {}
+                };
+            }
+            AppEvent::MoveUp => {
+                if self.help.is_visible() {
+                    self.help.move_up();
+                } else if self.app_state == AppState::FilterListView {
+                    self.filter.move_selection_up();
+                } else if self.app_state == AppState::OptionsView {
+                    self.display_options.move_selection_up();
+                } else {
+                    self.viewport.move_up();
+                    self.viewport.follow_mode = false;
+                }
+            }
+            AppEvent::MoveDown => {
+                if self.help.is_visible() {
+                    self.help.move_down();
+                } else if self.app_state == AppState::FilterListView {
+                    self.filter.move_selection_down();
+                } else if self.app_state == AppState::OptionsView {
+                    self.display_options.move_selection_down();
+                } else {
+                    self.viewport.move_down();
+                }
+            }
+            AppEvent::PageUp => self.viewport.page_up(),
+            AppEvent::PageDown => self.viewport.page_down(),
+            AppEvent::CenterSelected => self.viewport.center_selected(),
+            AppEvent::GotoTop => self.viewport.goto_top(),
+            AppEvent::GotoBottom => self.viewport.goto_bottom(),
+            AppEvent::ScrollLeft => self.viewport.scroll_left(),
+            AppEvent::ScrollRight => {
+                let (start, end) = self.viewport.visible();
+                let max_line_length = self
+                    .log_buffer
+                    .get_lines_max_length(Interval::Range(start, end));
+                self.viewport.scroll_right(max_line_length)
+            }
+            AppEvent::ResetHorizontal => self.viewport.reset_horizontal(),
+            AppEvent::ToggleHelp => {
+                self.help.toggle_visibility();
+            }
+            AppEvent::ActivateSearchMode => {
+                self.input_query.clear();
+                self.search.clear_matches();
+                self.search.history.reset();
+                self.next_state(AppState::SearchMode);
+            }
+            AppEvent::ToggleCaseSensitive => {
+                self.search.toggle_case_sensitive();
+                self.filter.toggle_case_sensitive();
+                if !self.input_query.is_empty() && self.app_state == AppState::SearchMode {
+                    let lines: Vec<&str> = self
+                        .log_buffer
+                        .get_lines_iter(Interval::All)
+                        .map(|log_line| log_line.content())
+                        .collect();
+                    self.search.update_matches(&self.input_query, &lines);
+                }
+            }
+            AppEvent::ActivateGotoLineMode => {
+                self.input_query.clear();
+                self.next_state(AppState::GotoLineMode);
+            }
+            AppEvent::SearchNext => {
+                if let Some(line) = self.search.next_match(self.viewport.selected_line) {
+                    self.viewport.goto_line(line, false);
+                }
+            }
+            AppEvent::SearchPrevious => {
+                if let Some(line) = self.search.previous_match(self.viewport.selected_line) {
+                    self.viewport.goto_line(line, false);
+                }
+            }
+            AppEvent::ActivateFilterMode => {
+                self.input_query.clear();
+                self.next_state(AppState::FilterMode);
+            }
+            AppEvent::ToggleFilterMode => {
+                self.filter.toggle_mode();
+            }
+            AppEvent::ActivateFilterListView => {
+                self.next_state(AppState::FilterListView);
+            }
+            AppEvent::ToggleFilterPatternActive => {
+                self.filter.toggle_selected_pattern();
+                self.update_view();
+            }
+            AppEvent::RemoveFilterPattern => {
+                self.filter.remove_selected_pattern();
+                self.update_view();
+            }
+            AppEvent::ToggleFilterPatternCaseSensitive => {
+                self.filter.toggle_selected_pattern_case_sensitive();
+                self.update_view();
+            }
+            AppEvent::ToggleFilterPatternMode => {
+                self.filter.toggle_selected_pattern_mode();
+                self.update_view();
+            }
+            AppEvent::ToggleAllFilterPatterns => {
+                self.filter.toggle_all_patterns();
+                self.update_view();
+            }
+            AppEvent::ActivateEditFilterMode => {
+                if let Some(pattern) = self.filter.get_selected_pattern() {
+                    self.input_query = pattern.pattern.clone();
+                    self.next_state(AppState::EditFilterMode);
+                }
+            }
+            AppEvent::ActivateAddFilterMode => {
+                self.input_query.clear();
+                self.next_state(AppState::FilterMode);
+            }
+            AppEvent::SearchHistoryPrevious => {
+                if let Some(history_query) = self.search.history.previous_query() {
+                    self.input_query = history_query;
+                }
+            }
+            AppEvent::SearchHistoryNext => {
+                if let Some(history_query) = self.search.history.next_query() {
+                    self.input_query = history_query;
+                }
+            }
+            AppEvent::ToggleFollowMode => {
+                self.viewport.follow_mode = !self.viewport.follow_mode;
+                if self.viewport.follow_mode {
+                    self.viewport.goto_bottom();
+                }
+            }
+            AppEvent::TogglePauseMode => {
+                if self.log_buffer.streaming {
+                    self.streaming_paused = !self.streaming_paused;
+                }
+            }
+            AppEvent::ActivateOptionsView => {
+                self.next_state(AppState::OptionsView);
+            }
+            AppEvent::ToggleDisplayOption => {
+                self.display_options.toggle_selected_option();
+            }
+            AppEvent::ActivateSaveToFileMode => {
+                self.input_query.clear();
+                self.next_state(AppState::SaveToFileMode);
+            }
+            AppEvent::ClearLogBuffer => {
+                if self.log_buffer.streaming {
+                    self.log_buffer.clear_all();
+                    self.viewport.set_total_lines(0);
+                    self.viewport.selected_line = 0;
+                }
+            }
+            AppEvent::NewLine(line) => {
+                if !self.streaming_paused {
+                    let passes_filter = self.log_buffer.append_line(line, &self.filter);
+                    if passes_filter {
+                        let num_lines = self.log_buffer.get_lines_count();
+                        self.viewport.set_total_lines(num_lines);
+
+                        // Update search matches if there's an active search
+                        if let Some(pattern) =
+                            self.search.get_active_pattern().map(|p| p.to_string())
+                        {
                             let lines: Vec<&str> = self
                                 .log_buffer
                                 .get_lines_iter(Interval::All)
                                 .map(|log_line| log_line.content())
                                 .collect();
-                            self.search.update_matches(&self.input_query, &lines);
+                            self.search.update_matches(&pattern, &lines);
                         }
-                    }
-                    AppEvent::ActivateGotoLineMode => {
-                        self.input_query.clear();
-                        self.next_state(AppState::GotoLineMode);
-                    }
-                    AppEvent::SearchNext => {
-                        if let Some(line) = self.search.next_match(self.viewport.selected_line) {
-                            self.viewport.goto_line(line, false);
-                        }
-                    }
-                    AppEvent::SearchPrevious => {
-                        if let Some(line) = self.search.previous_match(self.viewport.selected_line)
-                        {
-                            self.viewport.goto_line(line, false);
-                        }
-                    }
-                    AppEvent::ActivateFilterMode => {
-                        self.input_query.clear();
-                        self.next_state(AppState::FilterMode);
-                    }
-                    AppEvent::ToggleFilterMode => {
-                        self.filter.toggle_mode();
-                    }
-                    AppEvent::ActivateFilterListView => {
-                        self.next_state(AppState::FilterListView);
-                    }
-                    AppEvent::ToggleFilterPatternActive => {
-                        self.filter.toggle_selected_pattern();
-                        self.update_view();
-                    }
-                    AppEvent::RemoveFilterPattern => {
-                        self.filter.remove_selected_pattern();
-                        self.update_view();
-                    }
-                    AppEvent::ToggleFilterPatternCaseSensitive => {
-                        self.filter.toggle_selected_pattern_case_sensitive();
-                        self.update_view();
-                    }
-                    AppEvent::ToggleFilterPatternMode => {
-                        self.filter.toggle_selected_pattern_mode();
-                        self.update_view();
-                    }
-                    AppEvent::ToggleAllFilterPatterns => {
-                        self.filter.toggle_all_patterns();
-                        self.update_view();
-                    }
-                    AppEvent::ActivateEditFilterMode => {
-                        if let Some(pattern) = self.filter.get_selected_pattern() {
-                            self.input_query = pattern.pattern.clone();
-                            self.next_state(AppState::EditFilterMode);
-                        }
-                    }
-                    AppEvent::ActivateAddFilterMode => {
-                        self.input_query.clear();
-                        self.next_state(AppState::FilterMode);
-                    }
-                    AppEvent::SearchHistoryPrevious => {
-                        if let Some(history_query) = self.search.history.previous_query() {
-                            self.input_query = history_query;
-                        }
-                    }
-                    AppEvent::SearchHistoryNext => {
-                        if let Some(history_query) = self.search.history.next_query() {
-                            self.input_query = history_query;
-                        }
-                    }
-                    AppEvent::ToggleFollowMode => {
-                        self.viewport.follow_mode = !self.viewport.follow_mode;
+
                         if self.viewport.follow_mode {
                             self.viewport.goto_bottom();
                         }
                     }
-                    AppEvent::TogglePauseMode => {
-                        if self.log_buffer.streaming {
-                            self.streaming_paused = !self.streaming_paused;
-                        }
-                    }
-                    AppEvent::ActivateOptionsView => {
-                        self.next_state(AppState::OptionsView);
-                    }
-                    AppEvent::ToggleDisplayOption => {
-                        self.display_options.toggle_selected_option();
-                    }
-                    AppEvent::ActivateSaveToFileMode => {
-                        self.input_query.clear();
-                        self.next_state(AppState::SaveToFileMode);
-                    }
-                    AppEvent::ClearLogBuffer => {
-                        if self.log_buffer.streaming {
-                            self.log_buffer.clear_all();
-                            self.viewport.set_total_lines(0);
-                            self.viewport.selected_line = 0;
-                        }
-                    }
-                    AppEvent::NewLine(line) => {
-                        if !self.streaming_paused {
-                            let passes_filter = self.log_buffer.append_line(line, &self.filter);
-                            if passes_filter {
-                                let num_lines = self.log_buffer.get_lines_count();
-                                self.viewport.set_total_lines(num_lines);
-
-                                // Update search matches if there's an active search
-                                if let Some(pattern) =
-                                    self.search.get_active_pattern().map(|p| p.to_string())
-                                {
-                                    let lines: Vec<&str> = self
-                                        .log_buffer
-                                        .get_lines_iter(Interval::All)
-                                        .map(|log_line| log_line.content())
-                                        .collect();
-                                    self.search.update_matches(&pattern, &lines);
-                                }
-
-                                if self.viewport.follow_mode {
-                                    self.viewport.goto_bottom();
-                                }
-                            }
-                        }
-                    }
-                },
+                }
             }
         }
         Ok(())
