@@ -230,6 +230,7 @@ impl App {
                                 {
                                     self.viewport.goto_line(line, true);
                                 }
+                                self.viewport.follow_mode = false;
                             }
                             self.next_state(AppState::LogView);
                         }
