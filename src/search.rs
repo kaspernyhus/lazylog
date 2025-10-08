@@ -124,6 +124,11 @@ impl Search {
         self.case_sensitive = !self.case_sensitive;
     }
 
+    /// Reset case sensitivity to false.
+    pub fn reset_case_sensitive(&mut self) {
+        self.case_sensitive = false;
+    }
+
     /// Updates the list of matching line indices for a given pattern without storing in search history.
     pub fn update_matches(&mut self, pattern: &str, lines: &[&str]) {
         self.match_indices.clear();

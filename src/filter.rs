@@ -152,6 +152,11 @@ impl Filter {
         };
     }
 
+    /// Resets the filter mode to Include.
+    pub fn reset_mode(&mut self) {
+        self.filter_mode = FilterMode::Include;
+    }
+
     /// Returns the current filter mode.
     pub fn get_mode(&self) -> &FilterMode {
         &self.filter_mode
@@ -165,6 +170,11 @@ impl Filter {
     /// Toggles the case sensitivity for new filters.
     pub fn toggle_case_sensitive(&mut self) {
         self.case_sensitive = !self.case_sensitive;
+    }
+
+    /// Resets case sensitivity to false.
+    pub fn reset_case_sensitive(&mut self) {
+        self.case_sensitive = false;
     }
 
     /// Adds a new filter pattern if it doesn't already exist.

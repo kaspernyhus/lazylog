@@ -370,6 +370,7 @@ impl App {
             AppEvent::ActivateSearchMode => {
                 self.input_query.clear();
                 self.search.clear_matches();
+                self.search.reset_case_sensitive();
                 self.search.history.reset();
                 self.next_state(AppState::SearchMode);
             }
@@ -401,6 +402,8 @@ impl App {
             }
             AppEvent::ActivateFilterMode => {
                 self.input_query.clear();
+                self.filter.reset_mode();
+                self.filter.reset_case_sensitive();
                 self.next_state(AppState::FilterMode);
             }
             AppEvent::ToggleFilterMode => {
