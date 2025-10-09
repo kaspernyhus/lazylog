@@ -441,12 +441,37 @@ fn build_line_from_ranges<'a>(
         }
     }
 
+    // Split overlapping ranges into segments
+    let mut segments = Vec::new();
+    let mut positions: Vec<usize> = styled_ranges
+        .iter()
+        .flat_map(|r| vec![r.start, r.end])
+        .collect();
+    positions.sort_unstable();
+    positions.dedup();
+
+    for i in 0..positions.len().saturating_sub(1) {
+        let seg_start = positions[i];
+        let seg_end = positions[i + 1];
+
+        // Find all ranges that cover this segment
+        let covering_styles: Vec<&PatternStyle> = styled_ranges
+            .iter()
+            .filter(|r| r.start <= seg_start && r.end >= seg_end)
+            .map(|r| &r.style)
+            .collect();
+
+        if !covering_styles.is_empty() || line_style.is_some() {
+            segments.push((seg_start, seg_end, covering_styles));
+        }
+    }
+
     let mut spans = Vec::new();
     let mut last_index = 0;
 
-    for range in styled_ranges {
-        // Add unhighlighted text before this range (with line style if set)
-        if range.start > last_index {
+    for (seg_start, seg_end, covering_styles) in segments {
+        // Add unhighlighted text before this segment
+        if seg_start > last_index {
             let span = if let Some(style) = line_style {
                 let mut ratatui_style = Style::default();
                 if let Some(fg) = style.fg_color {
@@ -458,48 +483,61 @@ fn build_line_from_ranges<'a>(
                 if style.bold {
                     ratatui_style = ratatui_style.add_modifier(Modifier::BOLD);
                 }
-                ratatui::text::Span::styled(&content[last_index..range.start], ratatui_style)
+                ratatui::text::Span::styled(&content[last_index..seg_start], ratatui_style)
             } else {
-                ratatui::text::Span::raw(&content[last_index..range.start])
+                ratatui::text::Span::raw(&content[last_index..seg_start])
             };
             spans.push(span);
         }
 
-        // Add highlighted text (only if we haven't already passed this range)
-        if range.end > last_index {
-            let highlight_start = range.start.max(last_index);
-            let mut ratatui_style = Style::default();
+        // Build combined style for this segment
+        let mut ratatui_style = Style::default();
 
-            // Use line style as base if available
-            if let Some(line_s) = line_style {
-                if let Some(fg) = line_s.fg_color {
+        // Start with line style as base
+        if let Some(line_s) = line_style {
+            if let Some(fg) = line_s.fg_color {
+                ratatui_style = ratatui_style.fg(fg);
+            }
+            if let Some(bg) = line_s.bg_color {
+                ratatui_style = ratatui_style.bg(bg);
+            }
+            if line_s.bold {
+                ratatui_style = ratatui_style.add_modifier(Modifier::BOLD);
+            }
+        }
+
+        // Apply covering styles: background takes priority, then foreground
+        let has_bg = covering_styles.iter().any(|s| s.bg_color.is_some());
+
+        for style in covering_styles {
+            if has_bg {
+                // If any style has background, prioritize it
+                if let Some(bg) = style.bg_color {
+                    ratatui_style = ratatui_style.bg(bg);
+                    if let Some(fg) = style.fg_color {
+                        ratatui_style = ratatui_style.fg(fg);
+                    }
+                    if style.bold {
+                        ratatui_style = ratatui_style.add_modifier(Modifier::BOLD);
+                    }
+                    break; // Use first background style found
+                }
+            } else {
+                // No background, just apply foreground
+                if let Some(fg) = style.fg_color {
                     ratatui_style = ratatui_style.fg(fg);
                 }
-                if let Some(bg) = line_s.bg_color {
-                    ratatui_style = ratatui_style.bg(bg);
-                }
-                if line_s.bold {
+                if style.bold {
                     ratatui_style = ratatui_style.add_modifier(Modifier::BOLD);
                 }
             }
-
-            // Override with range style
-            if let Some(fg) = range.style.fg_color {
-                ratatui_style = ratatui_style.fg(fg);
-            }
-            if let Some(bg) = range.style.bg_color {
-                ratatui_style = ratatui_style.bg(bg);
-            }
-            if range.style.bold {
-                ratatui_style = ratatui_style.add_modifier(Modifier::BOLD);
-            }
-
-            spans.push(ratatui::text::Span::styled(
-                &content[highlight_start..range.end],
-                ratatui_style,
-            ));
-            last_index = range.end;
         }
+
+        spans.push(ratatui::text::Span::styled(
+            &content[seg_start..seg_end],
+            ratatui_style,
+        ));
+        last_index = seg_end;
     }
 
     // Add any remaining unhighlighted text (with line style if set)

@@ -310,11 +310,13 @@ impl Highlighter {
             })
             .collect();
 
-        // Sort ranges: prioritize background highlights, then by start position
-        styled_ranges.sort_by(|a, b| match (a.style.bg_color, b.style.bg_color) {
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-            _ => a.start.cmp(&b.start),
+        // Sort ranges by start position, then by priority (background > no background)
+        styled_ranges.sort_by(|a, b| {
+            a.start.cmp(&b.start).then_with(|| match (a.style.bg_color, b.style.bg_color) {
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                _ => std::cmp::Ordering::Equal,
+            })
         });
 
         (styled_ranges, line_style)
