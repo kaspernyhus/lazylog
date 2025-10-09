@@ -65,14 +65,15 @@ impl App {
     /// Renders the default footer bar in LogView mode.
     fn render_footer(&self, area: Rect, buf: &mut Buffer) {
         let file_name = if let Some(path) = &self.log_buffer.file_path {
-            let name = std::path::Path::new(path)
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or("");
-            if name.len() > MAX_PATH_LENGTH {
-                format!("{}...", &name[..MAX_PATH_LENGTH])
+            let abs_path = std::fs::canonicalize(path)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|_| path.to_string());
+
+            if abs_path.len() > MAX_PATH_LENGTH {
+                let skip = abs_path.len() - MAX_PATH_LENGTH;
+                format!("...{}", &abs_path[skip..])
             } else {
-                name.to_string()
+                abs_path
             }
         } else {
             "".to_string()
