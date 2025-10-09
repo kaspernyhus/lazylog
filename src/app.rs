@@ -132,12 +132,11 @@ impl App {
 
         // Update search matches if there's an active search
         if let Some(pattern) = self.search.get_active_pattern().map(|p| p.to_string()) {
-            let lines: Vec<&str> = self
+            let lines = self
                 .log_buffer
                 .get_lines_iter(Interval::All)
-                .map(|log_line| log_line.content())
-                .collect();
-            self.search.update_matches(&pattern, &lines);
+                .map(|log_line| log_line.content());
+            self.search.update_matches(&pattern, lines);
         }
 
         if num_lines == 0 {
@@ -238,12 +237,11 @@ impl App {
                     if self.input_query.is_empty() {
                         self.search.clear_matches();
                     } else {
-                        let lines: Vec<&str> = self
+                        let lines = self
                             .log_buffer
                             .get_lines_iter(Interval::All)
-                            .map(|log_line| log_line.content())
-                            .collect();
-                        self.search.apply_pattern(&self.input_query, &lines);
+                            .map(|log_line| log_line.content());
+                        self.search.apply_pattern(&self.input_query, lines);
                         if let Some(line) =
                             self.search.first_match_from(self.viewport.selected_line)
                         {
@@ -389,12 +387,11 @@ impl App {
                 self.search.toggle_case_sensitive();
                 self.filter.toggle_case_sensitive();
                 if !self.input_query.is_empty() && self.app_state == AppState::SearchMode {
-                    let lines: Vec<&str> = self
+                    let lines = self
                         .log_buffer
                         .get_lines_iter(Interval::All)
-                        .map(|log_line| log_line.content())
-                        .collect();
-                    self.search.update_matches(&self.input_query, &lines);
+                        .map(|log_line| log_line.content());
+                    self.search.update_matches(&self.input_query, lines);
                 }
             }
             AppEvent::ActivateGotoLineMode => {
@@ -510,12 +507,11 @@ impl App {
                         if let Some(pattern) =
                             self.search.get_active_pattern().map(|p| p.to_string())
                         {
-                            let lines: Vec<&str> = self
+                            let lines = self
                                 .log_buffer
                                 .get_lines_iter(Interval::All)
-                                .map(|log_line| log_line.content())
-                                .collect();
-                            self.search.update_matches(&pattern, &lines);
+                                .map(|log_line| log_line.content());
+                            self.search.update_matches(&pattern, lines);
                         }
 
                         if self.viewport.follow_mode {

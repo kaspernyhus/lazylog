@@ -93,7 +93,7 @@ impl Search {
     /// Applies a search pattern and updates matches.
     ///
     /// Adds the pattern to search history list.
-    pub fn apply_pattern(&mut self, pattern: &str, lines: &[&str]) {
+    pub fn apply_pattern<'a>(&mut self, pattern: &str, lines: impl Iterator<Item = &'a str>) {
         if !pattern.is_empty() {
             self.active_pattern = Some(pattern.to_string());
             self.history.add_query(pattern.to_string());
@@ -130,7 +130,7 @@ impl Search {
     }
 
     /// Updates the list of matching line indices for a given pattern without storing in search history.
-    pub fn update_matches(&mut self, pattern: &str, lines: &[&str]) {
+    pub fn update_matches<'a>(&mut self, pattern: &str, lines: impl Iterator<Item = &'a str>) {
         self.match_indices.clear();
         self.total_matches = 0;
         self.current_match_index = 0;
@@ -139,7 +139,7 @@ impl Search {
             return;
         }
 
-        for (line_index, line) in lines.iter().enumerate() {
+        for (line_index, line) in lines.enumerate() {
             let matching = if self.case_sensitive {
                 line.contains(pattern)
             } else {
