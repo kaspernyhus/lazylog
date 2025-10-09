@@ -99,6 +99,8 @@ pub enum AppEvent {
     ToggleFollowMode,
     /// Toggle pause mode
     TogglePauseMode,
+    /// Toggle center cursor mode
+    ToggleCenterCursorMode,
     /// Activate options view
     ActivateOptionsView,
     /// Toggle selected display option

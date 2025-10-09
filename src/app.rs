@@ -474,6 +474,12 @@ impl App {
                     self.streaming_paused = !self.streaming_paused;
                 }
             }
+            AppEvent::ToggleCenterCursorMode => {
+                self.viewport.center_cursor_mode = !self.viewport.center_cursor_mode;
+                if self.viewport.center_cursor_mode {
+                    self.viewport.center_selected();
+                }
+            }
             AppEvent::ActivateOptionsView => {
                 self.next_state(AppState::OptionsView);
             }
@@ -572,6 +578,7 @@ impl App {
                 KeyCode::Char('f') => self.events.send(AppEvent::ActivateFilterMode),
                 KeyCode::Char('t') => self.events.send(AppEvent::ToggleFollowMode),
                 KeyCode::Char('p') => self.events.send(AppEvent::TogglePauseMode),
+                KeyCode::Char('c') => self.events.send(AppEvent::ToggleCenterCursorMode),
                 KeyCode::Char('o') => self.events.send(AppEvent::ActivateOptionsView),
                 _ => {}
             },

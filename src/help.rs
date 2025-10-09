@@ -79,6 +79,7 @@ impl Help {
             HelpItem::new("f", "Start filter", HelpItemType::Keybind),
             HelpItem::new("F", "View filter list", HelpItemType::Keybind),
             HelpItem::new("t", "Toggle follow mode", HelpItemType::Keybind),
+            HelpItem::new("c", "Toggle center cursor mode", HelpItemType::Keybind),
             HelpItem::new("p", "Toggle pause mode (stdin)", HelpItemType::Keybind),
             HelpItem::new("o", "Display options", HelpItemType::Keybind),
             HelpItem::new("Ctrl+L", "Clear buffer (stdin mode)", HelpItemType::Keybind),

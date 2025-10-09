@@ -17,6 +17,8 @@ pub struct Viewport {
     pub horizontal_offset: usize,
     /// Whether to automatically scroll to bottom when new lines arrive in streaming mode.
     pub follow_mode: bool,
+    /// Whether to keep the cursor centered in the viewport when scrolling.
+    pub center_cursor_mode: bool,
 }
 
 impl Viewport {
@@ -129,6 +131,11 @@ impl Viewport {
         if self.total_lines == 0 {
             self.top_line = 0;
             self.selected_line = 0;
+            return;
+        }
+
+        if self.center_cursor_mode {
+            self.center_selected();
             return;
         }
 

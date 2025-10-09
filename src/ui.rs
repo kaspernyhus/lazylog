@@ -78,15 +78,17 @@ impl App {
             "".to_string()
         };
 
-        let left = if self.streaming_paused && self.log_buffer.streaming {
-            Line::from("PAUSED")
-                .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
-                .left_aligned()
-        } else if self.viewport.follow_mode && self.log_buffer.streaming {
-            Line::from(format!("{} {}", file_name, "| follow")).left_aligned()
-        } else {
-            Line::from(file_name).left_aligned()
-        };
+        let mut left_parts = vec![file_name];
+        if self.streaming_paused && self.log_buffer.streaming {
+            left_parts.push("PAUSED".to_string());
+        }
+        if self.viewport.follow_mode && self.log_buffer.streaming {
+            left_parts.push("| follow".to_string());
+        }
+        if self.viewport.center_cursor_mode {
+            left_parts.push("| center".to_string());
+        }
+        let left = Line::from(left_parts.join(" "));
         let middle = Line::from("h:View Help").centered();
 
         let (current_match, total_matches) = self.search.get_match_info();
