@@ -95,7 +95,7 @@ pub struct TemporaryHighlight {
     pub case_sensitive: bool,
 }
 
-/// Styled range for rendering.
+/// Styled range for rendering (old format - being phased out).
 #[derive(Debug, Clone)]
 pub struct StyledRange {
     /// Start position in text.
@@ -104,6 +104,62 @@ pub struct StyledRange {
     pub end: usize,
     /// Pattern style
     pub style: PatternStyle,
+}
+
+/// Final combined style after all overlaps resolved.
+#[derive(Debug, Clone)]
+pub struct CombinedStyle {
+    pub fg: Option<Color>,
+    pub bg: Option<Color>,
+    pub bold: bool,
+}
+
+impl CombinedStyle {
+    /// Creates a style from a PatternStyle.
+    pub fn from_pattern_style(style: &PatternStyle) -> Self {
+        Self {
+            fg: style.fg_color,
+            bg: style.bg_color,
+            bold: style.bold,
+        }
+    }
+
+    /// Merges another style on top of this one.
+    /// Background colors take priority, foreground fills in if not set.
+    pub fn merge_with(&mut self, other: &PatternStyle) {
+        if other.bg_color.is_some() {
+            self.bg = other.bg_color;
+            // When setting background, also update foreground if provided
+            if other.fg_color.is_some() {
+                self.fg = other.fg_color;
+            }
+        } else if self.bg.is_none() {
+            // No background conflict, merge foreground
+            if other.fg_color.is_some() {
+                self.fg = other.fg_color;
+            }
+        }
+        if other.bold {
+            self.bold = true;
+        }
+    }
+}
+
+/// A contiguous segment of text with a single combined style.
+#[derive(Debug, Clone)]
+pub struct StyledSegment {
+    pub start: usize,
+    pub end: usize,
+    pub style: CombinedStyle,
+}
+
+/// Complete highlighting information for a single line, ready to render.
+#[derive(Debug)]
+pub struct HighlightedLine {
+    /// Base style for the entire line (from event patterns).
+    pub base_style: Option<CombinedStyle>,
+    /// Non-overlapping segments with merged styles, in order.
+    pub segments: Vec<StyledSegment>,
 }
 
 /// Manages text highlighting and line coloring based on configured patterns.
@@ -423,4 +479,173 @@ pub fn hash_to_color(pattern: &str) -> Color {
     let range_start = bright_ranges[(hash as usize) % bright_ranges.len()];
     let color_index = range_start + (hash % 6) as u8;
     Color::Indexed(color_index)
+}
+
+/// Module for merging overlapping highlight ranges into non-overlapping segments.
+mod segment_merger {
+    use super::{CombinedStyle, StyledRange, StyledSegment};
+
+    /// Takes overlapping styled ranges and produces non-overlapping segments with merged styles.
+    ///
+    /// Algorithm:
+    /// 1. Collect all boundary positions (starts and ends of ranges)
+    /// 2. Split text into segments between each boundary
+    /// 3. For each segment, find all overlapping ranges and merge their styles
+    pub fn merge_ranges(ranges: Vec<StyledRange>) -> Vec<StyledSegment> {
+        if ranges.is_empty() {
+            return Vec::new();
+        }
+
+        // Step 1: Collect all unique boundary positions
+        let mut positions: Vec<usize> = ranges
+            .iter()
+            .flat_map(|r| vec![r.start, r.end])
+            .collect();
+        positions.sort_unstable();
+        positions.dedup();
+
+        // Step 2: Create segments between boundaries
+        let mut segments = Vec::new();
+
+        for i in 0..positions.len().saturating_sub(1) {
+            let seg_start = positions[i];
+            let seg_end = positions[i + 1];
+
+            // Step 3: Find all ranges that cover this segment
+            let covering_ranges: Vec<&StyledRange> = ranges
+                .iter()
+                .filter(|r| r.start <= seg_start && r.end >= seg_end)
+                .collect();
+
+            if covering_ranges.is_empty() {
+                continue;
+            }
+
+            // Step 4: Merge styles for this segment
+            let merged_style = merge_styles(&covering_ranges);
+
+            segments.push(StyledSegment {
+                start: seg_start,
+                end: seg_end,
+                style: merged_style,
+            });
+        }
+
+        segments
+    }
+
+    /// Merges multiple overlapping styles into a single combined style.
+    ///
+    /// Priority rules:
+    /// - If any style has a background, use the first one found (highest priority)
+    /// - For foreground-only styles, merge them all (last one wins for conflicts)
+    fn merge_styles(ranges: &[&StyledRange]) -> CombinedStyle {
+        let mut result = CombinedStyle {
+            fg: None,
+            bg: None,
+            bold: false,
+        };
+
+        // Check if any range has a background color
+        let has_bg = ranges.iter().any(|r| r.style.bg_color.is_some());
+
+        if has_bg {
+            // Background priority mode: use first background style found
+            for range in ranges {
+                if range.style.bg_color.is_some() {
+                    result.merge_with(&range.style);
+                    return result; // Use first background style
+                }
+            }
+        }
+
+        // No background: merge all foreground styles
+        for range in ranges {
+            result.merge_with(&range.style);
+        }
+
+        result
+    }
+}
+
+impl Highlighter {
+    /// Main entry point for highlighting a line.
+    ///
+    /// This is the new, clean API that replaces get_styled_ranges_for_viewport.
+    /// Returns a HighlightedLine with all styling information ready to render.
+    pub fn highlight_line(
+        &self,
+        text: &str,
+        horizontal_offset: usize,
+        enable_colors: bool,
+    ) -> HighlightedLine {
+        // Step 1: Get base line style from event patterns
+        let base_style = if enable_colors {
+            self.get_line_style(text)
+                .map(CombinedStyle::from_pattern_style)
+        } else {
+            None
+        };
+
+        // Step 2: Collect all highlight ranges
+        let mut ranges = Vec::new();
+
+        // Always include temporary highlights (search/filter)
+        ranges.extend(self.get_temporary_highlight_ranges(text));
+
+        // Include config highlights if colors enabled
+        if enable_colors {
+            ranges.extend(self.get_config_highlight_ranges(text));
+        }
+
+        // Step 3: Convert to StyledRange format and adjust for viewport
+        let styled_ranges = self.adjust_ranges_for_viewport(ranges, horizontal_offset);
+
+        // Step 4: Merge overlapping ranges into non-overlapping segments
+        let segments = segment_merger::merge_ranges(styled_ranges);
+
+        HighlightedLine {
+            base_style,
+            segments,
+        }
+    }
+
+    /// Adjusts ranges for horizontal scrolling offset.
+    fn adjust_ranges_for_viewport(
+        &self,
+        ranges: Vec<(usize, usize, Color, Option<Color>)>,
+        offset: usize,
+    ) -> Vec<StyledRange> {
+        ranges
+            .into_iter()
+            .filter_map(|(start, end, fg, bg)| {
+                if end <= offset {
+                    // Range is completely before visible area
+                    None
+                } else if start >= offset {
+                    // Range is in visible area, adjust coordinates
+                    Some(StyledRange {
+                        start: start - offset,
+                        end: end - offset,
+                        style: PatternStyle {
+                            fg_color: Some(fg),
+                            bg_color: bg,
+                            bold: bg.is_some(),
+                        },
+                    })
+                } else {
+                    // Range starts before offset but ends in visible area
+                    Some(StyledRange {
+                        start: 0,
+                        end: end - offset,
+                        style: PatternStyle {
+                            fg_color: Some(fg),
+                            bg_color: bg,
+                            bold: bg.is_some(),
+                        },
+                    })
+                }
+            })
+            .collect()
+    }
 }
