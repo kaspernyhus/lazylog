@@ -464,9 +464,11 @@ impl App {
                 }
             }
             AppEvent::ToggleFollowMode => {
-                self.viewport.follow_mode = !self.viewport.follow_mode;
-                if self.viewport.follow_mode {
-                    self.viewport.goto_bottom();
+                if self.log_buffer.streaming {
+                    self.viewport.follow_mode = !self.viewport.follow_mode;
+                    if self.viewport.follow_mode {
+                        self.viewport.goto_bottom();
+                    }
                 }
             }
             AppEvent::TogglePauseMode => {
