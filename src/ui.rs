@@ -535,9 +535,13 @@ impl Widget for &App {
             Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(middle);
 
         // Title
+        let title_middle = Line::from(" Lazylog ").centered();
+        let title_right = Line::from(format!("v{}", env!("CARGO_PKG_VERSION")))
+            .right_aligned()
+            .style(Style::default().fg(Color::DarkGray));
         let title = Block::default()
-            .title(" Lazylog ")
-            .title_alignment(Alignment::Center)
+            .title_bottom(title_middle)
+            .title_bottom(title_right)
             .style(Style::default().bg(GRAY_COLOR));
         title.render(top, buf);
 
