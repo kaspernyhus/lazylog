@@ -1,6 +1,5 @@
-use crate::highlighter::{
-    EventPattern, HighlightPattern, Highlighter, PatternStyle, hash_to_color, parse_color,
-};
+use crate::highlighter::{HighlightPattern, Highlighter, PatternStyle};
+use ratatui::style::Color;
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -155,18 +154,18 @@ impl Config {
                     Self::parse_style_config(style_config)
                 } else {
                     PatternStyle {
-                        fg_color: Some(hash_to_color(&hl_config.pattern)),
+                        fg_color: Some(Self::hash_to_color(&hl_config.pattern)),
                         bg_color: None,
                         bold: false,
                     }
                 };
 
-                HighlightPattern::new(&hl_config.pattern, hl_config.regex, style)
+                HighlightPattern::new(&hl_config.pattern, hl_config.regex, style, None)
             })
             .collect()
     }
 
-    fn parse_event_patterns(&self) -> Vec<EventPattern> {
+    fn parse_event_patterns(&self) -> Vec<HighlightPattern> {
         self.events
             .iter()
             .filter_map(|ev_config| {
@@ -174,18 +173,58 @@ impl Config {
                     .style
                     .as_ref()
                     .map(Self::parse_style_config)
-                    .unwrap_or_else(PatternStyle::default_event_style);
+                    .unwrap_or_else(PatternStyle::white_on_blue);
 
-                EventPattern::new(&ev_config.name, &ev_config.pattern, ev_config.regex, style)
+                HighlightPattern::new(
+                    &ev_config.pattern,
+                    ev_config.regex,
+                    style,
+                    Some(ev_config.name.clone()),
+                )
             })
             .collect()
     }
 
     fn parse_style_config(style_config: &StyleConfig) -> PatternStyle {
         PatternStyle {
-            fg_color: style_config.fg.as_ref().and_then(|c| parse_color(c)),
-            bg_color: style_config.bg.as_ref().and_then(|c| parse_color(c)),
+            fg_color: style_config.fg.as_ref().and_then(|c| Self::parse_color(c)),
+            bg_color: style_config.bg.as_ref().and_then(|c| Self::parse_color(c)),
             bold: style_config.bold,
         }
+    }
+
+    pub fn parse_color(color_str: &str) -> Option<Color> {
+        match color_str.to_lowercase().as_str() {
+            "red" => Some(Color::Red),
+            "green" => Some(Color::Green),
+            "yellow" => Some(Color::Yellow),
+            "blue" => Some(Color::Blue),
+            "magenta" => Some(Color::Magenta),
+            "cyan" => Some(Color::Cyan),
+            "white" => Some(Color::White),
+            "black" => Some(Color::Black),
+            "gray" => Some(Color::Gray),
+            "darkgray" => Some(Color::DarkGray),
+            "lightred" => Some(Color::LightRed),
+            "lightgreen" => Some(Color::LightGreen),
+            "lightyellow" => Some(Color::LightYellow),
+            "lightblue" => Some(Color::LightBlue),
+            "lightmagenta" => Some(Color::LightMagenta),
+            "lightcyan" => Some(Color::LightCyan),
+            _ => None,
+        }
+    }
+
+    /// Generates a deterministic color from a pattern using djb2 hash.
+    pub fn hash_to_color(pattern: &str) -> Color {
+        let mut hash: u32 = 5381;
+        for byte in pattern.bytes() {
+            hash = hash.wrapping_mul(33).wrapping_add(byte as u32);
+        }
+        // Use bright colors from the 256-color palette (82-231)
+        let bright_ranges = [82, 118, 154, 190, 196, 202, 208, 214, 220, 226];
+        let range_start = bright_ranges[(hash as usize) % bright_ranges.len()];
+        let color_index = range_start + (hash % 6) as u8;
+        Color::Indexed(color_index)
     }
 }

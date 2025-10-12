@@ -1,17 +1,8 @@
-use ratatui::style::Color;
+use ratatui::style::{Color, Modifier, Style};
 use regex::Regex;
 
-/// Pattern matching strategy for text highlighting.
-#[derive(Debug, Clone)]
-pub enum PatternMatcher {
-    /// Plain string matching.
-    Plain(String),
-    /// Regular expression matching.
-    Regex(Regex),
-}
-
 /// Style configuration for text rendering.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct PatternStyle {
     /// Foreground color.
     pub fg_color: Option<Color>,
@@ -22,12 +13,131 @@ pub struct PatternStyle {
 }
 
 impl PatternStyle {
-    /// Creates a default style for events.
-    pub fn default_event_style() -> Self {
+    /// Creates a new pattern style.
+    pub fn new(fg_color: Option<Color>, bg_color: Option<Color>, bold: bool) -> Self {
+        Self {
+            fg_color,
+            bg_color,
+            bold,
+        }
+    }
+
+    /// Creates a PatternStyle with blue bg and white fg.
+    pub fn white_on_blue() -> Self {
         Self {
             fg_color: Some(Color::Rgb(255, 255, 255)),
             bg_color: Some(Color::Blue),
             bold: false,
+        }
+    }
+
+    /// Convert to ratatui Style.
+    pub fn to_ratatui(&self) -> Style {
+        let mut ratatui_style = Style::default();
+        if let Some(fg) = self.fg_color {
+            ratatui_style = ratatui_style.fg(fg);
+        }
+        if let Some(bg) = self.bg_color {
+            ratatui_style = ratatui_style.bg(bg);
+        }
+        if self.bold {
+            ratatui_style = ratatui_style.add_modifier(Modifier::BOLD);
+        }
+        ratatui_style
+    }
+}
+
+/// Plain text pattern matcher with optional case sensitivity.
+#[derive(Debug, Clone)]
+pub struct PlainMatch {
+    /// The plain text pattern to match
+    pub pattern: String,
+    /// Whether matching should be case-sensitive
+    pub case_sensitive: bool,
+}
+
+impl PlainMatch {
+    /// Returns true if there is a match for the plain match pattern anywhere in the haystack given.
+    pub fn is_match(&self, haystack: &str) -> bool {
+        if self.case_sensitive {
+            haystack.contains(&self.pattern)
+        } else {
+            self.contains_ignore_case(haystack)
+        }
+    }
+
+    /// Find all occurrences of a substring in the haystack
+    pub fn find(&self, haystack: &str) -> Vec<(usize, usize)> {
+        if self.case_sensitive {
+            haystack
+                .match_indices(&self.pattern)
+                .map(|(start, matched)| (start, start + matched.len()))
+                .collect()
+        } else {
+            self.find_all_ignore_case(haystack)
+        }
+    }
+
+    /// Returns true if the given needle matches a sub-slice of haystack string slice ignoring the case.
+    ///
+    /// Returns false if it does not.
+    fn contains_ignore_case(&self, haystack: &str) -> bool {
+        if self.pattern.is_empty() {
+            return true;
+        }
+        if self.pattern.len() > haystack.len() {
+            return false;
+        }
+        haystack
+            .as_bytes()
+            .windows(self.pattern.len())
+            .any(|window| window.eq_ignore_ascii_case(self.pattern.as_bytes()))
+    }
+
+    /// Finds all case-insensitive occurrences of a substring in text.
+    fn find_all_ignore_case(&self, text: &str) -> Vec<(usize, usize)> {
+        let pattern_bytes = self.pattern.as_bytes();
+        let text_bytes = text.as_bytes();
+        let pattern_len = pattern_bytes.len();
+
+        if pattern_len == 0 || pattern_len > text_bytes.len() {
+            return Vec::new();
+        }
+
+        text_bytes
+            .windows(pattern_len)
+            .enumerate()
+            .filter(|(_, window)| window.eq_ignore_ascii_case(pattern_bytes))
+            .map(|(idx, _)| (idx, idx + pattern_len))
+            .collect()
+    }
+}
+
+/// Pattern matching strategy for text highlighting.
+#[derive(Debug, Clone)]
+pub enum PatternMatcher {
+    /// Plain string matching with runtime case sensitivity
+    Plain(PlainMatch),
+    /// Regular expression matching (case sensitivity determined at compile time)
+    Regex(Regex),
+}
+
+impl PatternMatcher {
+    /// Checks if the pattern matches the given text.
+    pub fn matches(&self, text: &str) -> bool {
+        match self {
+            PatternMatcher::Plain(s) => s.is_match(text),
+            PatternMatcher::Regex(r) => r.is_match(text),
+        }
+    }
+
+    /// Finds all occurrences of the pattern in the text.
+    ///
+    /// Returns a list of (start, end) byte positions for each match.
+    pub fn find_all(&self, text: &str) -> Vec<(usize, usize)> {
+        match self {
+            PatternMatcher::Plain(plain_match) => plain_match.find(text),
+            PatternMatcher::Regex(r) => r.find_iter(text).map(|m| (m.start(), m.end())).collect(),
         }
     }
 }
@@ -35,6 +145,8 @@ impl PatternStyle {
 /// Pattern with associated color for text highlighting.
 #[derive(Debug, Clone)]
 pub struct HighlightPattern {
+    /// Optional name to display
+    pub name: Option<String>,
     /// Matcher to identify text spans to highlight.
     pub matcher: PatternMatcher,
     /// Style to apply to matched text.
@@ -43,56 +155,26 @@ pub struct HighlightPattern {
 
 impl HighlightPattern {
     /// Creates a new highlight pattern.
-    pub fn new(pattern: &str, is_regex: bool, style: PatternStyle) -> Option<Self> {
+    pub fn new(
+        pattern: &str,
+        is_regex: bool,
+        style: PatternStyle,
+        name: Option<String>,
+    ) -> Option<Self> {
         let matcher = if is_regex {
             Regex::new(pattern).ok().map(PatternMatcher::Regex)?
         } else {
-            PatternMatcher::Plain(pattern.to_string())
+            PatternMatcher::Plain(PlainMatch {
+                pattern: pattern.to_string(),
+                case_sensitive: false,
+            })
         };
-
-        Some(Self { matcher, style })
-    }
-}
-
-/// Event pattern with associated style for line coloring and tracking.
-#[derive(Debug, Clone)]
-pub struct EventPattern {
-    /// Name of the event.
-    pub name: String,
-    /// Matcher to identify lines matching this event.
-    pub matcher: PatternMatcher,
-    /// Style to apply to matched lines.
-    pub style: PatternStyle,
-}
-
-impl EventPattern {
-    /// Creates a new event pattern.
-    pub fn new(name: &str, pattern: &str, is_regex: bool, style: PatternStyle) -> Option<Self> {
-        let matcher = if is_regex {
-            Regex::new(pattern).ok().map(PatternMatcher::Regex)?
-        } else {
-            PatternMatcher::Plain(pattern.to_string())
-        };
-
         Some(Self {
-            name: name.to_string(),
+            name,
             matcher,
             style,
         })
     }
-}
-
-/// Temporary highlight.
-#[derive(Debug, Clone)]
-pub struct TemporaryHighlight {
-    /// Pattern to match.
-    pub pattern: String,
-    /// Foreground color.
-    pub fg_color: Color,
-    /// Background color.
-    pub bg_color: Option<Color>,
-    /// Whether matching is case-sensitive.
-    pub case_sensitive: bool,
 }
 
 /// Styled range for rendering.
@@ -106,54 +188,27 @@ pub struct StyledRange {
     pub style: PatternStyle,
 }
 
+/// Complete highlighting information for a single line, ready to render.
+#[derive(Debug)]
+pub struct HighlightedLine {
+    /// Non-overlapping segments with styles, in order.
+    pub segments: Vec<StyledRange>,
+}
+
 /// Manages text highlighting and line coloring based on configured patterns.
 #[derive(Debug)]
 pub struct Highlighter {
     /// Patterns for text highlighting.
     patterns: Vec<HighlightPattern>,
     /// Event patterns for line coloring and tracking.
-    events: Vec<EventPattern>,
+    events: Vec<HighlightPattern>,
     /// Temporary highlights.
-    temporary_highlights: Vec<TemporaryHighlight>,
-}
-
-impl PatternMatcher {
-    /// Checks if the pattern matches the given text.
-    pub fn matches(&self, text: &str, case_sensitive: bool) -> bool {
-        match self {
-            PatternMatcher::Plain(s) => {
-                if case_sensitive {
-                    text.contains(s)
-                } else {
-                    contains_ignore_case(text, s)
-                }
-            }
-            PatternMatcher::Regex(r) => r.is_match(text),
-        }
-    }
-
-    /// Finds all occurrences of the pattern in the text.
-    ///
-    /// Returns a list of (start, end) byte positions for each match.
-    pub fn find_all(&self, text: &str, case_sensitive: bool) -> Vec<(usize, usize)> {
-        match self {
-            PatternMatcher::Plain(s) => {
-                if case_sensitive {
-                    text.match_indices(s)
-                        .map(|(start, matched)| (start, start + matched.len()))
-                        .collect()
-                } else {
-                    find_all_ignore_case(text, s)
-                }
-            }
-            PatternMatcher::Regex(r) => r.find_iter(text).map(|m| (m.start(), m.end())).collect(),
-        }
-    }
+    temporary_highlights: Vec<HighlightPattern>,
 }
 
 impl Highlighter {
     /// Creates a new highlighter with the given patterns.
-    pub fn new(patterns: Vec<HighlightPattern>, events: Vec<EventPattern>) -> Self {
+    pub fn new(patterns: Vec<HighlightPattern>, events: Vec<HighlightPattern>) -> Self {
         Self {
             patterns,
             events,
@@ -161,61 +216,32 @@ impl Highlighter {
         }
     }
 
-    /// Returns whether there are no highlight or event patterns.
-    pub fn is_empty(&self) -> bool {
-        self.patterns.is_empty() && self.events.is_empty()
-    }
-
-    /// Returns all highlight patterns.
-    pub fn get_patterns(&self) -> &[HighlightPattern] {
-        &self.patterns
-    }
-
-    /// Returns all event patterns.
-    pub fn get_events(&self) -> &[EventPattern] {
-        &self.events
-    }
-
-    /// Returns the style for a line if it matches any event pattern.
+    /// Returns the style for the whole line if it matches any event pattern.
     ///
     /// Returns the first matching event's style, or `None` if no pattern matches.
-    pub fn get_line_style(&self, text: &str) -> Option<&PatternStyle> {
+    pub fn get_line_style(&self, text: &str) -> Option<PatternStyle> {
         for event in &self.events {
-            if event.matcher.matches(text, true) {
-                return Some(&event.style);
+            if event.matcher.matches(text) {
+                return Some(event.style);
             }
         }
         None
     }
 
-    /// Finds all highlight ranges in the given text.
-    ///
-    /// Returns a list of (start, end, color) tuples for each match.
-    pub fn get_highlight_ranges(&self, text: &str) -> Vec<(usize, usize, Color)> {
-        let mut ranges = Vec::new();
-        for pattern in &self.patterns {
-            if let Some(fg_color) = pattern.style.fg_color {
-                for (start, end) in pattern.matcher.find_all(text, true) {
-                    ranges.push((start, end, fg_color));
-                }
-            }
-        }
-        ranges
-    }
-
-    /// Adds a temporary highlight.
+    /// Adds a temporary highlight pattern to be applied on top of any other highlighting.
     pub fn add_temporary_highlight(
         &mut self,
         pattern: String,
-        fg_color: Color,
-        bg_color: Option<Color>,
+        style: PatternStyle,
         case_sensitive: bool,
     ) {
-        self.temporary_highlights.push(TemporaryHighlight {
-            pattern,
-            fg_color,
-            bg_color,
-            case_sensitive,
+        self.temporary_highlights.push(HighlightPattern {
+            name: None,
+            matcher: PatternMatcher::Plain(PlainMatch {
+                pattern,
+                case_sensitive,
+            }),
+            style,
         });
     }
 
@@ -224,203 +250,195 @@ impl Highlighter {
         self.temporary_highlights.clear();
     }
 
-    /// Finds all highlight ranges.
-    ///
-    /// Returns a list of (start, end, fg_color, bg_color) tuples.
-    pub fn get_all_highlight_ranges(
+    /// Returns a HighlightedLine with all styling information ready to render.
+    pub fn highlight_line(
         &self,
-        text: &str,
-    ) -> Vec<(usize, usize, Color, Option<Color>)> {
-        let mut ranges = Vec::new();
-
-        // Add config highlights (no background color)
-        for pattern in &self.patterns {
-            if let Some(fg_color) = pattern.style.fg_color {
-                for (start, end) in pattern.matcher.find_all(text, true) {
-                    ranges.push((start, end, fg_color, pattern.style.bg_color));
-                }
-            }
-        }
-
-        // Add temporary highlights (may have background color)
-        for highlight in &self.temporary_highlights {
-            if highlight.pattern.is_empty() {
-                continue;
-            }
-            let matcher = PatternMatcher::Plain(highlight.pattern.clone());
-            for (start, end) in matcher.find_all(text, highlight.case_sensitive) {
-                ranges.push((start, end, highlight.fg_color, highlight.bg_color));
-            }
-        }
-
-        ranges
-    }
-
-    /// Returns styled ranges adjusted for horizontal offset, ready for rendering.
-    ///
-    /// Returns (styled_ranges, line_style).
-    pub fn get_styled_ranges_for_viewport(
-        &self,
-        full_line: &str,
+        line: &str,
         horizontal_offset: usize,
         enable_colors: bool,
-    ) -> (Vec<StyledRange>, Option<&PatternStyle>) {
+    ) -> HighlightedLine {
         let mut ranges = Vec::new();
 
-        // Always include temporary highlights
-        ranges.extend(self.get_temporary_highlight_ranges(full_line));
+        // Step 1: Add event pattern as base style (full line background)
+        if enable_colors {
+            if let Some(line_style) = self.get_line_style(line) {
+                ranges.push(StyledRange {
+                    start: 0,
+                    end: line.len(),
+                    style: line_style,
+                });
+            }
 
-        let line_style = if enable_colors {
-            ranges.extend(self.get_config_highlight_ranges(full_line));
-            self.get_line_style(full_line)
-        } else {
-            None
-        };
+            // Step 2: Add configured highlight patterns
+            for pattern in &self.patterns {
+                for (start, end) in pattern.matcher.find_all(line) {
+                    ranges.push(StyledRange {
+                        start,
+                        end,
+                        style: pattern.style,
+                    });
+                }
+            }
+        }
 
-        // Adjust ranges for horizontal offset
-        let mut styled_ranges: Vec<StyledRange> = ranges
+        // Step 3: Add temporary highlights (always shown, even if colors disabled)
+        for highlight in &self.temporary_highlights {
+            for (start, end) in highlight.matcher.find_all(line) {
+                ranges.push(StyledRange {
+                    start,
+                    end,
+                    style: highlight.style,
+                });
+            }
+        }
+
+        // Step 4: Adjust for horizontal scrolling
+        let styled_ranges = self.adjust_for_viewport_offset(ranges, horizontal_offset);
+
+        // Step 5: Resolve overlaps into non-overlapping segments
+        let segments = self.split_into_segments(styled_ranges);
+
+        HighlightedLine { segments }
+    }
+
+    /// Adjusts ranges for horizontal scrolling offset.
+    fn adjust_for_viewport_offset(
+        &self,
+        ranges: Vec<StyledRange>,
+        offset: usize,
+    ) -> Vec<StyledRange> {
+        ranges
             .into_iter()
-            .filter_map(|(start, end, fg, bg)| {
-                if end <= horizontal_offset {
-                    // Range is completely before visible area
+            .filter_map(|styled_range| {
+                if styled_range.end <= offset {
+                    // Range ends before viewport - not visible, discard
                     None
-                } else if start >= horizontal_offset {
-                    // Range is in visible area, adjust coordinates
+                } else if styled_range.start >= offset {
+                    // Range entirely within viewport - shift coordinates
                     Some(StyledRange {
-                        start: start - horizontal_offset,
-                        end: end - horizontal_offset,
-                        style: PatternStyle {
-                            fg_color: Some(fg),
-                            bg_color: bg,
-                            bold: bg.is_some(), // Background highlights (search/filter) are bold
-                        },
+                        start: styled_range.start - offset,
+                        end: styled_range.end - offset,
+                        style: styled_range.style,
                     })
                 } else {
-                    // Range starts before offset but ends in visible area
+                    // Range starts before viewport but extends into it - clip at viewport start
                     Some(StyledRange {
                         start: 0,
-                        end: end - horizontal_offset,
-                        style: PatternStyle {
-                            fg_color: Some(fg),
-                            bg_color: bg,
-                            bold: bg.is_some(),
-                        },
+                        end: styled_range.end - offset,
+                        style: styled_range.style,
                     })
                 }
             })
-            .collect();
-
-        // Sort ranges by start position, then by priority (background > no background)
-        styled_ranges.sort_by(|a, b| {
-            a.start.cmp(&b.start).then_with(|| match (a.style.bg_color, b.style.bg_color) {
-                (Some(_), None) => std::cmp::Ordering::Less,
-                (None, Some(_)) => std::cmp::Ordering::Greater,
-                _ => std::cmp::Ordering::Equal,
-            })
-        });
-
-        (styled_ranges, line_style)
+            .collect()
     }
 
-    /// Gets only config-based highlight ranges.
-    fn get_config_highlight_ranges(&self, text: &str) -> Vec<(usize, usize, Color, Option<Color>)> {
-        let mut ranges = Vec::new();
+    /// Splits overlapping ranges into non-overlapping segments, merging styles as needed.
+    fn split_into_segments(&self, ranges: Vec<StyledRange>) -> Vec<StyledRange> {
+        if ranges.is_empty() {
+            return Vec::new();
+        }
 
-        for pattern in &self.patterns {
-            if let Some(fg_color) = pattern.style.fg_color {
-                for (start, end) in pattern.matcher.find_all(text, true) {
-                    ranges.push((start, end, fg_color, pattern.style.bg_color));
+        let mut result: Vec<StyledRange> = Vec::new();
+
+        for range in ranges {
+            // Temp storage for split segments created during overlap resolution
+            let mut splits = Vec::new();
+
+            // Check if this range should inherit background color
+            let should_inherit_bg =
+                range.style.bg_color.is_none() && range.style.fg_color.is_some();
+
+            // Find background to preserve BEFORE modifying result
+            let bg_to_preserve = if should_inherit_bg {
+                result
+                    .iter()
+                    .find(|r| {
+                        // Find any overlapping range that has a background
+                        r.style.bg_color.is_some()
+                            && !(r.end <= range.start || r.start >= range.end)
+                    })
+                    .and_then(|r| r.style.bg_color)
+            } else {
+                None
+            };
+
+            // Handle overlaps: remove/trim/split existing ranges as needed
+            result.retain_mut(|existing| {
+                // Case 1: No overlap - keep existing range
+                if range.start >= existing.end || range.end <= existing.start {
+                    return true;
                 }
-            }
+
+                // Case 2: New range completely covers existing - remove existing
+                if range.start <= existing.start && range.end >= existing.end {
+                    return false;
+                }
+
+                // Case 3: New range is inside existing - split existing into left and right parts
+                //   existing: [--------]
+                //   new:          [--]
+                //   result:   [--]    [--]
+                if range.start > existing.start && range.end < existing.end {
+                    splits.push(StyledRange {
+                        start: range.end,
+                        end: existing.end,
+                        style: existing.style,
+                    });
+                    existing.end = range.start;
+                    return true;
+                }
+
+                // Case 4: New range overlaps right side - trim existing on right
+                //   existing: [--------]
+                //   new:            [------]
+                //   result:   [----]
+                if range.start > existing.start {
+                    existing.end = range.start;
+                    return true;
+                }
+
+                // Case 5: New range overlaps left side - trim existing on left
+                //   existing:       [--------]
+                //   new:      [------]
+                //   result:            [----]
+                if range.end < existing.end {
+                    existing.start = range.end;
+                    return true;
+                }
+
+                // Unreachable: all overlap cases are handled above
+                true
+            });
+
+            // Create the final range, possibly with inherited background
+            let merged_range = if let Some(bg_color) = bg_to_preserve {
+                // Prevent invisible text: if fg == bg, use white instead
+                let fg_color = if range.style.fg_color == Some(bg_color) {
+                    Some(Color::Rgb(255, 255, 255))
+                } else {
+                    range.style.fg_color
+                };
+
+                StyledRange {
+                    start: range.start,
+                    end: range.end,
+                    style: PatternStyle {
+                        fg_color,
+                        bg_color: Some(bg_color),
+                        bold: range.style.bold,
+                    },
+                }
+            } else {
+                range
+            };
+
+            // Add the new range and any split fragments
+            result.push(merged_range);
+            result.extend(splits);
         }
 
-        ranges
+        // Sort by position for correct rendering order
+        result.sort_by_key(|r| r.start);
+        result
     }
-
-    /// Gets only temporary highlight ranges.
-    fn get_temporary_highlight_ranges(
-        &self,
-        text: &str,
-    ) -> Vec<(usize, usize, Color, Option<Color>)> {
-        let mut ranges = Vec::new();
-
-        for highlight in &self.temporary_highlights {
-            if highlight.pattern.is_empty() {
-                continue;
-            }
-            let matcher = PatternMatcher::Plain(highlight.pattern.clone());
-            for (start, end) in matcher.find_all(text, highlight.case_sensitive) {
-                ranges.push((start, end, highlight.fg_color, highlight.bg_color));
-            }
-        }
-
-        ranges
-    }
-}
-
-/// Finds all case-insensitive occurrences of a substring in text.
-///
-/// Returns a list of (start, end) byte positions for each match.
-fn find_all_ignore_case(text: &str, pattern: &str) -> Vec<(usize, usize)> {
-    let text_lower = text.to_lowercase();
-    let pattern_lower = pattern.to_lowercase();
-
-    text_lower
-        .match_indices(&pattern_lower)
-        .map(|(start, matched)| (start, start + matched.len()))
-        .collect()
-}
-
-/// Returns true if the given needle matches a sub-slice of haystack string slice ignoring the case.
-///
-/// Returns false if it does not.
-fn contains_ignore_case(haystack: &str, needle: &str) -> bool {
-    if needle.is_empty() {
-        return true;
-    }
-    if needle.len() > haystack.len() {
-        return false;
-    }
-    haystack
-        .as_bytes()
-        .windows(needle.len())
-        .any(|window| window.eq_ignore_ascii_case(needle.as_bytes()))
-}
-
-/// Parses a color name string into a Color.
-///
-/// Returns `None` for unrecognized color names.
-pub fn parse_color(color_str: &str) -> Option<Color> {
-    match color_str.to_lowercase().as_str() {
-        "red" => Some(Color::Red),
-        "green" => Some(Color::Green),
-        "yellow" => Some(Color::Yellow),
-        "blue" => Some(Color::Blue),
-        "magenta" => Some(Color::Magenta),
-        "cyan" => Some(Color::Cyan),
-        "white" => Some(Color::White),
-        "black" => Some(Color::Black),
-        "gray" => Some(Color::Gray),
-        "darkgray" => Some(Color::DarkGray),
-        "lightred" => Some(Color::LightRed),
-        "lightgreen" => Some(Color::LightGreen),
-        "lightyellow" => Some(Color::LightYellow),
-        "lightblue" => Some(Color::LightBlue),
-        "lightmagenta" => Some(Color::LightMagenta),
-        "lightcyan" => Some(Color::LightCyan),
-        _ => None,
-    }
-}
-
-/// Generates a deterministic color from a pattern using djb2 hash.
-pub fn hash_to_color(pattern: &str) -> Color {
-    let mut hash: u32 = 5381;
-    for byte in pattern.bytes() {
-        hash = hash.wrapping_mul(33).wrapping_add(byte as u32);
-    }
-    // Use bright colors from the 256-color palette (82-231)
-    let bright_ranges = [82, 118, 154, 190, 196, 202, 208, 214, 220, 226];
-    let range_start = bright_ranges[(hash as usize) % bright_ranges.len()];
-    let color_index = range_start + (hash % 6) as u8;
-    Color::Indexed(color_index)
 }

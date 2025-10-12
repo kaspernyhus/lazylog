@@ -18,6 +18,8 @@ highlights = [
 
 # Event patterns. If no style is specified, a default style is applied (fg=white, bg=lightgreen).
 # Style applies to the entire line containing the matched pattern.
+# Events are evaluated from top to bottom, and the first match is used.
+# Event patterns are case-sensitive.
 events = [
     # Log levels events
     { name = "Error",    pattern = " ERROR ",    regex = false, style = { fg = "lightred", bold = true } },

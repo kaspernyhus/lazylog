@@ -94,7 +94,7 @@ impl DisplayOptions {
         }
     }
 
-    /// Applies all enabled hide-pattern options to a line, returning the modified text.
+    /// Applies all options to a line, returning the modified text as a String.
     pub fn apply_to_line(&self, line: &str) -> String {
         let mut result = line.to_string();
 

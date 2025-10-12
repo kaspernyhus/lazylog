@@ -5,7 +5,7 @@ use crate::{
     event::{AppEvent, Event, EventHandler},
     filter::Filter,
     help::Help,
-    highlighter::Highlighter,
+    highlighter::{Highlighter, PatternStyle},
     log::{Interval, LogBuffer},
     search::Search,
     viewport::Viewport,
@@ -14,6 +14,7 @@ use ratatui::{
     Terminal,
     backend::Backend,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
+    style::Color,
 };
 
 #[derive(Debug, PartialEq)]
@@ -172,8 +173,7 @@ impl App {
         {
             self.highlighter.add_temporary_highlight(
                 self.input_query.clone(),
-                ratatui::style::Color::Black,
-                Some(ratatui::style::Color::Cyan),
+                PatternStyle::new(Some(Color::Black), Some(Color::Cyan), false),
                 self.filter.is_case_sensitive(),
             );
         }
@@ -182,8 +182,7 @@ impl App {
         if self.app_state == AppState::SearchMode && self.input_query.len() >= 2 {
             self.highlighter.add_temporary_highlight(
                 self.input_query.clone(),
-                ratatui::style::Color::Black,
-                Some(ratatui::style::Color::Yellow),
+                PatternStyle::new(Some(Color::Black), Some(Color::Yellow), false),
                 self.search.is_case_sensitive(),
             );
         }
@@ -193,8 +192,7 @@ impl App {
             if !pattern.is_empty() && self.app_state != AppState::SearchMode {
                 self.highlighter.add_temporary_highlight(
                     pattern.to_string(),
-                    ratatui::style::Color::Black,
-                    Some(ratatui::style::Color::Yellow),
+                    PatternStyle::new(Some(Color::Black), Some(Color::Yellow), false),
                     self.search.is_case_sensitive(),
                 );
             }
