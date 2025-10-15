@@ -8,11 +8,11 @@
 # Style only applies to the matched part of the line.
 highlights = [
     { pattern = "/[\\w/.-]+", regex = true }, # File paths
-    { pattern = ":\\d{2,5}\\b", regex = true },  # Port numbers like :8080
+    { pattern = "\\d+\\.\\d+\\.\\d+\\.\\d+:\\d{2,5}\\b|[a-zA-Z0-9.-]+:\\d{2,5}\\b", regex = true },
     { pattern = "\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}", regex = true },  # IP addresses
     { pattern = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", regex = true },  # UUIDs
-    { pattern = "TODO", regex = false },  # Plain string matching
-    { pattern = "GET" },  # Plain string matching
+    { pattern = "order_id" },  # Plain string matching
+    { pattern = "FROM", case_sensitive = true },
     { pattern = "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}", regex = true, style = { fg = "darkgray" } },  # Timestamps (ISO8601)
 ]
 
