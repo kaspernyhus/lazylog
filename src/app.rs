@@ -7,6 +7,7 @@ use crate::{
     help::Help,
     highlighter::{Highlighter, PatternStyle},
     log::{Interval, LogBuffer},
+    log_event::LogEventTracker,
     search::Search,
     viewport::Viewport,
 };
@@ -33,6 +34,8 @@ pub enum AppState {
     EditFilterMode,
     /// View for adjusting display options.
     OptionsView,
+    /// View for displaying all events found in the log.
+    EventsView,
     /// Active mode for entering a file name for saving the current log buffer to a file.
     SaveToFileMode,
     /// Display a message to the user.
@@ -70,6 +73,8 @@ pub struct App {
     pub input_query: String,
     /// Indicates whether streaming is paused (only relevant in stdin/streaming mode).
     pub streaming_paused: bool,
+    /// Log event tracker for managing log events.
+    pub event_tracker: LogEventTracker,
 }
 
 impl App {
@@ -97,6 +102,7 @@ impl App {
             display_options: DisplayOptions::default(),
             highlighter,
             streaming_paused: false,
+            event_tracker: LogEventTracker::default(),
         };
 
         if use_stdin {
@@ -256,6 +262,17 @@ impl App {
                     }
                     self.next_state(AppState::LogView);
                 }
+                AppState::EventsView => {
+                    if let Some(selected_event) = self.event_tracker.get_selected_event() {
+                        let target_line = selected_event.line_index;
+                        if let Some(active_line) =
+                            self.log_buffer.find_closest_line_by_index(target_line)
+                        {
+                            self.viewport.goto_line(active_line, true);
+                        }
+                    }
+                    self.next_state(AppState::LogView);
+                }
                 AppState::GotoLineMode => {
                     if let Ok(line_number) = self.input_query.parse::<usize>() {
                         if line_number > 0 && line_number <= self.log_buffer.lines.len() {
@@ -322,6 +339,9 @@ impl App {
                     AppState::OptionsView => {
                         self.next_state(AppState::LogView);
                     }
+                    AppState::EventsView => {
+                        self.next_state(AppState::LogView);
+                    }
                     AppState::SaveToFileMode => {
                         self.next_state(AppState::LogView);
                     }
@@ -341,6 +361,8 @@ impl App {
                     self.filter.move_selection_up();
                 } else if self.app_state == AppState::OptionsView {
                     self.display_options.move_selection_up();
+                } else if self.app_state == AppState::EventsView {
+                    self.event_tracker.move_selection_up();
                 } else {
                     self.viewport.move_up();
                     self.viewport.follow_mode = false;
@@ -353,6 +375,8 @@ impl App {
                     self.filter.move_selection_down();
                 } else if self.app_state == AppState::OptionsView {
                     self.display_options.move_selection_down();
+                } else if self.app_state == AppState::EventsView {
+                    self.event_tracker.move_selection_down();
                 } else {
                     self.viewport.move_down();
                 }
@@ -480,6 +504,13 @@ impl App {
             AppEvent::ActivateOptionsView => {
                 self.next_state(AppState::OptionsView);
             }
+            AppEvent::ActivateEventsView => {
+                self.event_tracker
+                    .scan(&self.log_buffer, self.highlighter.events());
+                self.event_tracker
+                    .select_nearest_event(self.viewport.selected_line);
+                self.next_state(AppState::EventsView);
+            }
             AppEvent::ToggleDisplayOption => {
                 self.display_options.toggle_selected_option();
             }
@@ -576,6 +607,7 @@ impl App {
                 KeyCode::Char('p') => self.events.send(AppEvent::TogglePauseMode),
                 KeyCode::Char('c') => self.events.send(AppEvent::ToggleCenterCursorMode),
                 KeyCode::Char('o') => self.events.send(AppEvent::ActivateOptionsView),
+                KeyCode::Char('e') => self.events.send(AppEvent::ActivateEventsView),
                 _ => {}
             },
 
@@ -631,6 +663,15 @@ impl App {
                 KeyCode::Up => self.events.send(AppEvent::MoveUp),
                 KeyCode::Down => self.events.send(AppEvent::MoveDown),
                 KeyCode::Char(' ') => self.events.send(AppEvent::ToggleDisplayOption),
+                _ => {}
+            },
+
+            // EventsView
+            AppState::EventsView => match key_event.code {
+                KeyCode::Char('q') => self.events.send(AppEvent::Quit),
+                KeyCode::Char('h') => self.events.send(AppEvent::ToggleHelp),
+                KeyCode::Up => self.events.send(AppEvent::MoveUp),
+                KeyCode::Down => self.events.send(AppEvent::MoveDown),
                 _ => {}
             },
 

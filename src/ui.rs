@@ -217,48 +217,150 @@ impl App {
                 )
                 .alignment(Alignment::Center);
             popup.render(area, buf);
-        } else {
-            let items: Vec<Line> = filter_patterns
-                .iter()
-                .map(|pattern| {
-                    let mode_str = match pattern.mode {
-                        crate::filter::FilterMode::Include => "IN",
-                        crate::filter::FilterMode::Exclude => "EX",
-                    };
-                    let case_str = if pattern.case_sensitive { "Aa" } else { "aa" };
+            return;
+        }
 
-                    let content = format!("[{}] [{}] {}", mode_str, case_str, pattern.pattern);
+        let items: Vec<Line> = filter_patterns
+            .iter()
+            .map(|pattern| {
+                let mode_str = match pattern.mode {
+                    crate::filter::FilterMode::Include => "IN",
+                    crate::filter::FilterMode::Exclude => "EX",
+                };
+                let case_str = if pattern.case_sensitive { "Aa" } else { "aa" };
 
-                    if pattern.enabled {
-                        Line::from(content).style(Style::default().fg(Color::Green))
-                    } else {
-                        Line::from(content).style(Style::default().fg(Color::Gray))
-                    }
-                })
-                .collect();
+                let content = format!("[{}] [{}] {}", mode_str, case_str, pattern.pattern);
 
-            let mut list_state = ListState::default();
-            if !filter_patterns.is_empty() {
-                list_state.select(Some(self.filter.get_selected_pattern_index()));
-            }
+                if pattern.enabled {
+                    Line::from(content).style(Style::default().fg(Color::Green))
+                } else {
+                    Line::from(content).style(Style::default().fg(Color::Gray))
+                }
+            })
+            .collect();
 
-            let filter_list = List::new(items)
+        let mut list_state = ListState::default();
+        if !filter_patterns.is_empty() {
+            list_state.select(Some(self.filter.get_selected_pattern_index()));
+        }
+
+        let filter_list = List::new(items)
+            .block(
+                Block::default()
+                    .title(" Filters ")
+                    .title_alignment(Alignment::Center)
+                    .borders(ratatui::widgets::Borders::ALL)
+                    .border_style(Style::default().fg(Color::White)),
+            )
+            .highlight_symbol("")
+            .highlight_style(
+                Style::default()
+                    .bg(Color::Black)
+                    .add_modifier(Modifier::BOLD),
+            );
+
+        StatefulWidget::render(filter_list, area, buf, &mut list_state);
+    }
+
+    /// Renders the events popup in EventsView mode.
+    fn render_events_popup(&self, area: Rect, buf: &mut Buffer) {
+        Clear.render(area, buf);
+
+        if self.event_tracker.is_empty() {
+            let no_events_text = vec![Line::from("No events found")];
+            let popup = Paragraph::new(no_events_text)
                 .block(
                     Block::default()
-                        .title(" Filters ")
+                        .title(" Log Events ")
                         .title_alignment(Alignment::Center)
                         .borders(ratatui::widgets::Borders::ALL)
-                        .border_style(Style::default().fg(Color::White)),
+                        .border_style(Style::default().fg(Color::White))
+                        .style(Style::default().bg(Color::Blue)),
                 )
-                .highlight_symbol("")
-                .highlight_style(
-                    Style::default()
-                        .bg(Color::Black)
-                        .add_modifier(Modifier::BOLD),
-                );
-
-            StatefulWidget::render(filter_list, area, buf, &mut list_state);
+                .alignment(Alignment::Center);
+            popup.render(area, buf);
+            return;
         }
+
+        // Get log lines for preview
+        let mut items: Vec<Line> = Vec::new();
+        for event in self.event_tracker.events() {
+            // Get the log line content
+            let log_line = self
+                .log_buffer
+                .get_lines_iter(Interval::All)
+                .find(|line| line.index == event.line_index);
+
+            if let Some(log_line) = log_line {
+                let content = log_line.content();
+                // Truncate long lines for preview
+                let preview = if content.len() > 80 {
+                    format!("{}...", &content[..77])
+                } else {
+                    content.to_string()
+                };
+
+                // Format: [Event Name] Line preview with colored event name
+                let spans = vec![
+                    Span::raw("["),
+                    Span::styled(
+                        event.event_name.clone(),
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::raw("] "),
+                    Span::styled(preview, Style::default().fg(Color::White)),
+                ];
+
+                items.push(Line::from(spans));
+            }
+        }
+
+        // Render block first
+        let block = Block::default()
+            .title(" Log Events ")
+            .title_alignment(Alignment::Center)
+            .borders(ratatui::widgets::Borders::ALL)
+            .style(Style::default().bg(Color::Blue));
+
+        let inner_area = block.inner(area);
+
+        // Split inner area for list and scrollbar
+        let [list_area, scrollbar_area] =
+            Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(inner_area);
+
+        block.render(area, buf);
+
+        // Create list without block (block is rendered separately above)
+        let events_list = List::new(items)
+            .highlight_symbol(RIGHT_ARROW)
+            .highlight_style(
+                Style::default()
+                    .bg(Color::LightBlue)
+                    .fg(Color::Rgb(255, 255, 255))
+                    .add_modifier(Modifier::BOLD),
+            );
+
+        // Create list state with current selection
+        let mut list_state = ListState::default();
+        if !self.event_tracker.is_empty() {
+            list_state.select(Some(self.event_tracker.selected_index()));
+        }
+
+        StatefulWidget::render(events_list, list_area, buf, &mut list_state);
+
+        // Render scrollbar
+        let mut scrollbar_state = ScrollbarState::new(self.event_tracker.count())
+            .position(self.event_tracker.selected_index())
+            .viewport_content_length(0);
+
+        let scrollbar = Scrollbar::default()
+            .orientation(ScrollbarOrientation::VerticalRight)
+            .begin_symbol(None)
+            .end_symbol(None);
+
+        StatefulWidget::render(scrollbar, scrollbar_area, buf, &mut scrollbar_state);
     }
 
     /// Renders the display options popup in OptionsView mode.
@@ -489,6 +591,10 @@ impl Widget for &App {
         if self.app_state == AppState::OptionsView {
             let options_area = popup_area(area, 40, 10);
             self.render_options_popup(options_area, buf);
+        }
+        if self.app_state == AppState::EventsView {
+            let events_area = popup_area(area, 118, 35);
+            self.render_events_popup(events_area, buf);
         }
         if self.help.is_visible() {
             let help_area = popup_area(area, 45, 30);

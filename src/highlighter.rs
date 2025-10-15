@@ -228,6 +228,11 @@ impl Highlighter {
         None
     }
 
+    /// Returns a slice of all event patterns.
+    pub fn events(&self) -> &[HighlightPattern] {
+        &self.events
+    }
+
     /// Adds a temporary highlight pattern to be applied on top of any other highlighting.
     pub fn add_temporary_highlight(
         &mut self,
@@ -259,7 +264,6 @@ impl Highlighter {
     ) -> HighlightedLine {
         let mut ranges = Vec::new();
 
-        // Step 1: Add event pattern as base style (full line background)
         if enable_colors {
             if let Some(line_style) = self.get_line_style(line) {
                 ranges.push(StyledRange {
@@ -269,7 +273,6 @@ impl Highlighter {
                 });
             }
 
-            // Step 2: Add configured highlight patterns
             for pattern in &self.patterns {
                 for (start, end) in pattern.matcher.find_all(line) {
                     ranges.push(StyledRange {
@@ -281,7 +284,6 @@ impl Highlighter {
             }
         }
 
-        // Step 3: Add temporary highlights (always shown, even if colors disabled)
         for highlight in &self.temporary_highlights {
             for (start, end) in highlight.matcher.find_all(line) {
                 ranges.push(StyledRange {
@@ -292,10 +294,7 @@ impl Highlighter {
             }
         }
 
-        // Step 4: Adjust for horizontal scrolling
         let styled_ranges = self.adjust_for_viewport_offset(ranges, horizontal_offset);
-
-        // Step 5: Resolve overlaps into non-overlapping segments
         let segments = self.split_into_segments(styled_ranges);
 
         HighlightedLine { segments }

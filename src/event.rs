@@ -103,6 +103,8 @@ pub enum AppEvent {
     ToggleCenterCursorMode,
     /// Activate options view
     ActivateOptionsView,
+    /// Activate events view
+    ActivateEventsView,
     /// Toggle selected display option
     ToggleDisplayOption,
     /// Clear log buffer
