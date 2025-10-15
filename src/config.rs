@@ -1,4 +1,4 @@
-use crate::highlighter::{HighlightPattern, Highlighter, PatternStyle};
+use crate::highlighter::{HighlightPattern, Highlighter, PatternMatchType, PatternStyle};
 use ratatui::style::Color;
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -37,6 +37,9 @@ pub struct HighlightConfig {
     /// Whether the pattern is a regex or a simple substring.
     #[serde(default)]
     pub regex: bool,
+    /// Whether the pattern matching is case-sensitive.
+    #[serde(default)]
+    pub case_sensitive: bool,
     /// Style to use for highlighting. If None, a style will be generated.
     #[serde(default)]
     pub style: Option<StyleConfig>,
@@ -160,7 +163,13 @@ impl Config {
                     }
                 };
 
-                HighlightPattern::new(&hl_config.pattern, hl_config.regex, style, None)
+                let match_type = if hl_config.regex {
+                    PatternMatchType::Regex
+                } else {
+                    PatternMatchType::Plain(hl_config.case_sensitive)
+                };
+
+                HighlightPattern::new(&hl_config.pattern, match_type, style, None)
             })
             .collect()
     }
@@ -175,9 +184,15 @@ impl Config {
                     .map(Self::parse_style_config)
                     .unwrap_or_else(PatternStyle::white_on_blue);
 
+                let match_type = if ev_config.regex {
+                    PatternMatchType::Regex
+                } else {
+                    PatternMatchType::Plain(true)
+                };
+
                 HighlightPattern::new(
                     &ev_config.pattern,
-                    ev_config.regex,
+                    match_type,
                     style,
                     Some(ev_config.name.clone()),
                 )

@@ -113,6 +113,13 @@ impl PlainMatch {
     }
 }
 
+/// Type of pattern matching to use.
+#[derive(Debug)]
+pub enum PatternMatchType {
+    Plain(bool),
+    Regex,
+}
+
 /// Pattern matching strategy for text highlighting.
 #[derive(Debug, Clone)]
 pub enum PatternMatcher {
@@ -157,18 +164,18 @@ impl HighlightPattern {
     /// Creates a new highlight pattern.
     pub fn new(
         pattern: &str,
-        is_regex: bool,
+        match_type: PatternMatchType,
         style: PatternStyle,
         name: Option<String>,
     ) -> Option<Self> {
-        let matcher = if is_regex {
-            Regex::new(pattern).ok().map(PatternMatcher::Regex)?
-        } else {
-            PatternMatcher::Plain(PlainMatch {
+        let matcher = match match_type {
+            PatternMatchType::Plain(case_sensitive) => PatternMatcher::Plain(PlainMatch {
                 pattern: pattern.to_string(),
-                case_sensitive: false,
-            })
+                case_sensitive,
+            }),
+            PatternMatchType::Regex => PatternMatcher::Regex(Regex::new(pattern).ok()?),
         };
+
         Some(Self {
             name,
             matcher,
