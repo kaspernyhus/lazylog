@@ -9,6 +9,7 @@ A terminal-based log viewer with search, filtering, and streaming capabilities.
 - **Stream logs from stdin** - Pipe logs directly from any command
 - **Search and highlight** - Fast search with case-insensitive option
 - **Filtering** - Include/exclude patterns
+- **Event tracking** - Define event patterns and track these
 - **Syntax highlighting** - Configurable color patterns
 - **Save streams** - Export stdin streams to files
 

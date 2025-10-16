@@ -63,8 +63,8 @@ impl Help {
     /// Creates a new Help instance with all keybinding documentation.
     pub fn new() -> Self {
         let help_items = vec![
-            // LogView Mode section (no empty line above first header)
-            HelpItem::new("LogView Mode", "", HelpItemType::Header),
+            // LogView Mode section
+            HelpItem::new("LogView", "", HelpItemType::Header),
             HelpItem::new("q, Ctrl+C", "Quit", HelpItemType::Keybind),
             HelpItem::new("h", "Toggle help", HelpItemType::Keybind),
             HelpItem::new("Down/Up", "Navigate lines", HelpItemType::Keybind),
@@ -78,43 +78,51 @@ impl Help {
             HelpItem::new(":", "Go to line", HelpItemType::Keybind),
             HelpItem::new("f", "Start filter", HelpItemType::Keybind),
             HelpItem::new("F", "View filter list", HelpItemType::Keybind),
-            HelpItem::new("t", "Toggle follow mode", HelpItemType::Keybind),
-            HelpItem::new("c", "Toggle center cursor mode", HelpItemType::Keybind),
-            HelpItem::new("p", "Toggle pause mode (stdin)", HelpItemType::Keybind),
+            HelpItem::new("e", "View log events", HelpItemType::Keybind),
             HelpItem::new("o", "Display options", HelpItemType::Keybind),
-            HelpItem::new("Ctrl+L", "Clear buffer (stdin mode)", HelpItemType::Keybind),
-            HelpItem::new("Ctrl+S", "Save to file (stdin mode)", HelpItemType::Keybind),
+            HelpItem::new("c", "Toggle center cursor mode", HelpItemType::Keybind),
+            HelpItem::new("t", "Toggle follow mode (stdin)", HelpItemType::Keybind),
+            HelpItem::new("p", "Toggle pause mode (stdin)", HelpItemType::Keybind),
+            HelpItem::new("Ctrl+L", "Clear buffer (stdin)", HelpItemType::Keybind),
+            HelpItem::new("Ctrl+S", "Save to file (stdin)", HelpItemType::Keybind),
             // Search Mode section
             HelpItem::new("", "", HelpItemType::Empty),
-            HelpItem::new("Search Mode", "", HelpItemType::Header),
+            HelpItem::new("Search", "", HelpItemType::Header),
             HelpItem::new("Tab", "Toggle case sensitivity", HelpItemType::Keybind),
             HelpItem::new("Up/Down", "Navigate search history", HelpItemType::Keybind),
             // Filter Mode section
             HelpItem::new("", "", HelpItemType::Empty),
-            HelpItem::new("Filter Mode", "", HelpItemType::Header),
+            HelpItem::new("Filter", "", HelpItemType::Header),
             HelpItem::new("Tab", "Toggle case sensitivity", HelpItemType::Keybind),
             HelpItem::new(
                 "Left/Right",
                 "Toggle include/exclude",
                 HelpItemType::Keybind,
             ),
-            HelpItem::new("Enter", "Apply filter", HelpItemType::Keybind),
-            HelpItem::new("Delete", "Remove filter pattern", HelpItemType::Keybind),
             // Filter List section
             HelpItem::new("", "", HelpItemType::Empty),
             HelpItem::new("Filter List", "", HelpItemType::Header),
-            HelpItem::new("Up/Down", "Navigate filters", HelpItemType::Keybind),
             HelpItem::new("Space", "Toggle filter on/off", HelpItemType::Keybind),
             HelpItem::new("Delete", "Remove selected filter", HelpItemType::Keybind),
             HelpItem::new("e", "Edit selected filter", HelpItemType::Keybind),
             HelpItem::new("f", "Add new filter", HelpItemType::Keybind),
-            HelpItem::new("i", "Toggle case sensitive", HelpItemType::Keybind),
+            HelpItem::new("Tab", "Toggle case sensitive", HelpItemType::Keybind),
             HelpItem::new("m", "Toggle include/exclude", HelpItemType::Keybind),
             HelpItem::new("a", "Toggle all filters", HelpItemType::Keybind),
+            // Events View section
+            HelpItem::new("", "", HelpItemType::Empty),
+            HelpItem::new("Events View", "", HelpItemType::Header),
+            HelpItem::new("Space", "Go to selected event", HelpItemType::Keybind),
+            HelpItem::new("Enter", "Go to event and exit", HelpItemType::Keybind),
+            HelpItem::new("F", "Filter events", HelpItemType::Keybind),
+            // Event Filters section
+            HelpItem::new("", "", HelpItemType::Empty),
+            HelpItem::new("Event Filters", "", HelpItemType::Header),
+            HelpItem::new("Space", "Toggle event filter", HelpItemType::Keybind),
+            HelpItem::new("a", "Toggle all event filters", HelpItemType::Keybind),
             // Display Options section
             HelpItem::new("", "", HelpItemType::Empty),
             HelpItem::new("Display Options", "", HelpItemType::Header),
-            HelpItem::new("Up/Down", "Navigate options", HelpItemType::Keybind),
             HelpItem::new("Space", "Toggle option on/off", HelpItemType::Keybind),
         ];
 

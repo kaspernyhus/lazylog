@@ -684,7 +684,7 @@ impl App {
                 KeyCode::Char('e') => self.events.send(AppEvent::ActivateEditFilterMode),
                 KeyCode::Char('f') => self.events.send(AppEvent::ActivateAddFilterMode),
                 KeyCode::Char('a') => self.events.send(AppEvent::ToggleAllFilterPatterns),
-                KeyCode::Char('i') => self.events.send(AppEvent::ToggleFilterPatternCaseSensitive),
+                KeyCode::Tab => self.events.send(AppEvent::ToggleFilterPatternCaseSensitive),
                 KeyCode::Char('m') => self.events.send(AppEvent::ToggleFilterPatternMode),
                 _ => {}
             },

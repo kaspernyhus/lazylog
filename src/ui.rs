@@ -657,7 +657,7 @@ impl Widget for &App {
             self.render_event_filter_popup(event_filter_area, buf);
         }
         if self.help.is_visible() {
-            let help_area = popup_area(area, 45, 30);
+            let help_area = popup_area(area, 48, 32);
             self.help.render(help_area, buf);
         }
         if let AppState::Message(ref message) = self.app_state {
