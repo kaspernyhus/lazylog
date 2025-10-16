@@ -1,6 +1,7 @@
 use crate::app::{App, AppState};
 use crate::highlighter::HighlightedLine;
 use crate::log::Interval;
+use ratatui::style::Stylize;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Clear, ListState};
 use ratatui::{
@@ -14,7 +15,9 @@ use ratatui::{
 };
 
 /// Symbol used to indicate the selected line.
-pub const RIGHT_ARROW: &str = "▶ ";
+pub const RIGHT_ARROW: &str = "▶";
+/// Three-quarters block for mark indicator.
+pub const MARK_INDICATOR: &str = "▊";
 /// Maximum length for file path display in footer.
 const MAX_PATH_LENGTH: usize = 42;
 /// Background color for footer and title bars.
@@ -498,6 +501,132 @@ impl App {
         self.render_popup(error_msg, "Error", Color::Red, area, buf);
     }
 
+    /// Renders the mark name input popup in MarkNameInputMode.
+    fn render_mark_name_input_popup(&self, area: Rect, buf: &mut Buffer) {
+        Clear.render(area, buf);
+
+        let input_text = self.input_query.clone();
+        let popup = Paragraph::new(input_text)
+            .block(
+                Block::default()
+                    .title(" Name Mark ")
+                    .title_alignment(Alignment::Center)
+                    .borders(ratatui::widgets::Borders::ALL)
+                    .border_style(Style::default().fg(Color::White)),
+            )
+            .style(Style::default().fg(Color::White))
+            .alignment(Alignment::Left);
+
+        popup.render(area, buf);
+    }
+
+    /// Renders the marks popup in MarksView mode.
+    fn render_marks_popup(&self, area: Rect, buf: &mut Buffer) {
+        Clear.render(area, buf);
+
+        if self.marking.is_empty() {
+            let no_marks_text = vec![Line::from("No marked lines")];
+            let popup = Paragraph::new(no_marks_text)
+                .block(
+                    Block::default()
+                        .title(" Marked Lines ")
+                        .title_alignment(Alignment::Center)
+                        .bg(Color::Indexed(29))
+                        .borders(ratatui::widgets::Borders::ALL)
+                        .border_style(Style::default().fg(Color::White)),
+                )
+                .alignment(Alignment::Center);
+            popup.render(area, buf);
+            return;
+        }
+
+        let items: Vec<Line> = self
+            .marking
+            .get_sorted_marks()
+            .iter()
+            .map(|mark| {
+                let log_line = self
+                    .log_buffer
+                    .lines
+                    .get(mark.line_index)
+                    .map(|l| l.content.as_str())
+                    .unwrap_or("");
+
+                let preview = if log_line.len() > 80 {
+                    format!("{}...", &log_line[..77])
+                } else {
+                    log_line.to_string()
+                };
+
+                if let Some(name) = &mark.name {
+                    let spans = vec![
+                        Span::raw(" ["),
+                        Span::styled(
+                            name.clone(),
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                        Span::raw("] "),
+                        Span::styled(preview, Style::default().fg(Color::White)),
+                    ];
+                    Line::from(spans)
+                } else {
+                    let spans = vec![
+                        Span::raw(" "),
+                        Span::styled(preview, Style::default().fg(Color::White)),
+                    ];
+                    Line::from(spans)
+                }
+            })
+            .collect();
+
+        // Render block first
+        let block = Block::default()
+            .title(" Marked Lines ")
+            .title_alignment(Alignment::Center)
+            .borders(ratatui::widgets::Borders::ALL)
+            .style(Style::default().bg(Color::Indexed(29)));
+
+        let inner_area = block.inner(area);
+
+        // Split inner area for list and scrollbar
+        let [list_area, scrollbar_area] =
+            Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(inner_area);
+
+        block.render(area, buf);
+
+        // Create list without block (block is rendered separately above)
+        let marks_list = List::new(items)
+            .highlight_symbol(RIGHT_ARROW)
+            .highlight_style(
+                Style::default()
+                    .bg(Color::LightBlue)
+                    .fg(Color::Rgb(255, 255, 255))
+                    .add_modifier(Modifier::BOLD),
+            );
+
+        // Create list state with current selection
+        let mut list_state = ListState::default();
+        if !self.marking.is_empty() {
+            list_state.select(Some(self.marking.selected_index()));
+        }
+
+        StatefulWidget::render(marks_list, list_area, buf, &mut list_state);
+
+        // Render scrollbar
+        let mut scrollbar_state = ScrollbarState::new(self.marking.count())
+            .position(self.marking.selected_index())
+            .viewport_content_length(0);
+
+        let scrollbar = Scrollbar::default()
+            .orientation(ScrollbarOrientation::VerticalRight)
+            .begin_symbol(None)
+            .end_symbol(None);
+
+        StatefulWidget::render(scrollbar, scrollbar_area, buf, &mut scrollbar_state);
+    }
+
     /// Renders the vertical scrollbar.
     fn render_scrollbar(&self, area: Rect, buf: &mut Buffer) {
         let mut scrollbar_state = ScrollbarState::new(self.viewport.total_lines)
@@ -517,21 +646,27 @@ impl App {
     fn render_logview(&self, area: Rect, buf: &mut Buffer) {
         let (start, end) = self.viewport.visible();
 
-        let viewport_lines: Vec<String> = self
+        let viewport_lines: Vec<(String, usize)> = self
             .log_buffer
             .get_lines_iter(Interval::Range(start, end))
-            .map(|log_line| self.display_options.apply_to_line(log_line.content()))
+            .map(|log_line| {
+                (
+                    self.display_options.apply_to_line(log_line.content()),
+                    log_line.index,
+                )
+            })
             .collect();
 
         let items: Vec<Line> = viewport_lines
             .iter()
-            .map(|line| {
+            .map(|(line, line_index)| {
                 let text = if self.viewport.horizontal_offset >= line.len() {
                     ""
                 } else {
                     &line[self.viewport.horizontal_offset..]
                 };
-                self.process_line(line, text, self.viewport.horizontal_offset)
+                let is_marked = self.marking.is_marked(*line_index);
+                self.process_line(line, text, self.viewport.horizontal_offset, is_marked)
             })
             .collect();
 
@@ -553,6 +688,7 @@ impl App {
         full_line: &'a str,
         visible_text: &'a str,
         line_offset: usize,
+        is_marked: bool,
     ) -> Line<'a> {
         let enable_colors = !self.display_options.is_enabled("Disable Colors");
 
@@ -560,11 +696,23 @@ impl App {
             .highlighter
             .highlight_line(full_line, line_offset, enable_colors);
 
+        let mark_indicator = if is_marked {
+            Span::styled(MARK_INDICATOR, Style::default().fg(Color::Indexed(29)))
+        } else {
+            Span::raw(" ")
+        };
+
         if highlighted.segments.is_empty() {
-            return Line::from(visible_text);
+            let mut spans = vec![mark_indicator];
+            if !visible_text.is_empty() {
+                spans.push(Span::raw(visible_text));
+            }
+            return Line::from(spans);
         }
 
-        build_line_from_highlighted(visible_text, highlighted)
+        let mut line = build_line_from_highlighted(visible_text, highlighted);
+        line.spans.insert(0, mark_indicator);
+        line
     }
 }
 
@@ -655,6 +803,16 @@ impl Widget for &App {
             let event_filter_area = popup_area(area, 40, 15);
             self.render_events_popup(events_area, buf);
             self.render_event_filter_popup(event_filter_area, buf);
+        }
+        if self.app_state == AppState::MarksView {
+            let marks_area = popup_area(area, 118, 35);
+            self.render_marks_popup(marks_area, buf);
+        }
+        if self.app_state == AppState::MarkNameInputMode {
+            let marks_area = popup_area(area, 118, 35);
+            self.render_marks_popup(marks_area, buf);
+            let name_input_area = popup_area(area, 60, 3);
+            self.render_mark_name_input_popup(name_input_area, buf);
         }
         if self.help.is_visible() {
             let help_area = popup_area(area, 48, 32);

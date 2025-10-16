@@ -85,6 +85,8 @@ impl Help {
             HelpItem::new("p", "Toggle pause mode (stdin)", HelpItemType::Keybind),
             HelpItem::new("Ctrl+L", "Clear buffer (stdin)", HelpItemType::Keybind),
             HelpItem::new("Ctrl+S", "Save to file (stdin)", HelpItemType::Keybind),
+            HelpItem::new("Space", "Toggle mark on line", HelpItemType::Keybind),
+            HelpItem::new("m", "View marked lines", HelpItemType::Keybind),
             // Search Mode section
             HelpItem::new("", "", HelpItemType::Empty),
             HelpItem::new("Search", "", HelpItemType::Header),
@@ -124,6 +126,13 @@ impl Help {
             HelpItem::new("", "", HelpItemType::Empty),
             HelpItem::new("Display Options", "", HelpItemType::Header),
             HelpItem::new("Space", "Toggle option on/off", HelpItemType::Keybind),
+            // Marks View section
+            HelpItem::new("", "", HelpItemType::Empty),
+            HelpItem::new("Marks View", "", HelpItemType::Header),
+            HelpItem::new("Space", "Go to selected mark", HelpItemType::Keybind),
+            HelpItem::new("e", "Name/tag the mark", HelpItemType::Keybind),
+            HelpItem::new("Delete", "Remove selected mark", HelpItemType::Keybind),
+            HelpItem::new("c", "Clear all marks", HelpItemType::Keybind),
         ];
 
         Self {

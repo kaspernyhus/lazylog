@@ -119,6 +119,14 @@ pub enum AppEvent {
     ClearLogBuffer,
     /// Activate save to file mode
     ActivateSaveToFileMode,
+    /// Toggle mark on current line
+    ToggleMark,
+    /// Activate marks view
+    ActivateMarksView,
+    /// Clear all marks
+    ClearAllMarks,
+    /// Activate mark name input mode
+    ActivateMarkNameInputMode,
 }
 
 /// Terminal event handler.

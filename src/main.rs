@@ -17,6 +17,7 @@ pub mod help;
 pub mod highlighter;
 pub mod log;
 pub mod log_event;
+pub mod marking;
 pub mod search;
 pub mod ui;
 pub mod viewport;

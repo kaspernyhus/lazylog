@@ -8,6 +8,7 @@ use crate::{
     highlighter::{Highlighter, PatternStyle},
     log::{Interval, LogBuffer},
     log_event::LogEventTracker,
+    marking::Marking,
     search::Search,
     viewport::Viewport,
 };
@@ -38,6 +39,10 @@ pub enum AppState {
     EventsView,
     /// View for filtering events in EventsView.
     EventsFilterView,
+    /// View for displaying marked log lines.
+    MarksView,
+    /// Active mode for entering a name/tag for a mark.
+    MarkNameInputMode,
     /// Active mode for entering a file name for saving the current log buffer to a file.
     SaveToFileMode,
     /// Display a message to the user.
@@ -77,6 +82,8 @@ pub struct App {
     pub streaming_paused: bool,
     /// Log event tracker for managing log events.
     pub event_tracker: LogEventTracker,
+    /// Log line marking manager
+    pub marking: Marking,
 }
 
 impl App {
@@ -105,6 +112,7 @@ impl App {
             highlighter,
             streaming_paused: false,
             event_tracker: LogEventTracker::default(),
+            marking: Marking::default(),
         };
 
         if use_stdin {
@@ -275,6 +283,17 @@ impl App {
                     }
                     self.next_state(AppState::LogView);
                 }
+                AppState::MarksView => {
+                    if let Some(selected_mark) = self.marking.get_selected_mark() {
+                        let target_line = selected_mark.line_index;
+                        if let Some(active_line) =
+                            self.log_buffer.find_closest_line_by_index(target_line)
+                        {
+                            self.viewport.goto_line(active_line, true);
+                        }
+                    }
+                    self.next_state(AppState::LogView);
+                }
                 AppState::GotoLineMode => {
                     if let Ok(line_number) = self.input_query.parse::<usize>() {
                         if line_number > 0 && line_number <= self.log_buffer.lines.len() {
@@ -314,6 +333,15 @@ impl App {
                     }
                     self.next_state(AppState::FilterListView);
                 }
+                AppState::MarkNameInputMode => {
+                    if let Some(line_index) = self.marking.get_selected_marked_line() {
+                        if !self.input_query.is_empty() {
+                            self.marking
+                                .set_mark_name(line_index, self.input_query.clone());
+                        }
+                    }
+                    self.next_state(AppState::MarksView);
+                }
                 _ => {}
             },
             AppEvent::Cancel => {
@@ -347,6 +375,12 @@ impl App {
                     AppState::EventsFilterView => {
                         self.next_state(AppState::EventsView);
                     }
+                    AppState::MarksView => {
+                        self.next_state(AppState::LogView);
+                    }
+                    AppState::MarkNameInputMode => {
+                        self.next_state(AppState::MarksView);
+                    }
                     AppState::SaveToFileMode => {
                         self.next_state(AppState::LogView);
                     }
@@ -370,6 +404,8 @@ impl App {
                     self.event_tracker.move_selection_up();
                 } else if self.app_state == AppState::EventsFilterView {
                     self.event_tracker.move_filter_selection_up();
+                } else if self.app_state == AppState::MarksView {
+                    self.marking.move_selection_up();
                 } else {
                     self.viewport.move_up();
                     self.viewport.follow_mode = false;
@@ -386,6 +422,8 @@ impl App {
                     self.event_tracker.move_selection_down();
                 } else if self.app_state == AppState::EventsFilterView {
                     self.event_tracker.move_filter_selection_down();
+                } else if self.app_state == AppState::MarksView {
+                    self.marking.move_selection_down();
                 } else {
                     self.viewport.move_down();
                 }
@@ -558,6 +596,32 @@ impl App {
                     self.viewport.selected_line = 0;
                 }
             }
+            AppEvent::ToggleMark => {
+                if let Some(line_index) = self
+                    .log_buffer
+                    .get_log_line_index(self.viewport.selected_line)
+                {
+                    self.marking.toggle_mark(line_index);
+                }
+            }
+            AppEvent::ActivateMarksView => {
+                if let Some(line_index) = self
+                    .log_buffer
+                    .get_log_line_index(self.viewport.selected_line)
+                {
+                    self.marking.select_nearest_mark(line_index);
+                } else {
+                    self.marking.reset_selection();
+                }
+                self.next_state(AppState::MarksView);
+            }
+            AppEvent::ClearAllMarks => {
+                self.marking.clear_all();
+            }
+            AppEvent::ActivateMarkNameInputMode => {
+                self.input_query.clear();
+                self.next_state(AppState::MarkNameInputMode);
+            }
             AppEvent::NewLine(line) => {
                 if !self.streaming_paused {
                     let passes_filter = self.log_buffer.append_line(line, &self.filter);
@@ -641,6 +705,8 @@ impl App {
                 KeyCode::Char('c') => self.events.send(AppEvent::ToggleCenterCursorMode),
                 KeyCode::Char('o') => self.events.send(AppEvent::ActivateOptionsView),
                 KeyCode::Char('e') => self.events.send(AppEvent::ActivateEventsView),
+                KeyCode::Char(' ') => self.events.send(AppEvent::ToggleMark),
+                KeyCode::Char('m') => self.events.send(AppEvent::ActivateMarksView),
                 _ => {}
             },
 
@@ -725,6 +791,29 @@ impl App {
                 _ => {}
             },
 
+            // MarksView
+            AppState::MarksView => match key_event.code {
+                KeyCode::Char('q') => self.events.send(AppEvent::Quit),
+                KeyCode::Char('h') => self.events.send(AppEvent::ToggleHelp),
+                KeyCode::Up => self.events.send(AppEvent::MoveUp),
+                KeyCode::Down => self.events.send(AppEvent::MoveDown),
+                KeyCode::Char(' ') => {
+                    if let Some(line_index) = self.marking.get_selected_marked_line() {
+                        self.events.send(AppEvent::GotoLine(line_index));
+                    }
+                }
+                KeyCode::Delete => {
+                    if let Some(line_index) = self.marking.get_selected_marked_line() {
+                        self.marking.unmark(line_index);
+                    }
+                }
+                KeyCode::Char('e') => {
+                    self.events.send(AppEvent::ActivateMarkNameInputMode);
+                }
+                KeyCode::Char('c') => self.events.send(AppEvent::ClearAllMarks),
+                _ => {}
+            },
+
             // GotoLineMode
             AppState::GotoLineMode => match key_event.code {
                 KeyCode::Char(c) if c.is_ascii_digit() => {
@@ -749,6 +838,17 @@ impl App {
 
             // EditFilterMode
             AppState::EditFilterMode => match key_event.code {
+                KeyCode::Backspace => {
+                    self.input_query.pop();
+                }
+                KeyCode::Char(c) => {
+                    self.input_query.push(c);
+                }
+                _ => {}
+            },
+
+            // MarkNameInputMode
+            AppState::MarkNameInputMode => match key_event.code {
                 KeyCode::Backspace => {
                     self.input_query.pop();
                 }
