@@ -402,6 +402,60 @@ impl App {
         StatefulWidget::render(options_list, area, buf, &mut list_state);
     }
 
+    /// Renders the event filter popup in EventFilterView mode.
+    fn render_event_filter_popup(&self, area: Rect, buf: &mut Buffer) {
+        Clear.render(area, buf);
+
+        let event_filters = self.event_tracker.get_event_filters();
+        if event_filters.is_empty() {
+            let no_filters_text = vec![Line::from("No event filters available")];
+            let popup = Paragraph::new(no_filters_text)
+                .block(
+                    Block::default()
+                        .title(" Event Filters ")
+                        .title_alignment(Alignment::Center)
+                        .borders(ratatui::widgets::Borders::ALL)
+                        .border_style(Style::default().fg(Color::White)),
+                )
+                .alignment(Alignment::Center);
+            popup.render(area, buf);
+            return;
+        }
+
+        let items: Vec<Line> = event_filters
+            .iter()
+            .map(|filter| {
+                let checkbox = if filter.enabled { "[x]" } else { "[ ]" };
+                let count = self.event_tracker.get_event_count(&filter.name);
+                let content = format!("{} {} ({})", checkbox, filter.name, count);
+
+                if filter.enabled {
+                    Line::from(content).style(Style::default().fg(Color::Green))
+                } else {
+                    Line::from(content).style(Style::default().fg(Color::Gray))
+                }
+            })
+            .collect();
+
+        let mut list_state = ListState::default();
+        if !event_filters.is_empty() {
+            list_state.select(Some(self.event_tracker.filter_selected_index()));
+        }
+
+        let event_filter_list = List::new(items)
+            .block(
+                Block::default()
+                    .title(" Event Filters ")
+                    .title_alignment(Alignment::Center)
+                    .borders(ratatui::widgets::Borders::ALL)
+                    .border_style(Style::default().fg(Color::White)),
+            )
+            .highlight_symbol(RIGHT_ARROW)
+            .highlight_style(Style::default().add_modifier(Modifier::BOLD));
+
+        StatefulWidget::render(event_filter_list, area, buf, &mut list_state);
+    }
+
     /// Renders a centered popup that adapts to content size.
     fn render_popup(
         &self,
@@ -595,6 +649,12 @@ impl Widget for &App {
         if self.app_state == AppState::EventsView {
             let events_area = popup_area(area, 118, 35);
             self.render_events_popup(events_area, buf);
+        }
+        if self.app_state == AppState::EventsFilterView {
+            let events_area = popup_area(area, 118, 35);
+            let event_filter_area = popup_area(area, 40, 15);
+            self.render_events_popup(events_area, buf);
+            self.render_event_filter_popup(event_filter_area, buf);
         }
         if self.help.is_visible() {
             let help_area = popup_area(area, 45, 30);

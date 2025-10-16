@@ -1,5 +1,6 @@
 use crate::highlighter::HighlightPattern;
 use crate::log::{Interval, LogBuffer};
+use std::collections::HashMap;
 
 /// Information about a matched event occurrence.
 #[derive(Debug, Clone)]
@@ -10,11 +11,28 @@ pub struct LogEvent {
     pub line_index: usize,
 }
 
+/// Filter state for an event type.
+#[derive(Debug, Clone)]
+pub struct EventFilter {
+    /// Name of the event.
+    pub name: String,
+    /// Whether this event type is enabled in the filter.
+    pub enabled: bool,
+}
+
 /// Manages log event tracking and scanning.
 #[derive(Debug, Default)]
 pub struct LogEventTracker {
     events: Vec<LogEvent>,
     selected_index: usize,
+    /// Event filters - maps event name to enabled state
+    event_filters: HashMap<String, bool>,
+    /// Event names in config file order
+    event_order: Vec<String>,
+    /// Total count of each event type (regardless of filter state)
+    event_counts: HashMap<String, usize>,
+    /// Selected index in the filter list
+    filter_selected_index: usize,
 }
 
 impl LogEventTracker {
@@ -26,14 +44,29 @@ impl LogEventTracker {
     /// Scans all log lines for event occurrences and stores them.
     pub fn scan(&mut self, log_buffer: &LogBuffer, event_patterns: &[HighlightPattern]) {
         self.events.clear();
+        self.event_counts.clear();
+
+        for event in event_patterns {
+            if let Some(name) = &event.name {
+                if !self.event_filters.contains_key(name) {
+                    self.event_order.push(name.clone());
+                    self.event_filters.insert(name.clone(), true);
+                }
+                self.event_counts.insert(name.clone(), 0);
+            }
+        }
+
         for log_line in log_buffer.get_lines_iter(Interval::All) {
             for event in event_patterns {
                 if event.matcher.matches(log_line.content()) {
                     if let Some(name) = &event.name {
-                        self.events.push(LogEvent {
-                            event_name: name.clone(),
-                            line_index: log_line.index,
-                        });
+                        *self.event_counts.entry(name.clone()).or_insert(0) += 1;
+                        if *self.event_filters.get(name).unwrap_or(&true) {
+                            self.events.push(LogEvent {
+                                event_name: name.clone(),
+                                line_index: log_line.index,
+                            });
+                        }
                     }
                     break;
                 }
@@ -124,6 +157,67 @@ impl LogEventTracker {
     pub fn move_selection_down(&mut self) {
         if !self.events.is_empty() {
             self.selected_index = (self.selected_index + 1) % self.events.len();
+        }
+    }
+
+    /// Returns a list of event filters in config file order.
+    pub fn get_event_filters(&self) -> Vec<EventFilter> {
+        self.event_order
+            .iter()
+            .filter_map(|name| {
+                self.event_filters.get(name).map(|enabled| EventFilter {
+                    name: name.clone(),
+                    enabled: *enabled,
+                })
+            })
+            .collect()
+    }
+
+    /// Returns the total count of events for a specific event name (regardless of filter state).
+    pub fn get_event_count(&self, event_name: &str) -> usize {
+        self.event_counts.get(event_name).copied().unwrap_or(0)
+    }
+
+    /// Gets the selected filter index.
+    pub fn filter_selected_index(&self) -> usize {
+        self.filter_selected_index
+    }
+
+    /// Moves filter selection up (wraps to bottom).
+    pub fn move_filter_selection_up(&mut self) {
+        let filter_count = self.event_order.len();
+        if filter_count > 0 {
+            self.filter_selected_index = if self.filter_selected_index == 0 {
+                filter_count - 1
+            } else {
+                self.filter_selected_index - 1
+            };
+        }
+    }
+
+    /// Moves filter selection down (wraps to top).
+    pub fn move_filter_selection_down(&mut self) {
+        let filter_count = self.event_order.len();
+        if filter_count > 0 {
+            self.filter_selected_index = (self.filter_selected_index + 1) % filter_count;
+        }
+    }
+
+    /// Toggles the selected event filter.
+    pub fn toggle_selected_filter(&mut self) {
+        if let Some(event_name) = self.event_order.get(self.filter_selected_index) {
+            if let Some(enabled) = self.event_filters.get_mut(event_name) {
+                *enabled = !*enabled;
+            }
+        }
+    }
+
+    /// Toggles all event filters on or off.
+    pub fn toggle_all_filters(&mut self) {
+        let all_enabled = self.event_filters.values().all(|&enabled| enabled);
+        let new_state = !all_enabled;
+        for enabled in self.event_filters.values_mut() {
+            *enabled = new_state;
         }
     }
 }

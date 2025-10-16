@@ -51,6 +51,8 @@ pub enum AppEvent {
     GotoTop,
     /// Goto bottom
     GotoBottom,
+    /// Goto specified line by original log line index (will find closest active line)
+    GotoLine(usize),
     /// Goto specific line input mode
     ActivateGotoLineMode,
     /// Scroll left horizontally
@@ -105,6 +107,12 @@ pub enum AppEvent {
     ActivateOptionsView,
     /// Activate events view
     ActivateEventsView,
+    /// Activate event filter view
+    ActivateEventFilterView,
+    /// Toggle selected event filter
+    ToggleEventFilter,
+    /// Toggle all event filters
+    ToggleAllEventFilters,
     /// Toggle selected display option
     ToggleDisplayOption,
     /// Clear log buffer
