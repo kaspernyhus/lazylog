@@ -193,6 +193,7 @@ impl App {
 
     fn next_state(&mut self, state: AppState) {
         self.app_state = state;
+        self.update_temporary_highlights();
     }
 
     fn update_temporary_highlights(&mut self) {
@@ -261,9 +262,7 @@ impl App {
     ///
     /// The tick event is where you can update the state of your application with any logic that
     /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
-    pub fn tick(&mut self) {
-        self.update_temporary_highlights()
-    }
+    pub fn tick(&mut self) {}
 
     /// Set running to false to quit the application.
     ///
@@ -369,6 +368,7 @@ impl App {
     pub fn handle_key_events(&mut self, key_event: KeyEvent) -> color_eyre::Result<()> {
         if self.is_text_input_mode() {
             self.handle_text_input(key_event);
+            self.update_temporary_highlights();
         }
 
         if let Some(command) = self.keybindings.lookup(&self.app_state, key_event) {
@@ -526,6 +526,7 @@ impl App {
             }
             AppState::LogView => {
                 self.search.clear_matches();
+                self.update_temporary_highlights();
             }
             AppState::FilterListView
             | AppState::OptionsView
@@ -674,6 +675,7 @@ impl App {
                 .map(|log_line| log_line.content());
             self.search.update_matches(&self.input_query, lines);
         }
+        self.update_temporary_highlights();
     }
 
     pub fn search_next(&mut self) {
@@ -776,12 +778,14 @@ impl App {
     pub fn search_history_previous(&mut self) {
         if let Some(history_query) = self.search.history.previous_query() {
             self.input_query = history_query;
+            self.update_temporary_highlights();
         }
     }
 
     pub fn search_history_next(&mut self) {
         if let Some(history_query) = self.search.history.next_query() {
             self.input_query = history_query;
+            self.update_temporary_highlights();
         }
     }
 
