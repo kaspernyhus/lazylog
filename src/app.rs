@@ -6,6 +6,7 @@ use crate::{
     filter::Filter,
     help::Help,
     highlighter::{Highlighter, PatternStyle},
+    keybindings::KeybindingRegistry,
     log::{Interval, LogBuffer},
     log_event::LogEventTracker,
     marking::Marking,
@@ -15,11 +16,11 @@ use crate::{
 use ratatui::{
     Terminal,
     backend::Backend,
-    crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
+    crossterm::event::{KeyCode, KeyEvent},
     style::Color,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppState {
     /// Normal mode for viewing logs.
     LogView,
@@ -84,6 +85,8 @@ pub struct App {
     pub event_tracker: LogEventTracker,
     /// Log line marking manager
     pub marking: Marking,
+    /// Keybinding registry for all keybindings.
+    keybindings: KeybindingRegistry,
 }
 
 impl App {
@@ -97,10 +100,14 @@ impl App {
         let highlighter = config.build_highlighter();
         let filter_patterns = config.parse_filter_patterns();
 
+        let keybindings = KeybindingRegistry::new();
+        let mut help = Help::new();
+        help.build_from_registry(&keybindings);
+
         let mut app = Self {
             running: true,
             config,
-            help: Help::new(),
+            help,
             app_state: AppState::LogView,
             events,
             log_buffer: LogBuffer::default(),
@@ -113,6 +120,7 @@ impl App {
             streaming_paused: false,
             event_tracker: LogEventTracker::default(),
             marking: Marking::default(),
+            keybindings,
         };
 
         if use_stdin {
@@ -242,386 +250,22 @@ impl App {
         Ok(())
     }
 
+    /// Handles the tick event of the terminal.
+    ///
+    /// The tick event is where you can update the state of your application with any logic that
+    /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
+    pub fn tick(&mut self) {
+        self.update_temporary_highlights()
+    }
+
+    /// Set running to false to quit the application.
+    pub fn quit(&mut self) {
+        self.running = false;
+    }
+
     /// Handles application events and updates the state of [`App`].
     fn handle_app_event(&mut self, app_event: AppEvent) -> color_eyre::Result<()> {
         match app_event {
-            AppEvent::Quit => self.quit(),
-            AppEvent::Confirm => match self.app_state {
-                AppState::SearchMode => {
-                    if self.input_query.is_empty() {
-                        self.search.clear_matches();
-                    } else {
-                        let lines = self
-                            .log_buffer
-                            .get_lines_iter(Interval::All)
-                            .map(|log_line| log_line.content());
-                        self.search.apply_pattern(&self.input_query, lines);
-                        if let Some(line) =
-                            self.search.first_match_from(self.viewport.selected_line)
-                        {
-                            self.viewport.goto_line(line, true);
-                        }
-                        self.viewport.follow_mode = false;
-                    }
-                    self.next_state(AppState::LogView);
-                }
-                AppState::FilterMode => {
-                    if !self.input_query.is_empty() {
-                        self.filter.add_filter(self.input_query.clone());
-                        self.update_view();
-                    }
-                    self.next_state(AppState::LogView);
-                }
-                AppState::EventsView => {
-                    if let Some(selected_event) = self.event_tracker.get_selected_event() {
-                        let target_line = selected_event.line_index;
-                        if let Some(active_line) =
-                            self.log_buffer.find_closest_line_by_index(target_line)
-                        {
-                            self.viewport.goto_line(active_line, true);
-                        }
-                    }
-                    self.next_state(AppState::LogView);
-                }
-                AppState::MarksView => {
-                    if let Some(selected_mark) = self.marking.get_selected_mark() {
-                        let target_line = selected_mark.line_index;
-                        if let Some(active_line) =
-                            self.log_buffer.find_closest_line_by_index(target_line)
-                        {
-                            self.viewport.goto_line(active_line, true);
-                        }
-                    }
-                    self.next_state(AppState::LogView);
-                }
-                AppState::GotoLineMode => {
-                    if let Ok(line_number) = self.input_query.parse::<usize>() {
-                        if line_number > 0 && line_number <= self.log_buffer.lines.len() {
-                            self.viewport.goto_line(line_number - 1, true);
-                        }
-                    }
-                    self.next_state(AppState::LogView);
-                }
-                AppState::SaveToFileMode => {
-                    if !self.input_query.is_empty() {
-                        match self.log_buffer.save_to_file(&self.input_query) {
-                            Ok(_) => {
-                                let abs_path = std::fs::canonicalize(&self.input_query)
-                                    .map(|p| p.to_string_lossy().to_string())
-                                    .unwrap_or_else(|_| self.input_query.clone());
-                                self.next_state(AppState::Message(format!(
-                                    "Log saved to file:\n{}",
-                                    abs_path
-                                )));
-                            }
-                            Err(e) => {
-                                self.next_state(AppState::ErrorState(format!(
-                                    "Failed to save file:\n{}",
-                                    e
-                                )));
-                            }
-                        }
-                    } else {
-                        self.next_state(AppState::LogView);
-                    }
-                }
-                AppState::EditFilterMode => {
-                    if !self.input_query.is_empty() {
-                        self.filter
-                            .update_selected_pattern(self.input_query.clone());
-                        self.update_view();
-                    }
-                    self.next_state(AppState::FilterListView);
-                }
-                AppState::MarkNameInputMode => {
-                    if let Some(line_index) = self.marking.get_selected_marked_line() {
-                        if !self.input_query.is_empty() {
-                            self.marking
-                                .set_mark_name(line_index, self.input_query.clone());
-                        }
-                    }
-                    self.next_state(AppState::MarksView);
-                }
-                _ => {}
-            },
-            AppEvent::Cancel => {
-                if self.help.is_visible() {
-                    self.help.toggle_visibility();
-                    return Ok(());
-                }
-                match self.app_state {
-                    AppState::SearchMode => {
-                        self.search.clear_matches();
-                        self.next_state(AppState::LogView);
-                    }
-                    AppState::GotoLineMode => {
-                        self.next_state(AppState::LogView);
-                    }
-                    AppState::FilterMode => {
-                        self.next_state(AppState::LogView);
-                    }
-                    AppState::LogView => {
-                        self.search.clear_matches();
-                    }
-                    AppState::FilterListView => {
-                        self.next_state(AppState::LogView);
-                    }
-                    AppState::OptionsView => {
-                        self.next_state(AppState::LogView);
-                    }
-                    AppState::EventsView => {
-                        self.next_state(AppState::LogView);
-                    }
-                    AppState::EventsFilterView => {
-                        self.next_state(AppState::EventsView);
-                    }
-                    AppState::MarksView => {
-                        self.next_state(AppState::LogView);
-                    }
-                    AppState::MarkNameInputMode => {
-                        self.next_state(AppState::MarksView);
-                    }
-                    AppState::SaveToFileMode => {
-                        self.next_state(AppState::LogView);
-                    }
-                    AppState::EditFilterMode => {
-                        self.next_state(AppState::FilterListView);
-                    }
-                    AppState::Message(_) => {
-                        self.next_state(AppState::LogView);
-                    }
-                    AppState::ErrorState(_) => {}
-                };
-            }
-            AppEvent::MoveUp => {
-                if self.help.is_visible() {
-                    self.help.move_up();
-                } else if self.app_state == AppState::FilterListView {
-                    self.filter.move_selection_up();
-                } else if self.app_state == AppState::OptionsView {
-                    self.display_options.move_selection_up();
-                } else if self.app_state == AppState::EventsView {
-                    self.event_tracker.move_selection_up();
-                } else if self.app_state == AppState::EventsFilterView {
-                    self.event_tracker.move_filter_selection_up();
-                } else if self.app_state == AppState::MarksView {
-                    self.marking.move_selection_up();
-                } else {
-                    self.viewport.move_up();
-                    self.viewport.follow_mode = false;
-                }
-            }
-            AppEvent::MoveDown => {
-                if self.help.is_visible() {
-                    self.help.move_down();
-                } else if self.app_state == AppState::FilterListView {
-                    self.filter.move_selection_down();
-                } else if self.app_state == AppState::OptionsView {
-                    self.display_options.move_selection_down();
-                } else if self.app_state == AppState::EventsView {
-                    self.event_tracker.move_selection_down();
-                } else if self.app_state == AppState::EventsFilterView {
-                    self.event_tracker.move_filter_selection_down();
-                } else if self.app_state == AppState::MarksView {
-                    self.marking.move_selection_down();
-                } else {
-                    self.viewport.move_down();
-                }
-            }
-            AppEvent::PageUp => self.viewport.page_up(),
-            AppEvent::PageDown => self.viewport.page_down(),
-            AppEvent::CenterSelected => self.viewport.center_selected(),
-            AppEvent::GotoTop => self.viewport.goto_top(),
-            AppEvent::GotoBottom => self.viewport.goto_bottom(),
-            AppEvent::ScrollLeft => self.viewport.scroll_left(),
-            AppEvent::ScrollRight => {
-                let (start, end) = self.viewport.visible();
-                let max_line_length = self
-                    .log_buffer
-                    .get_lines_max_length(Interval::Range(start, end));
-                self.viewport.scroll_right(max_line_length)
-            }
-            AppEvent::ResetHorizontal => self.viewport.reset_horizontal(),
-            AppEvent::ToggleHelp => {
-                self.help.toggle_visibility();
-            }
-            AppEvent::ActivateSearchMode => {
-                self.input_query.clear();
-                self.search.clear_matches();
-                self.search.reset_case_sensitive();
-                self.search.history.reset();
-                self.next_state(AppState::SearchMode);
-            }
-            AppEvent::ToggleCaseSensitive => {
-                self.search.toggle_case_sensitive();
-                self.filter.toggle_case_sensitive();
-                if !self.input_query.is_empty() && self.app_state == AppState::SearchMode {
-                    let lines = self
-                        .log_buffer
-                        .get_lines_iter(Interval::All)
-                        .map(|log_line| log_line.content());
-                    self.search.update_matches(&self.input_query, lines);
-                }
-            }
-            AppEvent::ActivateGotoLineMode => {
-                self.input_query.clear();
-                self.next_state(AppState::GotoLineMode);
-            }
-            AppEvent::SearchNext => {
-                if let Some(line) = self.search.next_match(self.viewport.selected_line) {
-                    self.viewport.goto_line(line, false);
-                }
-            }
-            AppEvent::SearchPrevious => {
-                if let Some(line) = self.search.previous_match(self.viewport.selected_line) {
-                    self.viewport.goto_line(line, false);
-                }
-            }
-            AppEvent::GotoLine(line_index) => {
-                if let Some(active_line) = self.log_buffer.find_closest_line_by_index(line_index) {
-                    self.viewport.goto_line(active_line, true);
-                }
-            }
-            AppEvent::ActivateFilterMode => {
-                self.input_query.clear();
-                self.filter.reset_mode();
-                self.filter.reset_case_sensitive();
-                self.next_state(AppState::FilterMode);
-            }
-            AppEvent::ToggleFilterMode => {
-                self.filter.toggle_mode();
-            }
-            AppEvent::ActivateFilterListView => {
-                self.next_state(AppState::FilterListView);
-            }
-            AppEvent::ToggleFilterPatternActive => {
-                self.filter.toggle_selected_pattern();
-                self.update_view();
-            }
-            AppEvent::RemoveFilterPattern => {
-                self.filter.remove_selected_pattern();
-                self.update_view();
-            }
-            AppEvent::ToggleFilterPatternCaseSensitive => {
-                self.filter.toggle_selected_pattern_case_sensitive();
-                self.update_view();
-            }
-            AppEvent::ToggleFilterPatternMode => {
-                self.filter.toggle_selected_pattern_mode();
-                self.update_view();
-            }
-            AppEvent::ToggleAllFilterPatterns => {
-                self.filter.toggle_all_patterns();
-                self.update_view();
-            }
-            AppEvent::ActivateEditFilterMode => {
-                if let Some(pattern) = self.filter.get_selected_pattern() {
-                    self.input_query = pattern.pattern.clone();
-                    self.next_state(AppState::EditFilterMode);
-                }
-            }
-            AppEvent::ActivateAddFilterMode => {
-                self.input_query.clear();
-                self.next_state(AppState::FilterMode);
-            }
-            AppEvent::SearchHistoryPrevious => {
-                if let Some(history_query) = self.search.history.previous_query() {
-                    self.input_query = history_query;
-                }
-            }
-            AppEvent::SearchHistoryNext => {
-                if let Some(history_query) = self.search.history.next_query() {
-                    self.input_query = history_query;
-                }
-            }
-            AppEvent::ToggleFollowMode => {
-                if self.log_buffer.streaming {
-                    self.viewport.follow_mode = !self.viewport.follow_mode;
-                    if self.viewport.follow_mode {
-                        self.viewport.goto_bottom();
-                    }
-                }
-            }
-            AppEvent::TogglePauseMode => {
-                if self.log_buffer.streaming {
-                    self.streaming_paused = !self.streaming_paused;
-                }
-            }
-            AppEvent::ToggleCenterCursorMode => {
-                self.viewport.center_cursor_mode = !self.viewport.center_cursor_mode;
-                if self.viewport.center_cursor_mode {
-                    self.viewport.center_selected();
-                }
-            }
-            AppEvent::ActivateOptionsView => {
-                self.next_state(AppState::OptionsView);
-            }
-            AppEvent::ActivateEventsView => {
-                self.event_tracker
-                    .scan(&self.log_buffer, self.highlighter.events());
-                self.event_tracker
-                    .select_nearest_event(self.viewport.selected_line);
-                self.next_state(AppState::EventsView);
-            }
-            AppEvent::ActivateEventFilterView => {
-                if self.app_state == AppState::EventsView {
-                    self.next_state(AppState::EventsFilterView);
-                }
-            }
-            AppEvent::ToggleEventFilter => {
-                self.event_tracker.toggle_selected_filter();
-                self.event_tracker
-                    .scan(&self.log_buffer, self.highlighter.events());
-                self.event_tracker
-                    .select_nearest_event(self.viewport.selected_line);
-            }
-            AppEvent::ToggleAllEventFilters => {
-                self.event_tracker.toggle_all_filters();
-                self.event_tracker
-                    .scan(&self.log_buffer, self.highlighter.events());
-                self.event_tracker
-                    .select_nearest_event(self.viewport.selected_line);
-            }
-            AppEvent::ToggleDisplayOption => {
-                self.display_options.toggle_selected_option();
-            }
-            AppEvent::ActivateSaveToFileMode => {
-                self.input_query.clear();
-                self.next_state(AppState::SaveToFileMode);
-            }
-            AppEvent::ClearLogBuffer => {
-                if self.log_buffer.streaming {
-                    self.log_buffer.clear_all();
-                    self.viewport.set_total_lines(0);
-                    self.viewport.selected_line = 0;
-                }
-            }
-            AppEvent::ToggleMark => {
-                if let Some(line_index) = self
-                    .log_buffer
-                    .get_log_line_index(self.viewport.selected_line)
-                {
-                    self.marking.toggle_mark(line_index);
-                }
-            }
-            AppEvent::ActivateMarksView => {
-                if let Some(line_index) = self
-                    .log_buffer
-                    .get_log_line_index(self.viewport.selected_line)
-                {
-                    self.marking.select_nearest_mark(line_index);
-                } else {
-                    self.marking.reset_selection();
-                }
-                self.next_state(AppState::MarksView);
-            }
-            AppEvent::ClearAllMarks => {
-                self.marking.clear_all();
-            }
-            AppEvent::ActivateMarkNameInputMode => {
-                self.input_query.clear();
-                self.next_state(AppState::MarkNameInputMode);
-            }
             AppEvent::NewLine(line) => {
                 if !self.streaming_paused {
                     let passes_filter = self.log_buffer.append_line(line, &self.filter);
@@ -652,232 +296,439 @@ impl App {
 
     /// Handles the key events and updates the state of [`App`].
     pub fn handle_key_events(&mut self, key_event: KeyEvent) -> color_eyre::Result<()> {
-        // Global keybindings
-        match key_event.code {
-            KeyCode::Char('c') if key_event.modifiers == KeyModifiers::CONTROL => {
-                self.events.send(AppEvent::Quit)
-            }
-            KeyCode::Char('l') if key_event.modifiers == KeyModifiers::CONTROL => {
-                self.events.send(AppEvent::ClearLogBuffer)
-            }
-            KeyCode::Char('s') if key_event.modifiers == KeyModifiers::CONTROL => {
-                if self.log_buffer.streaming {
-                    self.events.send(AppEvent::ActivateSaveToFileMode)
-                }
-            }
-            KeyCode::Esc => self.events.send(AppEvent::Cancel),
-            KeyCode::Enter => self.events.send(AppEvent::Confirm),
-            _ => {}
+        if self.is_text_input_mode() {
+            self.handle_text_input(key_event);
         }
 
-        match self.app_state {
-            AppState::ErrorState(_) => {
-                if let KeyCode::Char('q') = key_event.code {
-                    self.events.send(AppEvent::Quit);
-                }
-            }
-
-            // LogView (Normal Mode)
-            AppState::LogView => match key_event.code {
-                KeyCode::Up => self.events.send(AppEvent::MoveUp),
-                KeyCode::Down => self.events.send(AppEvent::MoveDown),
-                KeyCode::Char('q') => self.events.send(AppEvent::Quit),
-                KeyCode::Char('h') => self.events.send(AppEvent::ToggleHelp),
-                KeyCode::PageUp => self.events.send(AppEvent::PageUp),
-                KeyCode::PageDown => self.events.send(AppEvent::PageDown),
-                KeyCode::Char('z') => self.events.send(AppEvent::CenterSelected),
-                KeyCode::Char('g') => self.events.send(AppEvent::GotoTop),
-                KeyCode::Char('G') => self.events.send(AppEvent::GotoBottom),
-                KeyCode::Left => self.events.send(AppEvent::ScrollLeft),
-                KeyCode::Right => self.events.send(AppEvent::ScrollRight),
-                KeyCode::Char('0') => self.events.send(AppEvent::ResetHorizontal),
-                KeyCode::Char('/') => self.events.send(AppEvent::ActivateSearchMode),
-                KeyCode::Char('f') if key_event.modifiers == KeyModifiers::CONTROL => {
-                    self.events.send(AppEvent::ActivateSearchMode)
-                }
-                KeyCode::Char('F') => self.events.send(AppEvent::ActivateFilterListView),
-                KeyCode::Char(':') => self.events.send(AppEvent::ActivateGotoLineMode),
-                KeyCode::Char('n') => self.events.send(AppEvent::SearchNext),
-                KeyCode::Char('N') => self.events.send(AppEvent::SearchPrevious),
-                KeyCode::Char('f') => self.events.send(AppEvent::ActivateFilterMode),
-                KeyCode::Char('t') => self.events.send(AppEvent::ToggleFollowMode),
-                KeyCode::Char('p') => self.events.send(AppEvent::TogglePauseMode),
-                KeyCode::Char('c') => self.events.send(AppEvent::ToggleCenterCursorMode),
-                KeyCode::Char('o') => self.events.send(AppEvent::ActivateOptionsView),
-                KeyCode::Char('e') => self.events.send(AppEvent::ActivateEventsView),
-                KeyCode::Char(' ') => self.events.send(AppEvent::ToggleMark),
-                KeyCode::Char('m') => self.events.send(AppEvent::ActivateMarksView),
-                _ => {}
-            },
-
-            // SearchMode
-            AppState::SearchMode => match key_event.code {
-                KeyCode::Tab => self.events.send(AppEvent::ToggleCaseSensitive),
-                KeyCode::Up => self.events.send(AppEvent::SearchHistoryPrevious),
-                KeyCode::Down => self.events.send(AppEvent::SearchHistoryNext),
-                KeyCode::Backspace => {
-                    self.input_query.pop();
-                }
-                KeyCode::Char(c) => {
-                    self.input_query.push(c);
-                }
-                _ => {}
-            },
-
-            // FilterMode
-            AppState::FilterMode => match key_event.code {
-                KeyCode::Tab => self.events.send(AppEvent::ToggleCaseSensitive),
-                KeyCode::Left => self.events.send(AppEvent::ToggleFilterMode),
-                KeyCode::Right => self.events.send(AppEvent::ToggleFilterMode),
-                KeyCode::Delete => self.events.send(AppEvent::RemoveFilterPattern),
-                KeyCode::Backspace => {
-                    self.input_query.pop();
-                }
-                KeyCode::Char(c) => {
-                    self.input_query.push(c);
-                }
-                _ => {}
-            },
-
-            // FilterListView
-            AppState::FilterListView => match key_event.code {
-                KeyCode::Char('q') => self.events.send(AppEvent::Quit),
-                KeyCode::Char('h') => self.events.send(AppEvent::ToggleHelp),
-                KeyCode::Up => self.events.send(AppEvent::MoveUp),
-                KeyCode::Down => self.events.send(AppEvent::MoveDown),
-                KeyCode::Char(' ') => self.events.send(AppEvent::ToggleFilterPatternActive),
-                KeyCode::Delete => self.events.send(AppEvent::RemoveFilterPattern),
-                KeyCode::Char('e') => self.events.send(AppEvent::ActivateEditFilterMode),
-                KeyCode::Char('f') => self.events.send(AppEvent::ActivateAddFilterMode),
-                KeyCode::Char('a') => self.events.send(AppEvent::ToggleAllFilterPatterns),
-                KeyCode::Tab => self.events.send(AppEvent::ToggleFilterPatternCaseSensitive),
-                KeyCode::Char('m') => self.events.send(AppEvent::ToggleFilterPatternMode),
-                _ => {}
-            },
-
-            // OptionsView
-            AppState::OptionsView => match key_event.code {
-                KeyCode::Char('q') => self.events.send(AppEvent::Quit),
-                KeyCode::Char('h') => self.events.send(AppEvent::ToggleHelp),
-                KeyCode::Up => self.events.send(AppEvent::MoveUp),
-                KeyCode::Down => self.events.send(AppEvent::MoveDown),
-                KeyCode::Char(' ') => self.events.send(AppEvent::ToggleDisplayOption),
-                _ => {}
-            },
-
-            // EventsView
-            AppState::EventsView => match key_event.code {
-                KeyCode::Char('q') => self.events.send(AppEvent::Quit),
-                KeyCode::Char('h') => self.events.send(AppEvent::ToggleHelp),
-                KeyCode::Char('F') => self.events.send(AppEvent::ActivateEventFilterView),
-                KeyCode::Up => self.events.send(AppEvent::MoveUp),
-                KeyCode::Down => self.events.send(AppEvent::MoveDown),
-                KeyCode::Char(' ') => {
-                    if let Some(event) = self.event_tracker.get_selected_event() {
-                        self.events.send(AppEvent::GotoLine(event.line_index));
-                    };
-                }
-                _ => {}
-            },
-
-            // EventFilterView
-            AppState::EventsFilterView => match key_event.code {
-                KeyCode::Char('q') => self.events.send(AppEvent::Quit),
-                KeyCode::Char('h') => self.events.send(AppEvent::ToggleHelp),
-                KeyCode::Up => self.events.send(AppEvent::MoveUp),
-                KeyCode::Down => self.events.send(AppEvent::MoveDown),
-                KeyCode::Char(' ') => self.events.send(AppEvent::ToggleEventFilter),
-                KeyCode::Char('a') => self.events.send(AppEvent::ToggleAllEventFilters),
-                _ => {}
-            },
-
-            // MarksView
-            AppState::MarksView => match key_event.code {
-                KeyCode::Char('q') => self.events.send(AppEvent::Quit),
-                KeyCode::Char('h') => self.events.send(AppEvent::ToggleHelp),
-                KeyCode::Up => self.events.send(AppEvent::MoveUp),
-                KeyCode::Down => self.events.send(AppEvent::MoveDown),
-                KeyCode::Char(' ') => {
-                    if let Some(line_index) = self.marking.get_selected_marked_line() {
-                        self.events.send(AppEvent::GotoLine(line_index));
-                    }
-                }
-                KeyCode::Delete => {
-                    if let Some(line_index) = self.marking.get_selected_marked_line() {
-                        self.marking.unmark(line_index);
-                    }
-                }
-                KeyCode::Char('e') => {
-                    self.events.send(AppEvent::ActivateMarkNameInputMode);
-                }
-                KeyCode::Char('c') => self.events.send(AppEvent::ClearAllMarks),
-                _ => {}
-            },
-
-            // GotoLineMode
-            AppState::GotoLineMode => match key_event.code {
-                KeyCode::Char(c) if c.is_ascii_digit() => {
-                    self.input_query.push(c);
-                }
-                KeyCode::Backspace => {
-                    self.input_query.pop();
-                }
-                _ => {}
-            },
-
-            // SaveToFileMode
-            AppState::SaveToFileMode => match key_event.code {
-                KeyCode::Backspace => {
-                    self.input_query.pop();
-                }
-                KeyCode::Char(c) => {
-                    self.input_query.push(c);
-                }
-                _ => {}
-            },
-
-            // EditFilterMode
-            AppState::EditFilterMode => match key_event.code {
-                KeyCode::Backspace => {
-                    self.input_query.pop();
-                }
-                KeyCode::Char(c) => {
-                    self.input_query.push(c);
-                }
-                _ => {}
-            },
-
-            // MarkNameInputMode
-            AppState::MarkNameInputMode => match key_event.code {
-                KeyCode::Backspace => {
-                    self.input_query.pop();
-                }
-                KeyCode::Char(c) => {
-                    self.input_query.push(c);
-                }
-                _ => {}
-            },
-
-            // Message
-            AppState::Message(_) => match key_event.code {
-                KeyCode::Char('q') => self.events.send(AppEvent::Quit),
-                KeyCode::Char('h') => self.events.send(AppEvent::ToggleHelp),
-                _ => {}
-            },
+        if let Some(command) = self.keybindings.lookup(&self.app_state, key_event) {
+            command.execute(self)?;
         }
+
         Ok(())
     }
 
-    /// Handles the tick event of the terminal.
-    ///
-    /// The tick event is where you can update the state of your application with any logic that
-    /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
-    pub fn tick(&mut self) {
-        self.update_temporary_highlights()
+    /// Checks if the current state is a text input mode.
+    fn is_text_input_mode(&self) -> bool {
+        matches!(
+            self.app_state,
+            AppState::SearchMode
+                | AppState::FilterMode
+                | AppState::GotoLineMode
+                | AppState::SaveToFileMode
+                | AppState::EditFilterMode
+                | AppState::MarkNameInputMode
+        )
     }
 
-    /// Set running to false to quit the application.
-    pub fn quit(&mut self) {
-        self.running = false;
+    /// Handles text input for input modes.
+    fn handle_text_input(&mut self, key_event: KeyEvent) {
+        match key_event.code {
+            KeyCode::Backspace => {
+                self.input_query.pop();
+            }
+            KeyCode::Char(c) => match self.app_state {
+                AppState::GotoLineMode => {
+                    if c.is_ascii_digit() {
+                        self.input_query.push(c);
+                    }
+                }
+                _ => {
+                    self.input_query.push(c);
+                }
+            },
+            _ => {}
+        }
+    }
+
+    pub fn confirm(&mut self) {
+        match self.app_state {
+            AppState::SearchMode => {
+                if self.input_query.is_empty() {
+                    self.search.clear_matches();
+                } else {
+                    let lines = self
+                        .log_buffer
+                        .get_lines_iter(Interval::All)
+                        .map(|log_line| log_line.content());
+                    self.search.apply_pattern(&self.input_query, lines);
+                    if let Some(line) = self.search.first_match_from(self.viewport.selected_line) {
+                        self.viewport.goto_line(line, true);
+                    }
+                    self.viewport.follow_mode = false;
+                }
+                self.next_state(AppState::LogView);
+            }
+            AppState::FilterMode => {
+                if !self.input_query.is_empty() {
+                    self.filter.add_filter(self.input_query.clone());
+                    self.update_view();
+                }
+                self.next_state(AppState::LogView);
+            }
+            AppState::EventsView => {
+                if let Some(selected_event) = self.event_tracker.get_selected_event() {
+                    let target_line = selected_event.line_index;
+                    if let Some(active_line) =
+                        self.log_buffer.find_closest_line_by_index(target_line)
+                    {
+                        self.viewport.goto_line(active_line, true);
+                    }
+                }
+                self.next_state(AppState::LogView);
+            }
+            AppState::MarksView => {
+                if let Some(selected_mark) = self.marking.get_selected_mark() {
+                    let target_line = selected_mark.line_index;
+                    if let Some(active_line) =
+                        self.log_buffer.find_closest_line_by_index(target_line)
+                    {
+                        self.viewport.goto_line(active_line, true);
+                    }
+                }
+                self.next_state(AppState::LogView);
+            }
+            AppState::GotoLineMode => {
+                if let Ok(line_number) = self.input_query.parse::<usize>() {
+                    if line_number > 0 && line_number <= self.log_buffer.lines.len() {
+                        self.viewport.goto_line(line_number - 1, true);
+                    }
+                }
+                self.next_state(AppState::LogView);
+            }
+            AppState::SaveToFileMode => {
+                if !self.input_query.is_empty() {
+                    match self.log_buffer.save_to_file(&self.input_query) {
+                        Ok(_) => {
+                            let abs_path = std::fs::canonicalize(&self.input_query)
+                                .map(|p| p.to_string_lossy().to_string())
+                                .unwrap_or_else(|_| self.input_query.clone());
+                            self.next_state(AppState::Message(format!(
+                                "Log saved to file:\n{}",
+                                abs_path
+                            )));
+                        }
+                        Err(e) => {
+                            self.next_state(AppState::ErrorState(format!(
+                                "Failed to save file:\n{}",
+                                e
+                            )));
+                        }
+                    }
+                } else {
+                    self.next_state(AppState::LogView);
+                }
+            }
+            AppState::EditFilterMode => {
+                if !self.input_query.is_empty() {
+                    self.filter
+                        .update_selected_pattern(self.input_query.clone());
+                    self.update_view();
+                }
+                self.next_state(AppState::FilterListView);
+            }
+            AppState::MarkNameInputMode => {
+                if let Some(line_index) = self.marking.get_selected_marked_line() {
+                    if !self.input_query.is_empty() {
+                        self.marking
+                            .set_mark_name(line_index, self.input_query.clone());
+                    }
+                }
+                self.next_state(AppState::MarksView);
+            }
+            _ => {}
+        }
+    }
+
+    pub fn cancel(&mut self) {
+        if self.help.is_visible() {
+            self.help.toggle_visibility();
+            return;
+        }
+
+        match self.app_state {
+            AppState::SearchMode => {
+                self.search.clear_matches();
+                self.next_state(AppState::LogView);
+            }
+            AppState::GotoLineMode | AppState::FilterMode | AppState::SaveToFileMode => {
+                self.next_state(AppState::LogView);
+            }
+            AppState::LogView => {
+                self.search.clear_matches();
+            }
+            AppState::FilterListView
+            | AppState::OptionsView
+            | AppState::EventsView
+            | AppState::MarksView => {
+                self.next_state(AppState::LogView);
+            }
+            AppState::EventsFilterView => {
+                self.next_state(AppState::EventsView);
+            }
+            AppState::MarkNameInputMode => {
+                self.next_state(AppState::MarksView);
+            }
+            AppState::EditFilterMode => {
+                self.next_state(AppState::FilterListView);
+            }
+            AppState::Message(_) => {
+                self.next_state(AppState::LogView);
+            }
+            AppState::ErrorState(_) => {}
+        }
+    }
+
+    pub fn move_up(&mut self) {
+        if self.help.is_visible() {
+            self.help.move_up();
+            return;
+        }
+
+        match self.app_state {
+            AppState::FilterListView => self.filter.move_selection_up(),
+            AppState::OptionsView => self.display_options.move_selection_up(),
+            AppState::EventsView => self.event_tracker.move_selection_up(),
+            AppState::EventsFilterView => self.event_tracker.move_filter_selection_up(),
+            AppState::MarksView => self.marking.move_selection_up(),
+            _ => {
+                self.viewport.move_up();
+                self.viewport.follow_mode = false;
+            }
+        }
+    }
+
+    pub fn move_down(&mut self) {
+        if self.help.is_visible() {
+            self.help.move_down();
+            return;
+        }
+
+        match self.app_state {
+            AppState::FilterListView => self.filter.move_selection_down(),
+            AppState::OptionsView => self.display_options.move_selection_down(),
+            AppState::EventsView => self.event_tracker.move_selection_down(),
+            AppState::EventsFilterView => self.event_tracker.move_filter_selection_down(),
+            AppState::MarksView => self.marking.move_selection_down(),
+            _ => self.viewport.move_down(),
+        }
+    }
+
+    pub fn activate_search_mode(&mut self) {
+        self.input_query.clear();
+        self.search.clear_matches();
+        self.search.reset_case_sensitive();
+        self.search.history.reset();
+        self.next_state(AppState::SearchMode);
+    }
+
+    pub fn activate_goto_line_mode(&mut self) {
+        self.input_query.clear();
+        self.next_state(AppState::GotoLineMode);
+    }
+
+    pub fn activate_filter_mode(&mut self) {
+        self.input_query.clear();
+        self.filter.reset_mode();
+        self.filter.reset_case_sensitive();
+        self.next_state(AppState::FilterMode);
+    }
+
+    pub fn activate_filter_list_view(&mut self) {
+        self.next_state(AppState::FilterListView);
+    }
+
+    pub fn activate_edit_filter_mode(&mut self) {
+        if let Some(pattern) = self.filter.get_selected_pattern() {
+            self.input_query = pattern.pattern.clone();
+            self.next_state(AppState::EditFilterMode);
+        }
+    }
+
+    pub fn activate_options_view(&mut self) {
+        self.next_state(AppState::OptionsView);
+    }
+
+    pub fn activate_events_view(&mut self) {
+        self.event_tracker
+            .scan(&self.log_buffer, self.highlighter.events());
+        self.event_tracker
+            .select_nearest_event(self.viewport.selected_line);
+        self.next_state(AppState::EventsView);
+    }
+
+    pub fn activate_event_filter_view(&mut self) {
+        if self.app_state == AppState::EventsView {
+            self.next_state(AppState::EventsFilterView);
+        }
+    }
+
+    pub fn activate_marks_view(&mut self) {
+        if let Some(line_index) = self
+            .log_buffer
+            .get_log_line_index(self.viewport.selected_line)
+        {
+            self.marking.select_nearest_mark(line_index);
+        } else {
+            self.marking.reset_selection();
+        }
+        self.next_state(AppState::MarksView);
+    }
+
+    pub fn activate_mark_name_input_mode(&mut self) {
+        self.input_query.clear();
+        self.next_state(AppState::MarkNameInputMode);
+    }
+
+    pub fn activate_save_to_file_mode(&mut self) {
+        self.input_query.clear();
+        self.next_state(AppState::SaveToFileMode);
+    }
+
+    pub fn toggle_mark(&mut self) {
+        if let Some(line_index) = self
+            .log_buffer
+            .get_log_line_index(self.viewport.selected_line)
+        {
+            self.marking.toggle_mark(line_index);
+        }
+    }
+
+    pub fn toggle_case_sensitive(&mut self) {
+        self.search.toggle_case_sensitive();
+        self.filter.toggle_case_sensitive();
+        if !self.input_query.is_empty() && self.app_state == AppState::SearchMode {
+            let lines = self
+                .log_buffer
+                .get_lines_iter(Interval::All)
+                .map(|log_line| log_line.content());
+            self.search.update_matches(&self.input_query, lines);
+        }
+    }
+
+    pub fn search_next(&mut self) {
+        if let Some(line) = self.search.next_match(self.viewport.selected_line) {
+            self.viewport.goto_line(line, false);
+        }
+    }
+
+    pub fn search_previous(&mut self) {
+        if let Some(line) = self.search.previous_match(self.viewport.selected_line) {
+            self.viewport.goto_line(line, false);
+        }
+    }
+
+    pub fn goto_line(&mut self, line_index: usize) {
+        if let Some(active_line) = self.log_buffer.find_closest_line_by_index(line_index) {
+            self.viewport.goto_line(active_line, true);
+        }
+    }
+
+    pub fn scroll_right(&mut self) {
+        let (start, end) = self.viewport.visible();
+        let max_line_length = self
+            .log_buffer
+            .get_lines_max_length(Interval::Range(start, end));
+        self.viewport.scroll_right(max_line_length);
+    }
+
+    pub fn toggle_follow_mode(&mut self) {
+        if self.log_buffer.streaming {
+            self.viewport.follow_mode = !self.viewport.follow_mode;
+            if self.viewport.follow_mode {
+                self.viewport.goto_bottom();
+            }
+        }
+    }
+
+    pub fn toggle_pause_mode(&mut self) {
+        if self.log_buffer.streaming {
+            self.streaming_paused = !self.streaming_paused;
+        }
+    }
+
+    pub fn toggle_center_cursor_mode(&mut self) {
+        self.viewport.center_cursor_mode = !self.viewport.center_cursor_mode;
+        if self.viewport.center_cursor_mode {
+            self.viewport.center_selected();
+        }
+    }
+
+    pub fn clear_log_buffer(&mut self) {
+        if self.log_buffer.streaming {
+            self.log_buffer.clear_all();
+            self.viewport.set_total_lines(0);
+            self.viewport.selected_line = 0;
+        }
+    }
+
+    pub fn toggle_filter_pattern_active(&mut self) {
+        self.filter.toggle_selected_pattern();
+        self.update_view();
+    }
+
+    pub fn remove_filter_pattern(&mut self) {
+        self.filter.remove_selected_pattern();
+        self.update_view();
+    }
+
+    pub fn toggle_filter_pattern_case_sensitive(&mut self) {
+        self.filter.toggle_selected_pattern_case_sensitive();
+        self.update_view();
+    }
+
+    pub fn toggle_filter_pattern_mode(&mut self) {
+        self.filter.toggle_selected_pattern_mode();
+        self.update_view();
+    }
+
+    pub fn toggle_all_filter_patterns(&mut self) {
+        self.filter.toggle_all_patterns();
+        self.update_view();
+    }
+
+    pub fn toggle_event_filter(&mut self) {
+        self.event_tracker.toggle_selected_filter();
+        self.event_tracker
+            .scan(&self.log_buffer, self.highlighter.events());
+        self.event_tracker
+            .select_nearest_event(self.viewport.selected_line);
+    }
+
+    pub fn toggle_all_event_filters(&mut self) {
+        self.event_tracker.toggle_all_filters();
+        self.event_tracker
+            .scan(&self.log_buffer, self.highlighter.events());
+        self.event_tracker
+            .select_nearest_event(self.viewport.selected_line);
+    }
+
+    pub fn search_history_previous(&mut self) {
+        if let Some(history_query) = self.search.history.previous_query() {
+            self.input_query = history_query;
+        }
+    }
+
+    pub fn search_history_next(&mut self) {
+        if let Some(history_query) = self.search.history.next_query() {
+            self.input_query = history_query;
+        }
+    }
+
+    pub fn unmark_selected(&mut self) {
+        if let Some(line_index) = self.marking.get_selected_marked_line() {
+            self.marking.unmark(line_index);
+        }
+    }
+
+    pub fn goto_selected_event(&mut self) {
+        if let Some(event) = self.event_tracker.get_selected_event() {
+            self.goto_line(event.line_index);
+        }
+    }
+
+    pub fn goto_selected_mark(&mut self) {
+        if let Some(line_index) = self.marking.get_selected_marked_line() {
+            self.goto_line(line_index);
+        }
     }
 }

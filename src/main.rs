@@ -9,12 +9,14 @@ use std::io::stderr;
 
 pub mod app;
 pub mod cli;
+pub mod command;
 pub mod config;
 pub mod display_options;
 pub mod event;
 pub mod filter;
 pub mod help;
 pub mod highlighter;
+pub mod keybindings;
 pub mod log;
 pub mod log_event;
 pub mod marking;

@@ -28,105 +28,11 @@ pub enum Event {
 
 /// Application events.
 ///
-/// You can extend this enum with your own custom events.
+/// Keep events minimal - only for async operations.
 #[derive(Clone, Debug)]
 pub enum AppEvent {
-    /// Quit the application.
-    Quit,
-    /// Confirm
-    Confirm,
-    /// Cancel
-    Cancel,
-    /// Move up
-    MoveUp,
-    /// Move down
-    MoveDown,
-    /// Page up
-    PageUp,
-    /// Page down
-    PageDown,
-    /// Center viewport on selected line
-    CenterSelected,
-    /// Goto top
-    GotoTop,
-    /// Goto bottom
-    GotoBottom,
-    /// Goto specified line by original log line index (will find closest active line)
-    GotoLine(usize),
-    /// Goto specific line input mode
-    ActivateGotoLineMode,
-    /// Scroll left horizontally
-    ScrollLeft,
-    /// Scroll right horizontally
-    ScrollRight,
-    /// Reset horizontal scroll
-    ResetHorizontal,
-    /// Toggle help popup
-    ToggleHelp,
-    /// Start search input mode
-    ActivateSearchMode,
-    /// Toggle case sensitivity
-    ToggleCaseSensitive,
-    /// Go to next search match
-    SearchNext,
-    /// Go to previous search match
-    SearchPrevious,
-    /// Start filter input mode
-    ActivateFilterMode,
-    /// Toggle filter (include/exclude)
-    ToggleFilterMode,
-    /// Activate filter list view
-    ActivateFilterListView,
-    /// Toggle selected filter pattern active/inactive
-    ToggleFilterPatternActive,
-    /// Remove selected filter pattern
-    RemoveFilterPattern,
-    /// Toggle selected filter pattern case sensitivity
-    ToggleFilterPatternCaseSensitive,
-    /// Toggle selected filter pattern mode (include/exclude)
-    ToggleFilterPatternMode,
-    /// Toggle all filter patterns on/off
-    ToggleAllFilterPatterns,
-    /// Activate edit filter pattern mode
-    ActivateEditFilterMode,
-    /// Activate add filter pattern mode
-    ActivateAddFilterMode,
-    /// Navigate to previous search history
-    SearchHistoryPrevious,
-    /// Navigate to next search history
-    SearchHistoryNext,
     /// New line received from stdin
     NewLine(String),
-    /// Toggle follow mode
-    ToggleFollowMode,
-    /// Toggle pause mode
-    TogglePauseMode,
-    /// Toggle center cursor mode
-    ToggleCenterCursorMode,
-    /// Activate options view
-    ActivateOptionsView,
-    /// Activate events view
-    ActivateEventsView,
-    /// Activate event filter view
-    ActivateEventFilterView,
-    /// Toggle selected event filter
-    ToggleEventFilter,
-    /// Toggle all event filters
-    ToggleAllEventFilters,
-    /// Toggle selected display option
-    ToggleDisplayOption,
-    /// Clear log buffer
-    ClearLogBuffer,
-    /// Activate save to file mode
-    ActivateSaveToFileMode,
-    /// Toggle mark on current line
-    ToggleMark,
-    /// Activate marks view
-    ActivateMarksView,
-    /// Clear all marks
-    ClearAllMarks,
-    /// Activate mark name input mode
-    ActivateMarkNameInputMode,
 }
 
 /// Terminal event handler.
@@ -175,9 +81,6 @@ impl EventHandler {
     }
 
     /// Queue an app event to be sent to the event receiver.
-    ///
-    /// This is useful for sending events to the event handler which will be processed by the next
-    /// iteration of the application's event loop.
     pub fn send(&mut self, app_event: AppEvent) {
         // Ignore the result as the reciever cannot be dropped while this struct still has a
         // reference to it

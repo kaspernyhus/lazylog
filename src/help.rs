@@ -7,6 +7,10 @@ use ratatui::widgets::{
     StatefulWidget, Widget,
 };
 
+use crate::app::AppState;
+use crate::command::Command;
+use crate::keybindings::KeybindingRegistry;
+
 /// Manages the help popup display with keybindings and navigation.
 #[derive(Debug, Default)]
 pub struct Help {
@@ -62,83 +66,90 @@ impl HelpItem {
 impl Help {
     /// Creates a new Help instance with all keybinding documentation.
     pub fn new() -> Self {
-        let help_items = vec![
-            // LogView Mode section
-            HelpItem::new("LogView", "", HelpItemType::Header),
-            HelpItem::new("q, Ctrl+C", "Quit", HelpItemType::Keybind),
-            HelpItem::new("h", "Toggle help", HelpItemType::Keybind),
-            HelpItem::new("Down/Up", "Navigate lines", HelpItemType::Keybind),
-            HelpItem::new("g/G", "Go to start/end", HelpItemType::Keybind),
-            HelpItem::new("PageUp/Down", "Page up/down", HelpItemType::Keybind),
-            HelpItem::new("z", "Center selected line", HelpItemType::Keybind),
-            HelpItem::new("Left/Right", "Scroll horizontally", HelpItemType::Keybind),
-            HelpItem::new("0", "Reset horizontal scroll", HelpItemType::Keybind),
-            HelpItem::new("/,Ctrl+F", "Start search", HelpItemType::Keybind),
-            HelpItem::new("n/N", "Next/previous match", HelpItemType::Keybind),
-            HelpItem::new(":", "Go to line", HelpItemType::Keybind),
-            HelpItem::new("f", "Start filter", HelpItemType::Keybind),
-            HelpItem::new("F", "View filter list", HelpItemType::Keybind),
-            HelpItem::new("e", "View log events", HelpItemType::Keybind),
-            HelpItem::new("o", "Display options", HelpItemType::Keybind),
-            HelpItem::new("c", "Toggle center cursor mode", HelpItemType::Keybind),
-            HelpItem::new("t", "Toggle follow mode (stdin)", HelpItemType::Keybind),
-            HelpItem::new("p", "Toggle pause mode (stdin)", HelpItemType::Keybind),
-            HelpItem::new("Ctrl+L", "Clear buffer (stdin)", HelpItemType::Keybind),
-            HelpItem::new("Ctrl+S", "Save to file (stdin)", HelpItemType::Keybind),
-            HelpItem::new("Space", "Toggle mark on line", HelpItemType::Keybind),
-            HelpItem::new("m", "View marked lines", HelpItemType::Keybind),
-            // Search Mode section
-            HelpItem::new("", "", HelpItemType::Empty),
-            HelpItem::new("Search", "", HelpItemType::Header),
-            HelpItem::new("Tab", "Toggle case sensitivity", HelpItemType::Keybind),
-            HelpItem::new("Up/Down", "Navigate search history", HelpItemType::Keybind),
-            // Filter Mode section
-            HelpItem::new("", "", HelpItemType::Empty),
-            HelpItem::new("Filter", "", HelpItemType::Header),
-            HelpItem::new("Tab", "Toggle case sensitivity", HelpItemType::Keybind),
-            HelpItem::new(
-                "Left/Right",
-                "Toggle include/exclude",
-                HelpItemType::Keybind,
-            ),
-            // Filter List section
-            HelpItem::new("", "", HelpItemType::Empty),
-            HelpItem::new("Filter List", "", HelpItemType::Header),
-            HelpItem::new("Space", "Toggle filter on/off", HelpItemType::Keybind),
-            HelpItem::new("Delete", "Remove selected filter", HelpItemType::Keybind),
-            HelpItem::new("e", "Edit selected filter", HelpItemType::Keybind),
-            HelpItem::new("f", "Add new filter", HelpItemType::Keybind),
-            HelpItem::new("Tab", "Toggle case sensitive", HelpItemType::Keybind),
-            HelpItem::new("m", "Toggle include/exclude", HelpItemType::Keybind),
-            HelpItem::new("a", "Toggle all filters", HelpItemType::Keybind),
-            // Events View section
-            HelpItem::new("", "", HelpItemType::Empty),
-            HelpItem::new("Events View", "", HelpItemType::Header),
-            HelpItem::new("Space", "Go to selected event", HelpItemType::Keybind),
-            HelpItem::new("Enter", "Go to event and exit", HelpItemType::Keybind),
-            HelpItem::new("F", "Filter events", HelpItemType::Keybind),
-            // Event Filters section
-            HelpItem::new("", "", HelpItemType::Empty),
-            HelpItem::new("Event Filters", "", HelpItemType::Header),
-            HelpItem::new("Space", "Toggle event filter", HelpItemType::Keybind),
-            HelpItem::new("a", "Toggle all event filters", HelpItemType::Keybind),
-            // Display Options section
-            HelpItem::new("", "", HelpItemType::Empty),
-            HelpItem::new("Display Options", "", HelpItemType::Header),
-            HelpItem::new("Space", "Toggle option on/off", HelpItemType::Keybind),
-            // Marks View section
-            HelpItem::new("", "", HelpItemType::Empty),
-            HelpItem::new("Marks View", "", HelpItemType::Header),
-            HelpItem::new("Space", "Go to selected mark", HelpItemType::Keybind),
-            HelpItem::new("e", "Name/tag the mark", HelpItemType::Keybind),
-            HelpItem::new("Delete", "Remove selected mark", HelpItemType::Keybind),
-            HelpItem::new("c", "Clear all marks", HelpItemType::Keybind),
-        ];
-
         Self {
             selected_index: 0,
-            help_items,
+            help_items: Vec::new(),
             visible: false,
+        }
+    }
+
+    /// Builds the help items from the keybinding registry.
+    pub fn build_from_registry(&mut self, registry: &KeybindingRegistry) {
+        use crate::app::AppState;
+
+        let mut help_items = vec![
+            // Global bindings section
+            HelpItem::new("Global", "", HelpItemType::Header),
+            HelpItem::new("Ctrl+c/q", "Quit", HelpItemType::Keybind),
+            HelpItem::new("esc", "Cancel/Exit mode", HelpItemType::Keybind),
+            HelpItem::new("enter", "Confirm", HelpItemType::Keybind),
+            HelpItem::new("Ctrl+l", "Clear buffer (stdin)", HelpItemType::Keybind),
+            HelpItem::new("Ctrl+s", "Save to file (stdin)", HelpItemType::Keybind),
+            HelpItem::new("h", "Show help", HelpItemType::Keybind),
+        ];
+
+        // LogView section
+        help_items.push(HelpItem::new("", "", HelpItemType::Empty));
+        help_items.push(HelpItem::new("LogView", "", HelpItemType::Header));
+        self.add_state_bindings(&mut help_items, registry, &AppState::LogView);
+
+        // Search Mode section
+        help_items.push(HelpItem::new("", "", HelpItemType::Empty));
+        help_items.push(HelpItem::new("Search", "", HelpItemType::Header));
+        self.add_state_bindings(&mut help_items, registry, &AppState::SearchMode);
+
+        // Filter Mode section
+        help_items.push(HelpItem::new("", "", HelpItemType::Empty));
+        help_items.push(HelpItem::new("Filter", "", HelpItemType::Header));
+        self.add_state_bindings(&mut help_items, registry, &AppState::FilterMode);
+
+        // Filter List section
+        help_items.push(HelpItem::new("", "", HelpItemType::Empty));
+        help_items.push(HelpItem::new("Filter List", "", HelpItemType::Header));
+        self.add_state_bindings(&mut help_items, registry, &AppState::FilterListView);
+
+        // Events View section
+        help_items.push(HelpItem::new("", "", HelpItemType::Empty));
+        help_items.push(HelpItem::new("Events View", "", HelpItemType::Header));
+        self.add_state_bindings(&mut help_items, registry, &AppState::EventsView);
+
+        // Event Filters section
+        help_items.push(HelpItem::new("", "", HelpItemType::Empty));
+        help_items.push(HelpItem::new("Event Filters", "", HelpItemType::Header));
+        self.add_state_bindings(&mut help_items, registry, &AppState::EventsFilterView);
+
+        // Display Options section
+        help_items.push(HelpItem::new("", "", HelpItemType::Empty));
+        help_items.push(HelpItem::new("Display Options", "", HelpItemType::Header));
+        self.add_state_bindings(&mut help_items, registry, &AppState::OptionsView);
+
+        // Marks View section
+        help_items.push(HelpItem::new("", "", HelpItemType::Empty));
+        help_items.push(HelpItem::new("Marks View", "", HelpItemType::Header));
+        self.add_state_bindings(&mut help_items, registry, &AppState::MarksView);
+
+        self.help_items = help_items;
+        self.reset();
+    }
+
+    /// Adds keybindings for a specific state to the help items.
+    fn add_state_bindings(
+        &self,
+        help_items: &mut Vec<HelpItem>,
+        registry: &KeybindingRegistry,
+        state: &AppState,
+    ) {
+        let bindings = registry.get_keybindings_for_state(state);
+        for (key, command) in bindings {
+            if command == Command::Quit || command == Command::ToggleHelp {
+                continue;
+            }
+
+            help_items.push(HelpItem::new(
+                &key,
+                command.description(),
+                HelpItemType::Keybind,
+            ));
         }
     }
 
