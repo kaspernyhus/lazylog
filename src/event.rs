@@ -5,7 +5,8 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 
 /// The frequency at which tick events are emitted.
-const TICK_FPS: f64 = 30.0;
+/// Reduced from 30.0 to 5.0 since dirty flag system handles redraw timing.
+const TICK_FPS: f64 = 5.0;
 
 /// Representation of all possible events.
 #[derive(Clone, Debug)]
