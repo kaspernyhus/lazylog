@@ -261,3 +261,96 @@ impl Search {
             .any(|window| window.eq_ignore_ascii_case(needle.as_bytes()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_apply_pattern_sets_active_pattern() {
+        let mut search = Search::default();
+        let lines = ["WARNING: baz", "ERROR: foo", "INFO: bar"];
+        search.apply_pattern("ERROR", lines.iter().copied());
+        assert_eq!(search.get_active_pattern(), Some("ERROR"));
+    }
+
+    #[test]
+    fn test_apply_pattern_adds_to_history() {
+        let mut search = Search::default();
+        let lines = ["ERROR: foo"];
+        search.apply_pattern("ERROR", lines.iter().copied());
+        assert_eq!(search.history.get_history().len(), 1);
+        assert_eq!(search.history.get_history()[0], "ERROR");
+    }
+
+    #[test]
+    fn test_apply_pattern_finds_matches() {
+        let mut search = Search::default();
+        let lines = ["ERROR: foo", "INFO: bar", "ERROR: baz"];
+        search.apply_pattern("ERROR", lines.iter().copied());
+        let (_current, total) = search.get_match_info();
+        assert_eq!(total, 2);
+    }
+
+    #[test]
+    fn test_clear_matches_clears_pattern_and_matches() {
+        let mut search = Search::default();
+        let lines = ["ERROR: foo"];
+        search.apply_pattern("ERROR", lines.iter().copied());
+        search.clear_matches();
+        assert_eq!(search.get_active_pattern(), None);
+        assert_eq!(search.get_match_info(), (0, 0));
+    }
+
+    #[test]
+    fn test_update_matches_case_insensitive() {
+        let mut search = Search::default();
+        let lines = ["ERROR: foo", "error: bar", "Error: baz"];
+        search.update_matches("error", lines.iter().copied());
+        let (_, total) = search.get_match_info();
+        assert_eq!(total, 3);
+    }
+
+    #[test]
+    fn test_update_matches_case_sensitive() {
+        let mut search = Search::default();
+        search.toggle_case_sensitive();
+        let lines = ["ERROR: foo", "error: bar", "Error: baz"];
+        search.update_matches("error", lines.iter().copied());
+        let (_, total) = search.get_match_info();
+        assert_eq!(total, 1);
+    }
+
+    #[test]
+    fn test_get_match_info_returns_correct_values() {
+        let mut search = Search::default();
+        let lines = ["ERROR: foo", "INFO: bar", "ERROR: baz"];
+        search.update_matches("ERROR", lines.iter().copied());
+        search.next_match(0);
+        let (current, total) = search.get_match_info();
+        assert_eq!(current, 2);
+        assert_eq!(total, 2);
+    }
+
+    #[test]
+    fn test_contains_ignore_case_finds_different_cases() {
+        assert!(Search::contains_ignore_case("ERROR: foo", "error"));
+        assert!(Search::contains_ignore_case("error: foo", "ERROR"));
+        assert!(Search::contains_ignore_case("Error: foo", "eRrOr"));
+    }
+
+    #[test]
+    fn test_contains_ignore_case_returns_false_for_no_match() {
+        assert!(!Search::contains_ignore_case("INFO: foo", "error"));
+    }
+
+    #[test]
+    fn test_contains_ignore_case_handles_empty_needle() {
+        assert!(Search::contains_ignore_case("foo", ""));
+    }
+
+    #[test]
+    fn test_contains_ignore_case_handles_needle_longer_than_haystack() {
+        assert!(!Search::contains_ignore_case("foo", "foobar"));
+    }
+}
