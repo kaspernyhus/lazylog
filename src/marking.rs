@@ -166,3 +166,114 @@ impl Marking {
         self.selected_index = closest_index;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mark_new_creates_mark_without_name() {
+        let mark = Mark::new(42);
+        assert_eq!(mark.line_index, 42);
+        assert_eq!(mark.name, None);
+    }
+
+    #[test]
+    fn test_mark_set_name_updates_name() {
+        let mut mark = Mark::new(42);
+        mark.set_name("important".to_string());
+        assert_eq!(mark.name, Some("important".to_string()));
+    }
+
+    #[test]
+    fn test_toggle_mark_adds_mark() {
+        let mut marking = Marking::default();
+        marking.toggle_mark(10);
+        assert!(marking.is_marked(10));
+        assert_eq!(marking.count(), 1);
+    }
+
+    #[test]
+    fn test_toggle_mark_removes_existing_mark() {
+        let mut marking = Marking::default();
+        marking.toggle_mark(10);
+        marking.toggle_mark(10);
+        assert!(!marking.is_marked(10));
+        assert_eq!(marking.count(), 0);
+    }
+
+    #[test]
+    fn test_is_marked_returns_false_for_unmarked_line() {
+        let marking = Marking::default();
+        assert!(!marking.is_marked(10));
+    }
+
+    #[test]
+    fn test_count_returns_number_of_marks() {
+        let mut marking = Marking::default();
+        marking.toggle_mark(10);
+        marking.toggle_mark(20);
+        marking.toggle_mark(30);
+        assert_eq!(marking.count(), 3);
+    }
+
+    #[test]
+    fn test_get_mark_at_returns_none_for_invalid_index() {
+        let mut marking = Marking::default();
+        marking.toggle_mark(10);
+        assert!(marking.get_mark_at(5).is_none());
+    }
+
+    #[test]
+    fn test_get_selected_mark_returns_currently_selected() {
+        let mut marking = Marking::default();
+        marking.toggle_mark(10);
+        marking.toggle_mark(20);
+        marking.move_selection_down();
+        let mark = marking.get_selected_mark().unwrap();
+        assert_eq!(mark.line_index, 20);
+    }
+
+    #[test]
+    fn test_get_selected_mark_returns_none_when_empty() {
+        let marking = Marking::default();
+        assert!(marking.get_selected_mark().is_none());
+    }
+
+    #[test]
+    fn test_get_selected_marked_line_returns_line_index() {
+        let mut marking = Marking::default();
+        marking.toggle_mark(42);
+        let line_index = marking.get_selected_marked_line().unwrap();
+        assert_eq!(line_index, 42);
+    }
+
+    #[test]
+    fn test_select_nearest_mark_selects_closest() {
+        let mut marking = Marking::default();
+        marking.toggle_mark(10);
+        marking.toggle_mark(50);
+        marking.toggle_mark(100);
+        marking.select_nearest_mark(48);
+        assert_eq!(marking.get_selected_mark().unwrap().line_index, 50);
+    }
+
+    #[test]
+    fn test_select_nearest_mark_works_with_exact_match() {
+        let mut marking = Marking::default();
+        marking.toggle_mark(10);
+        marking.toggle_mark(50);
+        marking.toggle_mark(100);
+        marking.select_nearest_mark(50);
+        assert_eq!(marking.get_selected_mark().unwrap().line_index, 50);
+    }
+
+    #[test]
+    fn test_select_nearest_mark_selects_first_when_equal_distance() {
+        let mut marking = Marking::default();
+        marking.toggle_mark(10);
+        marking.toggle_mark(30);
+        marking.select_nearest_mark(20);
+        assert_eq!(marking.get_selected_mark().unwrap().line_index, 10);
+    }
+}
