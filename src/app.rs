@@ -10,6 +10,7 @@ use crate::{
     log::{Interval, LogBuffer},
     log_event::LogEventTracker,
     marking::Marking,
+    persistence::{load_state, save_state},
     search::Search,
     viewport::Viewport,
 };
@@ -132,7 +133,13 @@ impl App {
 
         if let Some(file_path) = args.file {
             match app.log_buffer.load_from_file(file_path.as_str()) {
-                Ok(_) => app.update_view(),
+                Ok(_) => {
+                    app.update_view();
+
+                    if let Some(state) = load_state(&file_path) {
+                        app.restore_state(state);
+                    }
+                }
                 Err(e) => {
                     app.app_state = AppState::ErrorState(format!(
                         "Failed to load file: {}\nError: {}",
@@ -259,8 +266,72 @@ impl App {
     }
 
     /// Set running to false to quit the application.
+    ///
+    /// If not in streaming mode, persist current state to disk.
     pub fn quit(&mut self) {
+        if !self.log_buffer.streaming {
+            if let Some(ref file_path) = self.log_buffer.file_path {
+                save_state(file_path, self);
+            }
+        }
+
         self.running = false;
+    }
+
+    /// Restores application state from a persisted state.
+    fn restore_state(&mut self, state: crate::persistence::PersistedState) {
+        let total_lines = self.log_buffer.get_lines_count();
+
+        self.search
+            .history
+            .restore_history(state.search_history().to_vec());
+
+        for filter_state in state.filters() {
+            if let Some(existing) =
+                self.filter.get_filter_patterns_mut().iter_mut().find(|fp| {
+                    fp.pattern == filter_state.pattern() && fp.mode == filter_state.mode()
+                })
+            {
+                existing.case_sensitive = filter_state.case_sensitive();
+                existing.enabled = filter_state.enabled();
+            } else {
+                let filter_pattern = crate::filter::FilterPattern::new(
+                    filter_state.pattern().to_string(),
+                    filter_state.mode(),
+                    filter_state.case_sensitive(),
+                );
+                let mut pattern = filter_pattern;
+                pattern.enabled = filter_state.enabled();
+                self.filter.get_filter_patterns_mut().push(pattern);
+            }
+        }
+
+        if !state.filters().is_empty() {
+            self.update_view();
+        }
+
+        for mark_state in state.marks() {
+            let line_index = mark_state.line_index();
+            if line_index < total_lines {
+                self.marking.toggle_mark(line_index);
+                if let Some(name) = mark_state.name() {
+                    self.marking.set_mark_name(line_index, name.clone());
+                }
+            }
+        }
+
+        let filtered_lines = self.log_buffer.get_lines_count();
+        if filtered_lines > 0 {
+            self.viewport.selected_line = state.viewport_selected_line().min(filtered_lines - 1);
+            self.viewport.top_line = state
+                .viewport_top_line()
+                .min(filtered_lines.saturating_sub(self.viewport.height));
+            self.viewport.horizontal_offset = state.viewport_horizontal_offset();
+        }
+
+        self.viewport.center_cursor_mode = state.viewport_center_cursor_mode();
+
+        self.update_temporary_highlights();
     }
 
     /// Handles application events and updates the state of [`App`].

@@ -87,6 +87,17 @@ impl SearchHistory {
     pub fn reset(&mut self) {
         self.index = None;
     }
+
+    /// Returns the search history.
+    pub fn get_history(&self) -> &[String] {
+        &self.history
+    }
+
+    /// Restores search history from a vector of queries.
+    pub fn restore_history(&mut self, queries: Vec<String>) {
+        self.history = queries;
+        self.index = None;
+    }
 }
 
 impl Search {

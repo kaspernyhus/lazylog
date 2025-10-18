@@ -1,0 +1,212 @@
+use crate::app::App;
+use crate::filter::FilterMode;
+use serde::{Deserialize, Serialize};
+use std::collections::hash_map::DefaultHasher;
+use std::fs;
+use std::hash::{Hash, Hasher};
+use std::path::PathBuf;
+
+#[derive(Serialize, Deserialize)]
+pub struct PersistedState {
+    version: u8,
+    log_file_path: String,
+    viewport: ViewportState,
+    search_history: Vec<String>,
+    filters: Vec<FilterPatternState>,
+    marks: Vec<MarkState>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct ViewportState {
+    selected_line: usize,
+    top_line: usize,
+    horizontal_offset: usize,
+    center_cursor_mode: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FilterPatternState {
+    pattern: String,
+    mode: FilterMode,
+    case_sensitive: bool,
+    enabled: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MarkState {
+    line_index: usize,
+    name: Option<String>,
+}
+
+impl PersistedState {
+    pub fn from_app(file_path: &str, app: &App) -> Self {
+        Self {
+            version: 1,
+            log_file_path: file_path.to_string(),
+            viewport: ViewportState {
+                selected_line: app.viewport.selected_line,
+                top_line: app.viewport.top_line,
+                horizontal_offset: app.viewport.horizontal_offset,
+                center_cursor_mode: app.viewport.center_cursor_mode,
+            },
+            search_history: app.search.history.get_history().to_vec(),
+            filters: app
+                .filter
+                .get_filter_patterns()
+                .iter()
+                .map(|fp| FilterPatternState {
+                    pattern: fp.pattern.clone(),
+                    mode: fp.mode,
+                    case_sensitive: fp.case_sensitive,
+                    enabled: fp.enabled,
+                })
+                .collect(),
+            marks: app
+                .marking
+                .get_sorted_marks()
+                .iter()
+                .map(|m| MarkState {
+                    line_index: m.line_index,
+                    name: m.name.clone(),
+                })
+                .collect(),
+        }
+    }
+}
+
+/// Saves the current application state to disk.
+pub fn save_state(file_path: &str, app: &App) {
+    if !ensure_state_dir() {
+        return;
+    }
+
+    let state_file_path = match get_state_file_path(file_path) {
+        Some(path) => path,
+        None => return,
+    };
+
+    let state = PersistedState::from_app(file_path, app);
+    let json = match serde_json::to_string_pretty(&state) {
+        Ok(j) => j,
+        Err(_) => return,
+    };
+
+    let _ = fs::write(state_file_path, json);
+}
+
+/// Loads the application state from disk if it exists.
+pub fn load_state(file_path: &str) -> Option<PersistedState> {
+    let state_path = get_state_file_path(file_path)?;
+
+    if !state_path.exists() {
+        return None;
+    }
+
+    match fs::read_to_string(&state_path) {
+        Ok(json) => match serde_json::from_str::<PersistedState>(&json) {
+            Ok(state) => {
+                if state.log_file_path == file_path {
+                    Some(state)
+                } else {
+                    None
+                }
+            }
+            Err(_) => {
+                // Corrupted state file, ignore it
+                None
+            }
+        },
+        Err(_) => {
+            // Can't read file, ignore it
+            None
+        }
+    }
+}
+
+/// Calculates the state file path based on the log file path.
+fn get_state_file_path(file_path: &str) -> Option<PathBuf> {
+    let absolute_path = std::fs::canonicalize(file_path).ok()?;
+    let path_str = absolute_path.to_string_lossy();
+
+    let mut hasher = DefaultHasher::new();
+    path_str.hash(&mut hasher);
+    let hash = hasher.finish();
+
+    let home = dirs::home_dir()?;
+    let state_dir = home.join(".lazylog");
+
+    Some(state_dir.join(format!("{:x}.json", hash)))
+}
+
+/// Ensures the ~/.lazylog directory exists.
+fn ensure_state_dir() -> bool {
+    let home = match dirs::home_dir() {
+        Some(h) => h,
+        None => return false,
+    };
+    let state_dir = home.join(".lazylog");
+
+    if !state_dir.exists() {
+        fs::create_dir_all(&state_dir).is_ok()
+    } else {
+        true
+    }
+}
+
+impl PersistedState {
+    pub fn viewport_selected_line(&self) -> usize {
+        self.viewport.selected_line
+    }
+
+    pub fn viewport_top_line(&self) -> usize {
+        self.viewport.top_line
+    }
+
+    pub fn viewport_horizontal_offset(&self) -> usize {
+        self.viewport.horizontal_offset
+    }
+
+    pub fn viewport_center_cursor_mode(&self) -> bool {
+        self.viewport.center_cursor_mode
+    }
+
+    pub fn search_history(&self) -> &[String] {
+        &self.search_history
+    }
+
+    pub fn filters(&self) -> &[FilterPatternState] {
+        &self.filters
+    }
+
+    pub fn marks(&self) -> &[MarkState] {
+        &self.marks
+    }
+}
+
+impl FilterPatternState {
+    pub fn pattern(&self) -> &str {
+        &self.pattern
+    }
+
+    pub fn mode(&self) -> FilterMode {
+        self.mode
+    }
+
+    pub fn case_sensitive(&self) -> bool {
+        self.case_sensitive
+    }
+
+    pub fn enabled(&self) -> bool {
+        self.enabled
+    }
+}
+
+impl MarkState {
+    pub fn line_index(&self) -> usize {
+        self.line_index
+    }
+
+    pub fn name(&self) -> &Option<String> {
+        &self.name
+    }
+}

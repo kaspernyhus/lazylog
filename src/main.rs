@@ -20,6 +20,7 @@ pub mod keybindings;
 pub mod log;
 pub mod log_event;
 pub mod marking;
+pub mod persistence;
 pub mod search;
 pub mod ui;
 pub mod viewport;

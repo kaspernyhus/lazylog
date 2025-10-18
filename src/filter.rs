@@ -1,5 +1,7 @@
+use serde::{Deserialize, Serialize};
+
 /// Filter mode - include or exclude matching lines.
-#[derive(Debug, Copy, Clone, PartialEq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub enum FilterMode {
     /// Include only lines matching the pattern.
     #[default]
@@ -205,6 +207,11 @@ impl Filter {
     /// Returns all filter patterns.
     pub fn get_filter_patterns(&self) -> &[FilterPattern] {
         self.filter_list.patterns()
+    }
+
+    /// Returns mutable access to filter patterns for restoration.
+    pub fn get_filter_patterns_mut(&mut self) -> &mut Vec<FilterPattern> {
+        &mut self.filter_list.patterns
     }
 
     /// Returns the index of the currently selected pattern in the overview.
