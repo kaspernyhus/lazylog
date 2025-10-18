@@ -4,6 +4,7 @@ use regex::Regex;
 #[derive(Debug, Clone)]
 pub enum DisplayOptionType {
     /// Hides text matching the regex pattern from display.
+    /// HidePattern only support hiding prefixes (patterns that match from the start)
     HidePattern(Regex),
     /// Simple toggle option (e.g., disable colors).
     Toggle,
@@ -94,19 +95,29 @@ impl DisplayOptions {
         }
     }
 
-    /// Applies all options to a line, returning the modified text as a String.
-    pub fn apply_to_line(&self, line: &str) -> String {
-        let mut result = line.to_string();
+    /// Applies all options to a line.
+    pub fn apply_to_line<'a>(&self, line: &'a str) -> &'a str {
+        let has_enabled = self.options.iter().any(|option| option.enabled);
+        if !has_enabled {
+            return line;
+        }
 
+        // Find the maximum offset to skip (longest prefix match)
+        let mut offset = 0;
         for option in &self.options {
             if option.enabled {
                 if let DisplayOptionType::HidePattern(pattern) = &option.option_type {
-                    result = pattern.replace_all(&result, "").to_string();
+                    // Only process patterns that match from the start
+                    if let Some(m) = pattern.find(line) {
+                        if m.start() == 0 {
+                            offset = offset.max(m.end());
+                        }
+                    }
                 }
             }
         }
 
-        result
+        &line[offset..]
     }
 
     /// Returns whether a named option is currently enabled.

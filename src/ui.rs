@@ -288,11 +288,7 @@ impl App {
         // Get log lines for preview
         let mut items: Vec<Line> = Vec::new();
         for event in self.event_tracker.events() {
-            // Get the log line content
-            let log_line = self
-                .log_buffer
-                .get_lines_iter(Interval::All)
-                .find(|line| line.index == event.line_index);
+            let log_line = self.log_buffer.lines.get(event.line_index);
 
             if let Some(log_line) = log_line {
                 let content = log_line.content();
@@ -646,7 +642,7 @@ impl App {
     fn render_logview(&self, area: Rect, buf: &mut Buffer) {
         let (start, end) = self.viewport.visible();
 
-        let viewport_lines: Vec<(String, usize)> = self
+        let viewport_lines: Vec<(&str, usize)> = self
             .log_buffer
             .get_lines_iter(Interval::Range(start, end))
             .map(|log_line| {
