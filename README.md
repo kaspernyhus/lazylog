@@ -73,3 +73,21 @@ filters = [
 **Supported colors:** red, green, yellow, blue, magenta, cyan, white, black, gray, lightred, lightgreen, lightyellow, lightblue, lightmagenta, lightcyan, darkgray
 
 See `examples/config.toml` for a complete example.
+
+## Development
+Clone the repository and build with Cargo:
+```bash
+cargo build
+```
+Run the application:
+```bash
+cargo run -- path/to/logfile.log
+```
+Run unit tests:
+```bash
+cargo test -- --skip perf
+```
+Run performance tests:
+```bash
+cargo test --release --test perf -- --nocapture --test-threads=1
+```
