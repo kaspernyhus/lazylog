@@ -179,3 +179,132 @@ impl Viewport {
         self.horizontal_offset = 0;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_viewport(height: usize, total_lines: usize) -> Viewport {
+        let mut viewport = Viewport {
+            width: 80,
+            height,
+            scroll_margin: 2,
+            total_lines,
+            ..Default::default()
+        };
+        viewport.set_total_lines(total_lines);
+        viewport
+    }
+
+    #[test]
+    fn test_move_down_increments_selected_line() {
+        let mut viewport = create_viewport(10, 100);
+        viewport.selected_line = 5;
+        viewport.move_down();
+        assert_eq!(viewport.selected_line, 6);
+    }
+
+    #[test]
+    fn test_move_down_stops_at_last_line() {
+        let mut viewport = create_viewport(10, 100);
+        viewport.selected_line = 99;
+        viewport.move_down();
+        assert_eq!(viewport.selected_line, 99);
+    }
+
+    #[test]
+    fn test_move_up_decrements_selected_line() {
+        let mut viewport = create_viewport(10, 100);
+        viewport.selected_line = 5;
+        viewport.move_up();
+        assert_eq!(viewport.selected_line, 4);
+    }
+
+    #[test]
+    fn test_move_up_stops_at_zero() {
+        let mut viewport = create_viewport(10, 100);
+        viewport.selected_line = 0;
+        viewport.move_up();
+        assert_eq!(viewport.selected_line, 0);
+    }
+
+    #[test]
+    fn test_goto_top_moves_to_first_line() {
+        let mut viewport = create_viewport(10, 100);
+        viewport.selected_line = 50;
+        viewport.goto_top();
+        assert_eq!(viewport.selected_line, 0);
+    }
+
+    #[test]
+    fn test_goto_bottom_moves_to_last_line() {
+        let mut viewport = create_viewport(10, 100);
+        viewport.selected_line = 0;
+        viewport.goto_bottom();
+        assert_eq!(viewport.selected_line, 99);
+    }
+
+    #[test]
+    fn test_goto_bottom_handles_empty_buffer() {
+        let mut viewport = create_viewport(10, 0);
+        viewport.goto_bottom();
+        assert_eq!(viewport.selected_line, 0);
+    }
+
+    #[test]
+    fn test_goto_line_moves_to_specific_line() {
+        let mut viewport = create_viewport(10, 100);
+        viewport.goto_line(42, false);
+        assert_eq!(viewport.selected_line, 42);
+    }
+
+    #[test]
+    fn test_goto_line_ignores_out_of_bounds() {
+        let mut viewport = create_viewport(10, 100);
+        viewport.selected_line = 50;
+        viewport.goto_line(150, false);
+        assert_eq!(viewport.selected_line, 50);
+    }
+
+    #[test]
+    fn test_center_selected_handles_lines_near_start() {
+        let mut viewport = create_viewport(10, 100);
+        viewport.selected_line = 2;
+        viewport.center_selected();
+        assert_eq!(viewport.top_line, 0);
+    }
+
+    #[test]
+    fn test_center_selected_handles_lines_near_end() {
+        let mut viewport = create_viewport(10, 20);
+        viewport.selected_line = 18;
+        viewport.center_selected();
+        assert_eq!(viewport.top_line, 10); // 20 - 10 (can't center beyond end)
+    }
+
+    #[test]
+    fn test_visible_returns_correct_range() {
+        let mut viewport = create_viewport(10, 100);
+        viewport.top_line = 25;
+        let (start, end) = viewport.visible();
+        assert_eq!(start, 25);
+        assert_eq!(end, 35);
+    }
+
+    #[test]
+    fn test_adjust_visible_handles_empty_buffer() {
+        let mut viewport = create_viewport(10, 0);
+        viewport.selected_line = 5;
+        viewport.adjust_visible();
+        assert_eq!(viewport.selected_line, 0);
+        assert_eq!(viewport.top_line, 0);
+    }
+
+    #[test]
+    fn test_resize_updates_dimensions() {
+        let mut viewport = create_viewport(10, 100);
+        viewport.resize(120, 25);
+        assert_eq!(viewport.width, 120);
+        assert_eq!(viewport.height, 25);
+    }
+}
