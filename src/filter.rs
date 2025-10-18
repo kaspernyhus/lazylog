@@ -264,3 +264,65 @@ impl Filter {
         self.filter_list.update_selected(new_pattern);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add_filter_creates_new_pattern() {
+        let mut filter = Filter::default();
+        filter.add_filter("ERROR".to_string());
+        assert_eq!(filter.get_filter_patterns().len(), 1);
+        assert_eq!(filter.get_filter_patterns()[0].pattern, "ERROR");
+    }
+
+    #[test]
+    fn test_add_filter_prevents_duplicates() {
+        let mut filter = Filter::default();
+        filter.add_filter("ERROR".to_string());
+        filter.add_filter("ERROR".to_string());
+        assert_eq!(filter.get_filter_patterns().len(), 1);
+    }
+
+    #[test]
+    fn test_add_filter_allows_same_pattern_different_mode() {
+        let mut filter = Filter::default();
+        filter.add_filter("ERROR".to_string());
+        filter.toggle_mode();
+        filter.add_filter("ERROR".to_string());
+        assert_eq!(filter.get_filter_patterns().len(), 2);
+    }
+
+    #[test]
+    fn test_toggle_mode_switches_between_include_and_exclude() {
+        let mut filter = Filter::default();
+        assert_eq!(*filter.get_mode(), FilterMode::Include);
+        filter.toggle_mode();
+        assert_eq!(*filter.get_mode(), FilterMode::Exclude);
+        filter.toggle_mode();
+        assert_eq!(*filter.get_mode(), FilterMode::Include);
+    }
+
+    #[test]
+    fn test_remove_selected_pattern_deletes_pattern() {
+        let mut filter = Filter::default();
+        filter.add_filter("ERROR".to_string());
+        filter.add_filter("WARNING".to_string());
+        filter.remove_selected_pattern();
+        assert_eq!(filter.get_filter_patterns().len(), 1);
+        assert_eq!(filter.get_filter_patterns()[0].pattern, "WARNING");
+    }
+
+    #[test]
+    fn test_get_selected_pattern_returns_current_pattern() {
+        let mut filter = Filter::default();
+        filter.add_filter("ERROR".to_string());
+        filter.add_filter("WARNING".to_string());
+        let selected = filter.get_selected_pattern().unwrap();
+        assert_eq!(selected.pattern, "ERROR");
+        filter.move_selection_down();
+        let selected = filter.get_selected_pattern().unwrap();
+        assert_eq!(selected.pattern, "WARNING");
+    }
+}
