@@ -1,5 +1,7 @@
 use ratatui::style::{Color, Modifier, Style};
 use regex::Regex;
+use std::cell::RefCell;
+use std::collections::HashMap;
 
 /// Style configuration for text rendering.
 #[derive(Debug, Clone, Copy, Default)]
@@ -196,14 +198,16 @@ pub struct StyledRange {
 }
 
 /// Complete highlighting information for a single line, ready to render.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HighlightedLine {
     /// Non-overlapping segments with styles, in order.
     pub segments: Vec<StyledRange>,
 }
 
+/// Cache key for highlighted lines.
+type CacheKey = (String, usize, bool, u64);
+
 /// Manages text highlighting and line coloring based on configured patterns.
-#[derive(Debug)]
 pub struct Highlighter {
     /// Patterns for text highlighting.
     patterns: Vec<HighlightPattern>,
@@ -211,6 +215,25 @@ pub struct Highlighter {
     events: Vec<HighlightPattern>,
     /// Temporary highlights.
     temporary_highlights: Vec<HighlightPattern>,
+    /// Cache of highlighted lines to avoid re-computation.
+    cache: RefCell<HashMap<CacheKey, HighlightedLine>>,
+    /// Cache version - incremented when patterns change to invalidate cache.
+    cache_version: u64,
+    /// Maximum cache size to prevent unbounded growth.
+    max_cache_size: usize,
+}
+
+impl std::fmt::Debug for Highlighter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Highlighter")
+            .field("patterns", &self.patterns)
+            .field("events", &self.events)
+            .field("temporary_highlights", &self.temporary_highlights)
+            .field("cache_version", &self.cache_version)
+            .field("max_cache_size", &self.max_cache_size)
+            .field("cache_size", &self.cache.borrow().len())
+            .finish()
+    }
 }
 
 impl Highlighter {
@@ -220,6 +243,9 @@ impl Highlighter {
             patterns,
             events,
             temporary_highlights: Vec::new(),
+            cache: RefCell::new(HashMap::new()),
+            cache_version: 0,
+            max_cache_size: 500,
         }
     }
 
@@ -240,6 +266,12 @@ impl Highlighter {
         &self.events
     }
 
+    /// Invalidates the highlight cache by incrementing the version.
+    fn invalidate_cache(&mut self) {
+        self.cache_version = self.cache_version.wrapping_add(1);
+        self.cache.borrow_mut().clear();
+    }
+
     /// Adds a temporary highlight pattern to be applied on top of any other highlighting.
     pub fn add_temporary_highlight(
         &mut self,
@@ -255,11 +287,13 @@ impl Highlighter {
             }),
             style,
         });
+        self.invalidate_cache();
     }
 
     /// Clears all temporary highlights.
     pub fn clear_temporary_highlights(&mut self) {
         self.temporary_highlights.clear();
+        self.invalidate_cache();
     }
 
     /// Returns a HighlightedLine with all styling information ready to render.
@@ -269,6 +303,22 @@ impl Highlighter {
         horizontal_offset: usize,
         enable_colors: bool,
     ) -> HighlightedLine {
+        // Check cache first
+        let cache_key = (
+            line.to_string(),
+            horizontal_offset,
+            enable_colors,
+            self.cache_version,
+        );
+
+        {
+            let cache = self.cache.borrow();
+            if let Some(cached) = cache.get(&cache_key) {
+                return cached.clone();
+            }
+        } // Ref goes out of scope here
+
+        // Cache miss
         let mut ranges = Vec::new();
 
         if enable_colors {
@@ -304,7 +354,16 @@ impl Highlighter {
         let styled_ranges = self.adjust_for_viewport_offset(ranges, horizontal_offset);
         let segments = self.split_into_segments(styled_ranges);
 
-        HighlightedLine { segments }
+        let result = HighlightedLine { segments };
+
+        {
+            let mut cache = self.cache.borrow_mut();
+            if cache.len() < self.max_cache_size {
+                cache.insert(cache_key, result.clone());
+            }
+        } // Ref goes out of scope here
+
+        result
     }
 
     /// Adjusts ranges for horizontal scrolling offset.

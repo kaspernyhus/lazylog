@@ -88,6 +88,8 @@ pub struct App {
     pub marking: Marking,
     /// Keybinding registry for all keybindings.
     keybindings: KeybindingRegistry,
+    /// Indicates whether the screen needs to be redrawn.
+    needs_redraw: bool,
 }
 
 impl App {
@@ -122,6 +124,7 @@ impl App {
             event_tracker: LogEventTracker::default(),
             marking: Marking::default(),
             keybindings,
+            needs_redraw: true,
         };
 
         if use_stdin {
@@ -194,6 +197,12 @@ impl App {
     fn next_state(&mut self, state: AppState) {
         self.app_state = state;
         self.update_temporary_highlights();
+        self.mark_dirty();
+    }
+
+    /// Marks the screen as needing a redraw.
+    fn mark_dirty(&mut self) {
+        self.needs_redraw = true;
     }
 
     fn update_temporary_highlights(&mut self) {
@@ -241,18 +250,29 @@ impl App {
         self.viewport.scroll_margin = 2;
 
         while self.running {
-            terminal.draw(|frame| frame.render_widget(&self, frame.area()))?;
+            if self.needs_redraw {
+                terminal.draw(|frame| frame.render_widget(&self, frame.area()))?;
+                self.needs_redraw = false;
+            }
+
             match self.events.next().await? {
                 Event::Tick => self.tick(),
                 Event::Crossterm(event) => match event {
-                    crossterm::event::Event::Key(key_event) => self.handle_key_events(key_event)?,
+                    crossterm::event::Event::Key(key_event) => {
+                        self.handle_key_events(key_event)?;
+                        self.mark_dirty();
+                    }
                     crossterm::event::Event::Resize(x, y) => {
                         self.viewport
                             .resize(x.saturating_sub(1) as usize, y.saturating_sub(2) as usize);
+                        self.mark_dirty();
                     }
                     _ => {}
                 },
-                Event::App(app_event) => self.handle_app_event(app_event)?,
+                Event::App(app_event) => {
+                    self.handle_app_event(app_event)?;
+                    self.mark_dirty();
+                }
             }
         }
         Ok(())
