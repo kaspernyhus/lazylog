@@ -667,7 +667,15 @@ impl App {
     }
 
     pub fn activate_mark_name_input_mode(&mut self) {
-        self.input_query.clear();
+        if let Some(mark) = self.marking.get_selected_mark() {
+            if let Some(name) = &mark.name {
+                self.input_query = name.clone();
+            } else {
+                self.input_query.clear();
+            }
+        } else {
+            self.input_query.clear();
+        }
         self.next_state(AppState::MarkNameInputMode);
     }
 
