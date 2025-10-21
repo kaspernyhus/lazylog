@@ -339,6 +339,14 @@ impl App {
             }
         }
 
+        let event_filter_states: Vec<(String, bool)> = state
+            .event_filters()
+            .iter()
+            .map(|ef| (ef.name().to_string(), ef.enabled()))
+            .collect();
+        self.event_tracker
+            .restore_filter_states(&event_filter_states);
+
         let filtered_lines = self.log_buffer.get_lines_count();
         if filtered_lines > 0 {
             self.viewport.selected_line = state.viewport_selected_line().min(filtered_lines - 1);

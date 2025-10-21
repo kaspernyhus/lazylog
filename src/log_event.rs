@@ -238,4 +238,14 @@ impl LogEventTracker {
             *enabled = new_state;
         }
     }
+
+    /// Restores event filter states from persisted state.
+    pub fn restore_filter_states(&mut self, filter_states: &[(String, bool)]) {
+        for (name, enabled) in filter_states {
+            self.event_filters.insert(name.clone(), *enabled);
+            if !self.event_order.contains(name) {
+                self.event_order.push(name.clone());
+            }
+        }
+    }
 }
