@@ -66,18 +66,28 @@ impl LogBuffer {
         self.clear_filters();
     }
 
-    /// Appends a new line to the buffer and applies filters.
+    /// Appends a new line to the buffer.
     ///
-    /// Returns `true` if the line passes the current filters.
-    pub fn append_line(&mut self, content: String, filter: &Filter) -> bool {
+    /// Returns a reference to the newly created LogLine.
+    pub fn append_line(&mut self, content: String) -> &LogLine {
         let index = self.lines.len();
         let log_line = LogLine::new(content, index);
-        let passes_filter = self.line_passes_filters(&log_line, filter.get_filter_patterns());
-        if passes_filter {
-            self.active_lines.push(log_line.index);
-        }
         self.lines.push(log_line);
-        passes_filter
+        &self.lines[index]
+    }
+
+    /// Checks if a log line passes the given filters.
+    pub fn check_line_passes_filters(&self, content: &str, filter: &Filter) -> bool {
+        let temp_line = LogLine {
+            content: content.to_string(),
+            index: 0,
+        };
+        self.line_passes_filters(&temp_line, filter.get_filter_patterns())
+    }
+
+    /// Adds a line index to the active lines list.
+    pub fn add_to_active_lines(&mut self, index: usize) {
+        self.active_lines.push(index);
     }
 
     /// Applies the given filter to all lines in the buffer.
@@ -136,6 +146,14 @@ impl LogBuffer {
         };
 
         active_indices.iter().map(move |&idx| &self.lines[idx])
+    }
+
+    /// Returns a reference to a log line by its original index.
+    pub fn get_line(&self, line_index: usize) -> Option<&LogLine> {
+        if line_index >= self.lines.len() {
+            return None;
+        }
+        Some(&self.lines[line_index])
     }
 
     /// Returns the maximum line length in the specified interval.

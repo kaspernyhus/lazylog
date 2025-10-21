@@ -1,5 +1,5 @@
 use crate::highlighter::HighlightPattern;
-use crate::log::{Interval, LogBuffer};
+use crate::log::{Interval, LogBuffer, LogLine};
 use std::collections::HashMap;
 
 /// Information about a matched event occurrence.
@@ -70,6 +70,24 @@ impl LogEventTracker {
                     }
                     break;
                 }
+            }
+        }
+    }
+
+    /// Checks a single line for event matches and adds it if it matches.
+    pub fn scan_line(&mut self, log_line: &LogLine, event_patterns: &[HighlightPattern]) {
+        for event in event_patterns {
+            if event.matcher.matches(&log_line.content) {
+                if let Some(name) = &event.name {
+                    *self.event_counts.entry(name.clone()).or_insert(0) += 1;
+                    if *self.event_filters.get(name).unwrap_or(&true) {
+                        self.events.push(LogEvent {
+                            event_name: name.clone(),
+                            line_index: log_line.index,
+                        });
+                    }
+                }
+                break;
             }
         }
     }

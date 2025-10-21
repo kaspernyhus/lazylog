@@ -358,8 +358,17 @@ impl App {
         match app_event {
             AppEvent::NewLine(line) => {
                 if !self.streaming_paused {
-                    let passes_filter = self.log_buffer.append_line(line, &self.filter);
+                    let log_line = self.log_buffer.append_line(line);
+                    let log_line_content = log_line.content.clone();
+                    let log_line_index = log_line.index;
+
+                    let passes_filter = self
+                        .log_buffer
+                        .check_line_passes_filters(&log_line_content, &self.filter);
+
                     if passes_filter {
+                        self.log_buffer.add_to_active_lines(log_line_index);
+
                         let num_lines = self.log_buffer.get_lines_count();
                         self.viewport.set_total_lines(num_lines);
 
@@ -372,6 +381,13 @@ impl App {
                                 .get_lines_iter(Interval::All)
                                 .map(|log_line| log_line.content());
                             self.search.update_matches(&pattern, lines);
+                        }
+
+                        // Update event list if in events view
+                        let log_line = self.log_buffer.get_line(log_line_index);
+                        if let Some(log_line) = log_line {
+                            self.event_tracker
+                                .scan_line(log_line, self.highlighter.events());
                         }
 
                         if self.viewport.follow_mode {
