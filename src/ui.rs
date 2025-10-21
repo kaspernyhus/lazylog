@@ -285,30 +285,38 @@ impl App {
             return;
         }
 
-        // Get log lines for preview
+        let max_name_length = self
+            .event_tracker
+            .events()
+            .iter()
+            .map(|e| e.event_name.len())
+            .max()
+            .unwrap_or(0);
+
         let mut items: Vec<Line> = Vec::new();
         for event in self.event_tracker.events() {
             let log_line = self.log_buffer.lines.get(event.line_index);
 
             if let Some(log_line) = log_line {
                 let content = log_line.content();
-                // Truncate long lines for preview
                 let preview = if content.len() > 80 {
                     format!("{}...", &content[..77])
                 } else {
                     content.to_string()
                 };
 
-                // Format: [Event Name] Line preview with colored event name
+                let padding = " ".repeat(max_name_length - event.event_name.len());
+
                 let spans = vec![
-                    Span::raw("["),
+                    Span::raw(" "),
+                    Span::raw(padding),
                     Span::styled(
                         event.event_name.clone(),
                         Style::default()
                             .fg(Color::Yellow)
                             .add_modifier(Modifier::BOLD),
                     ),
-                    Span::raw("] "),
+                    Span::raw(" "),
                     Span::styled(preview, Style::default().fg(Color::White)),
                 ];
 
@@ -316,7 +324,6 @@ impl App {
             }
         }
 
-        // Render block first
         let block = Block::default()
             .title(" Log Events ")
             .title_alignment(Alignment::Center)
@@ -325,13 +332,11 @@ impl App {
 
         let inner_area = block.inner(area);
 
-        // Split inner area for list and scrollbar
         let [list_area, scrollbar_area] =
             Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(inner_area);
 
         block.render(area, buf);
 
-        // Create list without block (block is rendered separately above)
         let events_list = List::new(items)
             .highlight_symbol(RIGHT_ARROW)
             .highlight_style(
@@ -341,7 +346,6 @@ impl App {
                     .add_modifier(Modifier::BOLD),
             );
 
-        // Create list state with current selection
         let mut list_state = ListState::default();
         if !self.event_tracker.is_empty() {
             list_state.select(Some(self.event_tracker.selected_index()));
@@ -349,7 +353,6 @@ impl App {
 
         StatefulWidget::render(events_list, list_area, buf, &mut list_state);
 
-        // Render scrollbar
         let mut scrollbar_state = ScrollbarState::new(self.event_tracker.count())
             .position(self.event_tracker.selected_index())
             .viewport_content_length(0);
@@ -536,6 +539,14 @@ impl App {
             return;
         }
 
+        let max_name_length = self
+            .marking
+            .get_sorted_marks()
+            .iter()
+            .filter_map(|m| m.name.as_ref().map(|n| n.len()))
+            .max()
+            .unwrap_or(0);
+
         let items: Vec<Line> = self
             .marking
             .get_sorted_marks()
@@ -555,20 +566,27 @@ impl App {
                 };
 
                 if let Some(name) = &mark.name {
+                    let padding = " ".repeat(max_name_length - name.len());
+
                     let spans = vec![
-                        Span::raw(" ["),
+                        Span::raw(" "),
+                        Span::raw(padding),
                         Span::styled(
                             name.clone(),
                             Style::default()
                                 .fg(Color::Yellow)
                                 .add_modifier(Modifier::BOLD),
                         ),
-                        Span::raw("] "),
+                        Span::raw(" "),
                         Span::styled(preview, Style::default().fg(Color::White)),
                     ];
                     Line::from(spans)
                 } else {
+                    let padding = " ".repeat(max_name_length);
+
                     let spans = vec![
+                        Span::raw(" "),
+                        Span::raw(padding),
                         Span::raw(" "),
                         Span::styled(preview, Style::default().fg(Color::White)),
                     ];
