@@ -97,6 +97,7 @@ impl Viewport {
             } else {
                 self.adjust_visible();
             }
+            self.follow_mode = false;
         }
     }
 
