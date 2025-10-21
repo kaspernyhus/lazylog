@@ -55,12 +55,8 @@ impl Default for DisplayOptions {
         Self {
             options: vec![
                 DisplayOption::new_hide_pattern(
-                    "Hide Date, Time & Hostname",
-                    r"^\w{3}\s+\d{2}\s+\d{2}:\d{2}:\d{2}\s+\S+\s+",
-                ),
-                DisplayOption::new_hide_pattern(
-                    "Hide ISO8601 Timestamp",
-                    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{4}\s+",
+                    "Hide Timestamp & Hostname",
+                    r"^(?:\w{3}\s+\d{2}\s+\d{2}:\d{2}:\d{2}\s+\S+\s+|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{4}\s+)",
                 ),
                 DisplayOption::new_toggle("Disable Colors"),
             ],
