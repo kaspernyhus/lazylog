@@ -45,6 +45,8 @@ pub enum AppState {
     MarksView,
     /// Active mode for entering a name/tag for a mark.
     MarkNameInputMode,
+    /// Active mode for entering a pattern for auto creating marks.
+    MarkAddInputMode,
     /// Active mode for entering a file name for saving the current log buffer to a file.
     SaveToFileMode,
     /// Display a message to the user.
@@ -225,6 +227,19 @@ impl App {
                 self.input_query.clone(),
                 PatternStyle::new(Some(Color::Black), Some(Color::Yellow), false),
                 self.search.is_case_sensitive(),
+            );
+        }
+
+        // Add mark add mode preview highlight
+        if self.app_state == AppState::MarkAddInputMode && self.input_query.len() >= 2 {
+            self.highlighter.add_temporary_highlight(
+                self.input_query.clone(),
+                PatternStyle::new(
+                    Some(Color::Rgb(255, 255, 255)),
+                    Some(Color::Indexed(29)),
+                    false,
+                ),
+                false,
             );
         }
 
@@ -432,6 +447,7 @@ impl App {
                 | AppState::SaveToFileMode
                 | AppState::EditFilterMode
                 | AppState::MarkNameInputMode
+                | AppState::MarkAddInputMode
         )
     }
 
@@ -550,6 +566,26 @@ impl App {
                 }
                 self.next_state(AppState::MarksView);
             }
+            AppState::MarkAddInputMode => {
+                if self.input_query.is_empty() {
+                    self.next_state(AppState::MarksView);
+                    return;
+                }
+                let count_before = self.marking.count();
+                let lines = self.log_buffer.get_lines_iter(Interval::All);
+                self.marking
+                    .create_marks_from_pattern(&self.input_query, lines);
+                let count_after = self.marking.count();
+                let new_marks = count_after - count_before;
+                if new_marks > 0 {
+                    self.next_state(AppState::MarksView);
+                } else {
+                    self.next_state(AppState::Message(format!(
+                        "No matches found for pattern '{}'",
+                        self.input_query
+                    )));
+                }
+            }
             AppState::Message(_) => {
                 self.next_state(AppState::LogView);
             }
@@ -585,6 +621,9 @@ impl App {
                 self.next_state(AppState::EventsView);
             }
             AppState::MarkNameInputMode => {
+                self.next_state(AppState::MarksView);
+            }
+            AppState::MarkAddInputMode => {
                 self.next_state(AppState::MarksView);
             }
             AppState::EditFilterMode => {
@@ -704,6 +743,11 @@ impl App {
         } else {
             self.input_query.clear();
         }
+    }
+
+    pub fn activate_mark_add_input_mode(&mut self) {
+        self.input_query.clear();
+        self.next_state(AppState::MarkAddInputMode);
     }
 
     pub fn activate_save_to_file_mode(&mut self) {

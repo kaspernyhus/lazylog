@@ -3,6 +3,8 @@ use regex::Regex;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
+use crate::utils::contains_ignore_case;
+
 /// Style configuration for text rendering.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PatternStyle {
@@ -64,7 +66,7 @@ impl PlainMatch {
         if self.case_sensitive {
             haystack.contains(&self.pattern)
         } else {
-            self.contains_ignore_case(haystack)
+            contains_ignore_case(haystack, &self.pattern)
         }
     }
 
@@ -78,22 +80,6 @@ impl PlainMatch {
         } else {
             self.find_all_ignore_case(haystack)
         }
-    }
-
-    /// Returns true if the given needle matches a sub-slice of haystack string slice ignoring the case.
-    ///
-    /// Returns false if it does not.
-    fn contains_ignore_case(&self, haystack: &str) -> bool {
-        if self.pattern.is_empty() {
-            return true;
-        }
-        if self.pattern.len() > haystack.len() {
-            return false;
-        }
-        haystack
-            .as_bytes()
-            .windows(self.pattern.len())
-            .any(|window| window.eq_ignore_ascii_case(self.pattern.as_bytes()))
     }
 
     /// Finds all case-insensitive occurrences of a substring in text.

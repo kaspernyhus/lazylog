@@ -62,6 +62,7 @@ pub enum Command {
     ActivateMarksView,
     GotoSelectedMark,
     ActivateMarkNameInputMode,
+    ActivateMarkAddInputMode,
     UnmarkSelected,
     ClearAllMarks,
 
@@ -134,6 +135,7 @@ impl Command {
             Command::ActivateMarksView => "View marked lines",
             Command::GotoSelectedMark => "Go to selected mark",
             Command::ActivateMarkNameInputMode => "Name/tag the mark",
+            Command::ActivateMarkAddInputMode => "Add mark(s) from a pattern",
             Command::UnmarkSelected => "Remove selected mark",
             Command::ClearAllMarks => "Clear all marks",
 
@@ -206,6 +208,7 @@ impl Command {
             Command::ActivateMarksView => app.activate_marks_view(),
             Command::GotoSelectedMark => app.goto_selected_mark(),
             Command::ActivateMarkNameInputMode => app.activate_mark_name_input_mode(),
+            Command::ActivateMarkAddInputMode => app.activate_mark_add_input_mode(),
             Command::UnmarkSelected => app.unmark_selected(),
             Command::ClearAllMarks => app.marking.clear_all(),
 

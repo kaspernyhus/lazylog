@@ -136,6 +136,22 @@ impl App {
         search_bar.render(area, buf);
     }
 
+    /// Renders the mark pattern bar footer in MarkAddInputMode.
+    fn render_mark_bar(&self, area: Rect, buf: &mut Buffer) {
+        let mark_prompt =
+            Line::from(format!("Add mark(s) from pattern: {}", self.input_query)).left_aligned();
+        let (current_line, total_lines, percent) = self.get_progression();
+        let progression =
+            Line::from(format!("{}/{} {:3}% ", current_line, total_lines, percent)).right_aligned();
+
+        let mark_bar = Block::default()
+            .title_bottom(mark_prompt)
+            .title_bottom(progression)
+            .style(Style::default().bg(GRAY_COLOR));
+
+        mark_bar.render(area, buf);
+    }
+
     /// Renders the goto line bar footer in GotoLineMode.
     fn render_goto_line_bar(&self, area: Rect, buf: &mut Buffer) {
         let search_prompt = format!("Go to line: {}", self.input_query);
@@ -789,6 +805,7 @@ impl Widget for &App {
         // Footer
         match self.app_state {
             AppState::SearchMode => self.render_search_bar(bottom, buf),
+            AppState::MarkAddInputMode => self.render_mark_bar(bottom, buf),
             AppState::GotoLineMode => self.render_goto_line_bar(bottom, buf),
             AppState::FilterMode => self.render_filter_bar(bottom, buf),
             AppState::SaveToFileMode => self.render_save_to_file_bar(bottom, buf),
@@ -818,7 +835,7 @@ impl Widget for &App {
             self.render_events_popup(events_area, buf);
             self.render_event_filter_popup(event_filter_area, buf);
         }
-        if self.app_state == AppState::MarksView {
+        if self.app_state == AppState::MarksView || self.app_state == AppState::MarkAddInputMode {
             let marks_area = popup_area(area, 118, 35);
             self.render_marks_popup(marks_area, buf);
         }

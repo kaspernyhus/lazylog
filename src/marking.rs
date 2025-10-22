@@ -1,3 +1,5 @@
+use crate::utils::contains_ignore_case;
+
 /// A mark with an optional name/tag.
 #[derive(Debug, Clone)]
 pub struct Mark {
@@ -12,6 +14,12 @@ impl Mark {
     pub fn new(line_index: usize) -> Self {
         Self {
             name: None,
+            line_index,
+        }
+    }
+    pub fn new_with_name(line_index: usize, name: &str) -> Self {
+        Self {
+            name: Some(name.to_string()),
             line_index,
         }
     }
@@ -64,6 +72,24 @@ impl Marking {
             .position(|m| m.line_index == line_index)
         {
             self.marked_lines.remove(pos);
+        }
+    }
+
+    /// Creates marks for all lines matching the given pattern (case-insensitive).
+    pub fn create_marks_from_pattern<'a>(
+        &mut self,
+        pattern: &str,
+        lines: impl Iterator<Item = &'a crate::log::LogLine>,
+    ) {
+        if !pattern.is_empty() {
+            for log_line in lines {
+                if contains_ignore_case(log_line.content(), pattern)
+                    && !self.is_marked(log_line.index)
+                {
+                    self.marked_lines
+                        .push(Mark::new_with_name(log_line.index, pattern));
+                }
+            }
         }
     }
 
@@ -275,5 +301,49 @@ mod tests {
         marking.toggle_mark(30);
         marking.select_nearest_mark(20);
         assert_eq!(marking.get_selected_mark().unwrap().line_index, 10);
+    }
+
+    #[test]
+    fn test_create_marks_from_pattern_case_insensitive() {
+        use crate::log::LogLine;
+
+        let log_lines = [
+            LogLine::new("ERROR in caps".to_string(), 10),
+            LogLine::new("error in lower".to_string(), 20),
+            LogLine::new("Error in mixed".to_string(), 30),
+            LogLine::new("info message".to_string(), 40),
+        ];
+
+        let mut marking = Marking::default();
+        marking.create_marks_from_pattern("ErRoR", log_lines.iter());
+
+        assert_eq!(marking.count(), 3);
+        let marks = marking.get_sorted_marks();
+        assert_eq!(marks[0].line_index, 10);
+        assert_eq!(marks[1].line_index, 20);
+        assert_eq!(marks[2].line_index, 30);
+        assert_eq!(marks[0].name, Some("ErRoR".to_string()));
+    }
+
+    #[test]
+    fn test_create_marks_from_pattern_uses_original_indices() {
+        use crate::log::LogLine;
+
+        let log_lines = [
+            LogLine::new("ERROR in module A".to_string(), 5),
+            LogLine::new("info message".to_string(), 12),
+            LogLine::new("Error in module B".to_string(), 23),
+            LogLine::new("debug output".to_string(), 45),
+        ];
+
+        let mut marking = Marking::default();
+        marking.create_marks_from_pattern("error", log_lines.iter());
+
+        assert_eq!(marking.count(), 2);
+        let marks = marking.get_sorted_marks();
+        assert_eq!(marks[0].line_index, 5);
+        assert_eq!(marks[1].line_index, 23);
+        assert_eq!(marks[0].name, Some("error".to_string()));
+        assert_eq!(marks[1].name, Some("error".to_string()));
     }
 }

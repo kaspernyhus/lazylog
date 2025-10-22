@@ -36,10 +36,11 @@ impl KeybindingRegistry {
         registry.register_global_bindings(AppState::EventsView);
         registry.register_global_bindings(AppState::EventsFilterView);
         registry.register_global_bindings(AppState::MarksView);
+        registry.register_global_bindings(AppState::MarkNameInputMode);
+        registry.register_global_bindings(AppState::MarkAddInputMode);
         registry.register_global_bindings(AppState::GotoLineMode);
         registry.register_global_bindings(AppState::EditFilterMode);
         registry.register_global_bindings(AppState::SaveToFileMode);
-        registry.register_global_bindings(AppState::MarkNameInputMode);
         registry.register_global_bindings(AppState::Message(String::new()));
         registry.register_global_bindings(AppState::ErrorState(String::new()));
 
@@ -333,12 +334,18 @@ impl KeybindingRegistry {
         self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
         self.bind_simple(state.clone(), KeyCode::Char(' '), Command::GotoSelectedMark);
         self.bind_simple(state.clone(), KeyCode::Delete, Command::UnmarkSelected);
+        self.bind_simple(state.clone(), KeyCode::Char('d'), Command::UnmarkSelected);
         self.bind_simple(
             state.clone(),
             KeyCode::Char('e'),
             Command::ActivateMarkNameInputMode,
         );
         self.bind_simple(state.clone(), KeyCode::Char('c'), Command::ClearAllMarks);
+        self.bind_simple(
+            state.clone(),
+            KeyCode::Char('a'),
+            Command::ActivateMarkAddInputMode,
+        );
     }
 
     fn register_message_state_bindings(&mut self) {
