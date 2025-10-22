@@ -23,6 +23,7 @@ pub mod marking;
 pub mod persistence;
 pub mod search;
 pub mod ui;
+pub mod utils;
 pub mod viewport;
 
 #[tokio::main]

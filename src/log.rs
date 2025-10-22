@@ -1,4 +1,7 @@
-use crate::filter::{Filter, FilterMode, FilterPattern};
+use crate::{
+    filter::{Filter, FilterMode, FilterPattern},
+    utils::contains_ignore_case,
+};
 
 /// A single log line with its content and original index.
 #[derive(Debug, Clone)]
@@ -252,21 +255,7 @@ impl LogBuffer {
         if case_sensitive {
             line.contains(pattern)
         } else {
-            Self::contains_ignore_case(line, pattern)
+            contains_ignore_case(line, pattern)
         }
-    }
-
-    fn contains_ignore_case(haystack: &str, needle: &str) -> bool {
-        if needle.is_empty() {
-            return true;
-        }
-        if needle.len() > haystack.len() {
-            return false;
-        }
-
-        haystack
-            .as_bytes()
-            .windows(needle.len())
-            .any(|window| window.eq_ignore_ascii_case(needle.as_bytes()))
     }
 }

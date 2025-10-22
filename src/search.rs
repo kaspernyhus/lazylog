@@ -1,3 +1,5 @@
+use crate::utils::contains_ignore_case;
+
 /// Stores and navigates search query history.
 #[derive(Debug, Default)]
 pub struct SearchHistory {
@@ -154,7 +156,7 @@ impl Search {
             let matching = if self.case_sensitive {
                 line.contains(pattern)
             } else {
-                Self::contains_ignore_case(line, pattern)
+                contains_ignore_case(line, pattern)
             };
 
             if matching {
@@ -246,20 +248,6 @@ impl Search {
             (self.current_match_index + 1, self.total_matches)
         }
     }
-
-    fn contains_ignore_case(haystack: &str, needle: &str) -> bool {
-        if needle.is_empty() {
-            return true;
-        }
-        if needle.len() > haystack.len() {
-            return false;
-        }
-
-        haystack
-            .as_bytes()
-            .windows(needle.len())
-            .any(|window| window.eq_ignore_ascii_case(needle.as_bytes()))
-    }
 }
 
 #[cfg(test)]
@@ -334,23 +322,23 @@ mod tests {
 
     #[test]
     fn test_contains_ignore_case_finds_different_cases() {
-        assert!(Search::contains_ignore_case("ERROR: foo", "error"));
-        assert!(Search::contains_ignore_case("error: foo", "ERROR"));
-        assert!(Search::contains_ignore_case("Error: foo", "eRrOr"));
+        assert!(contains_ignore_case("ERROR: foo", "error"));
+        assert!(contains_ignore_case("error: foo", "ERROR"));
+        assert!(contains_ignore_case("Error: foo", "eRrOr"));
     }
 
     #[test]
     fn test_contains_ignore_case_returns_false_for_no_match() {
-        assert!(!Search::contains_ignore_case("INFO: foo", "error"));
+        assert!(!contains_ignore_case("INFO: foo", "error"));
     }
 
     #[test]
     fn test_contains_ignore_case_handles_empty_needle() {
-        assert!(Search::contains_ignore_case("foo", ""));
+        assert!(contains_ignore_case("foo", ""));
     }
 
     #[test]
     fn test_contains_ignore_case_handles_needle_longer_than_haystack() {
-        assert!(!Search::contains_ignore_case("foo", "foobar"));
+        assert!(!contains_ignore_case("foo", "foobar"));
     }
 }
