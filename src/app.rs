@@ -482,10 +482,14 @@ impl App {
                         .get_lines_iter(Interval::All)
                         .map(|log_line| log_line.content());
                     self.search.apply_pattern(&self.input_query, lines);
-                    if let Some(line) = self.search.first_match_from(self.viewport.selected_line) {
-                        self.viewport.goto_line(line, true);
+                    if !self.options.is_enabled("Search: Disable jumping to match") {
+                        if let Some(line) =
+                            self.search.first_match_from(self.viewport.selected_line)
+                        {
+                            self.viewport.goto_line(line, false);
+                        }
+                        self.viewport.follow_mode = false;
                     }
-                    self.viewport.follow_mode = false;
                 }
                 self.next_state(AppState::LogView);
             }

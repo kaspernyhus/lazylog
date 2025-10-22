@@ -59,6 +59,7 @@ impl Default for Options {
                     r"^(?:\w{3}\s+\d{2}\s+\d{2}:\d{2}:\d{2}\s+\S+\s+|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{4}\s+)",
                 ),
                 DisplayOption::new_toggle("Disable Colors"),
+                DisplayOption::new_toggle("Search: Disable jumping to match"),
             ],
             selected_index: 0,
         }
