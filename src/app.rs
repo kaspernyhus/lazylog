@@ -1,7 +1,6 @@
 use crate::{
     cli::Cli,
     config::Config,
-    display_options::DisplayOptions,
     event::{AppEvent, Event, EventHandler},
     filter::Filter,
     help::Help,
@@ -10,6 +9,7 @@ use crate::{
     log::{Interval, LogBuffer},
     log_event::LogEventTracker,
     marking::Marking,
+    options::Options,
     persistence::{load_state, save_state},
     search::Search,
     viewport::Viewport,
@@ -79,7 +79,7 @@ pub struct App {
     /// Syntax highlighter.
     pub highlighter: Highlighter,
     /// Display options state.
-    pub display_options: DisplayOptions,
+    pub options: Options,
     /// Current user input query (for search, filter, goto line, etc.).
     pub input_query: String,
     /// Indicates whether streaming is paused (only relevant in stdin/streaming mode).
@@ -120,7 +120,7 @@ impl App {
             input_query: String::new(),
             search: Search::default(),
             filter: Filter::with_patterns(filter_patterns),
-            display_options: DisplayOptions::default(),
+            options: Options::default(),
             highlighter,
             streaming_paused: false,
             event_tracker: LogEventTracker::default(),
@@ -644,7 +644,7 @@ impl App {
 
         match self.app_state {
             AppState::FilterListView => self.filter.move_selection_up(),
-            AppState::OptionsView => self.display_options.move_selection_up(),
+            AppState::OptionsView => self.options.move_selection_up(),
             AppState::EventsView => self.event_tracker.move_selection_up(),
             AppState::EventsFilterView => self.event_tracker.move_filter_selection_up(),
             AppState::MarksView => self.marking.move_selection_up(),
@@ -663,7 +663,7 @@ impl App {
 
         match self.app_state {
             AppState::FilterListView => self.filter.move_selection_down(),
-            AppState::OptionsView => self.display_options.move_selection_down(),
+            AppState::OptionsView => self.options.move_selection_down(),
             AppState::EventsView => self.event_tracker.move_selection_down(),
             AppState::EventsFilterView => self.event_tracker.move_filter_selection_down(),
             AppState::MarksView => self.marking.move_selection_down(),

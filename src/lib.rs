@@ -1,3 +1,3 @@
-pub mod display_options;
 pub mod highlighter;
+pub mod options;
 pub mod utils;

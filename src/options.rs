@@ -43,14 +43,14 @@ impl DisplayOption {
 
 /// Manages display options for customizing log line rendering.
 #[derive(Debug)]
-pub struct DisplayOptions {
+pub struct Options {
     /// All available display options.
     pub options: Vec<DisplayOption>,
     /// Index of the currently selected option.
     pub selected_index: usize,
 }
 
-impl Default for DisplayOptions {
+impl Default for Options {
     fn default() -> Self {
         Self {
             options: vec![
@@ -65,7 +65,7 @@ impl Default for DisplayOptions {
     }
 }
 
-impl DisplayOptions {
+impl Options {
     /// Moves the selection to the previous option, wrapping to the end.
     pub fn move_selection_up(&mut self) {
         if !self.options.is_empty() {

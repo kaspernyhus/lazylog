@@ -1,7 +1,7 @@
-use lazylog::display_options::DisplayOptions;
 use lazylog::highlighter::{
     HighlightPattern, Highlighter, PatternMatchType, PatternStyle, PlainMatch,
 };
+use lazylog::options::Options;
 use ratatui::style::Color;
 use regex::Regex;
 use std::time::Instant;
@@ -23,20 +23,18 @@ const SAMPLE_LOG_LINE: &str = "okt 18 21:20:22 archlinux INFO [thread-pool-1] co
 
 #[test]
 fn perf_display_options_none_enabled() {
-    let display_options = DisplayOptions::default();
+    let options = Options::default();
 
     let iterations = 100000;
     let avg_time_max = 20;
 
-    let avg_time = measure_time(iterations, || {
-        display_options.apply_to_line(SAMPLE_LOG_LINE)
-    });
+    let avg_time = measure_time(iterations, || options.apply_to_line(SAMPLE_LOG_LINE));
 
-    println!("display_options (no options): {} ns/iteration", avg_time);
+    println!("options (no options): {} ns/iteration", avg_time);
 
     assert!(
         avg_time < avg_time_max,
-        "display_options (no options) is too slow: {} ns (max allowed: {} ns)",
+        "options (no options) is too slow: {} ns (max allowed: {} ns)",
         avg_time,
         avg_time_max
     );
@@ -44,21 +42,19 @@ fn perf_display_options_none_enabled() {
 
 #[test]
 fn perf_display_options_hide_pattern_enabled() {
-    let mut display_options = DisplayOptions::default();
-    display_options.options[0].enabled = true;
+    let mut options = Options::default();
+    options.options[0].enabled = true;
 
     let iterations = 100000;
     let avg_time_max = 200;
 
-    let avg_time = measure_time(iterations, || {
-        display_options.apply_to_line(SAMPLE_LOG_LINE)
-    });
+    let avg_time = measure_time(iterations, || options.apply_to_line(SAMPLE_LOG_LINE));
 
-    println!("display_options (hide pattern): {} ns/iteration", avg_time);
+    println!("options (hide pattern): {} ns/iteration", avg_time);
 
     assert!(
         avg_time < avg_time_max,
-        "display_options (hide pattern) is too slow: {} ns (max allowed: {} ns)",
+        "options (hide pattern) is too slow: {} ns (max allowed: {} ns)",
         avg_time,
         avg_time_max
     );

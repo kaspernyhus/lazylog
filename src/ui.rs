@@ -386,7 +386,7 @@ impl App {
         Clear.render(area, buf);
 
         let items: Vec<Line> = self
-            .display_options
+            .options
             .options
             .iter()
             .map(|option| {
@@ -402,8 +402,8 @@ impl App {
             .collect();
 
         let mut list_state = ListState::default();
-        if !self.display_options.options.is_empty() {
-            list_state.select(Some(self.display_options.selected_index));
+        if !self.options.options.is_empty() {
+            list_state.select(Some(self.options.selected_index));
         }
 
         let options_list = List::new(items)
@@ -681,7 +681,7 @@ impl App {
             .get_lines_iter(Interval::Range(start, end))
             .map(|log_line| {
                 (
-                    self.display_options.apply_to_line(log_line.content()),
+                    self.options.apply_to_line(log_line.content()),
                     log_line.index,
                 )
             })
@@ -720,7 +720,7 @@ impl App {
         line_offset: usize,
         is_marked: bool,
     ) -> Line<'a> {
-        let enable_colors = !self.display_options.is_enabled("Disable Colors");
+        let enable_colors = !self.options.is_enabled("Disable Colors");
 
         let highlighted = self
             .highlighter

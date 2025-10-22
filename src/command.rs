@@ -194,7 +194,7 @@ impl Command {
 
             // Display Options
             Command::ActivateOptionsView => app.activate_options_view(),
-            Command::ToggleDisplayOption => app.display_options.toggle_selected_option(),
+            Command::ToggleDisplayOption => app.options.toggle_selected_option(),
 
             // Events
             Command::ActivateEventsView => app.activate_events_view(),
