@@ -235,6 +235,11 @@ impl KeybindingRegistry {
             Command::ToggleFilterModeInOut,
         );
         self.bind_simple(state.clone(), KeyCode::Delete, Command::RemoveFilterPattern);
+        self.bind_simple(
+            state.clone(),
+            KeyCode::Char('d'),
+            Command::RemoveFilterPattern,
+        );
     }
 
     fn register_filter_list_bindings(&mut self) {
@@ -250,6 +255,11 @@ impl KeybindingRegistry {
             Command::ToggleFilterPattern,
         );
         self.bind_simple(state.clone(), KeyCode::Delete, Command::RemoveFilterPattern);
+        self.bind_simple(
+            state.clone(),
+            KeyCode::Char('d'),
+            Command::RemoveFilterPattern,
+        );
         self.bind_simple(
             state.clone(),
             KeyCode::Char('e'),
