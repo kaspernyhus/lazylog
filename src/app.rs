@@ -700,10 +700,10 @@ impl App {
             } else {
                 self.input_query.clear();
             }
+            self.next_state(AppState::MarkNameInputMode);
         } else {
             self.input_query.clear();
         }
-        self.next_state(AppState::MarkNameInputMode);
     }
 
     pub fn activate_save_to_file_mode(&mut self) {
