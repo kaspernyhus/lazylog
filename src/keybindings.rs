@@ -25,6 +25,7 @@ impl KeybindingRegistry {
         registry.register_events_view_bindings();
         registry.register_event_filter_view_bindings();
         registry.register_marks_view_bindings();
+        registry.register_message_state_bindings();
         registry.register_error_state_bindings();
 
         registry.register_global_bindings(AppState::LogView);
@@ -35,12 +36,12 @@ impl KeybindingRegistry {
         registry.register_global_bindings(AppState::EventsView);
         registry.register_global_bindings(AppState::EventsFilterView);
         registry.register_global_bindings(AppState::MarksView);
-        registry.register_global_bindings(AppState::ErrorState(String::new()));
         registry.register_global_bindings(AppState::GotoLineMode);
         registry.register_global_bindings(AppState::EditFilterMode);
         registry.register_global_bindings(AppState::SaveToFileMode);
         registry.register_global_bindings(AppState::MarkNameInputMode);
         registry.register_global_bindings(AppState::Message(String::new()));
+        registry.register_global_bindings(AppState::ErrorState(String::new()));
 
         registry
     }
@@ -338,6 +339,12 @@ impl KeybindingRegistry {
             Command::ActivateMarkNameInputMode,
         );
         self.bind_simple(state.clone(), KeyCode::Char('c'), Command::ClearAllMarks);
+    }
+
+    fn register_message_state_bindings(&mut self) {
+        let state = AppState::Message(String::new());
+
+        self.bind_simple(state, KeyCode::Char('q'), Command::Quit);
     }
 
     fn register_error_state_bindings(&mut self) {

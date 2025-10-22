@@ -550,6 +550,9 @@ impl App {
                 }
                 self.next_state(AppState::MarksView);
             }
+            AppState::Message(_) => {
+                self.next_state(AppState::LogView);
+            }
             _ => {}
         }
     }
