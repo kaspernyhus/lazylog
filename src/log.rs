@@ -199,6 +199,15 @@ impl LogBuffer {
         Some(self.lines[actual_index].index)
     }
 
+    /// Finds the active line index for a given original log line index.
+    ///
+    /// Returns `None` if the line is not active.
+    pub fn find_line(&self, line_index: usize) -> Option<usize> {
+        self.active_lines
+            .iter()
+            .position(|&lines_index| self.lines[lines_index].index == line_index)
+    }
+
     /// Finds the active line index closest to a target original log line index.
     ///
     /// Useful for maintaining cursor position when filters change.

@@ -848,7 +848,7 @@ impl App {
     }
 
     pub fn goto_line(&mut self, line_index: usize) {
-        if let Some(active_line) = self.log_buffer.find_closest_line_by_index(line_index) {
+        if let Some(active_line) = self.log_buffer.find_line(line_index) {
             self.viewport.goto_line(active_line, true);
         }
     }
