@@ -65,6 +65,8 @@ pub enum Command {
     ActivateMarkAddInputMode,
     UnmarkSelected,
     ClearAllMarks,
+    MarkNext,
+    MarkPrevious,
 
     // Streaming
     ToggleFollowMode,
@@ -138,6 +140,8 @@ impl Command {
             Command::ActivateMarkAddInputMode => "Add mark(s) from a pattern",
             Command::UnmarkSelected => "Remove selected mark",
             Command::ClearAllMarks => "Clear all marks",
+            Command::MarkNext => "Go to next mark",
+            Command::MarkPrevious => "Go to previous mark",
 
             // Streaming
             Command::ToggleFollowMode => "Toggle follow mode (stdin)",
@@ -211,6 +215,8 @@ impl Command {
             Command::ActivateMarkAddInputMode => app.activate_mark_add_input_mode(),
             Command::UnmarkSelected => app.unmark_selected(),
             Command::ClearAllMarks => app.marking.clear_all(),
+            Command::MarkNext => app.mark_next(),
+            Command::MarkPrevious => app.mark_previous(),
 
             // Streaming
             Command::ToggleFollowMode => app.toggle_follow_mode(),

@@ -195,6 +195,8 @@ impl KeybindingRegistry {
             KeyCode::Char('m'),
             Command::ActivateMarksView,
         );
+        self.bind_simple(state.clone(), KeyCode::Char(']'), Command::MarkNext);
+        self.bind_simple(state.clone(), KeyCode::Char('['), Command::MarkPrevious);
         self.bind_simple(
             state.clone(),
             KeyCode::Char('c'),

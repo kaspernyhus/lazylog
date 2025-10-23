@@ -183,6 +183,11 @@ impl LogBuffer {
         self.active_lines.len()
     }
 
+    /// Returns a reference to the active lines (original indices of visible lines).
+    pub fn get_active_lines(&self) -> &[usize] {
+        &self.active_lines
+    }
+
     /// Returns the original log line index for an active line index.
     ///
     /// Returns `None` if the line_index is out of bounds.

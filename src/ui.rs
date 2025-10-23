@@ -539,7 +539,9 @@ impl App {
     fn render_marks_popup(&self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
 
-        if self.marking.is_empty() {
+        let filtered_marks = self.get_filtered_marks();
+
+        if filtered_marks.is_empty() {
             let no_marks_text = vec![Line::from("No marked lines")];
             let popup = Paragraph::new(no_marks_text)
                 .block(
@@ -555,17 +557,13 @@ impl App {
             return;
         }
 
-        let max_name_length = self
-            .marking
-            .get_sorted_marks()
+        let max_name_length = filtered_marks
             .iter()
             .filter_map(|m| m.name.as_ref().map(|n| n.len()))
             .max()
             .unwrap_or(0);
 
-        let items: Vec<Line> = self
-            .marking
-            .get_sorted_marks()
+        let items: Vec<Line> = filtered_marks
             .iter()
             .map(|mark| {
                 let log_line = self
@@ -638,14 +636,14 @@ impl App {
 
         // Create list state with current selection
         let mut list_state = ListState::default();
-        if !self.marking.is_empty() {
+        if !filtered_marks.is_empty() {
             list_state.select(Some(self.marking.selected_index()));
         }
 
         StatefulWidget::render(marks_list, list_area, buf, &mut list_state);
 
         // Render scrollbar
-        let mut scrollbar_state = ScrollbarState::new(self.marking.count())
+        let mut scrollbar_state = ScrollbarState::new(filtered_marks.len())
             .position(self.marking.selected_index())
             .viewport_content_length(0);
 

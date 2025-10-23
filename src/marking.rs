@@ -121,28 +121,38 @@ impl Marking {
         self.selected_index = 0;
     }
 
+    /// Get next mark after the given line index.
+    pub fn get_next_mark(&self, line_index: usize) -> Option<&Mark> {
+        self.marked_lines
+            .iter()
+            .filter(|m| m.line_index > line_index)
+            .min_by_key(|m| m.line_index)
+    }
+
+    /// Get previous mark before the given line index.
+    pub fn get_previous_mark(&self, line_index: usize) -> Option<&Mark> {
+        self.marked_lines
+            .iter()
+            .filter(|m| m.line_index < line_index)
+            .max_by_key(|m| m.line_index)
+    }
+
     /// Gets the currently selected index in the marks view.
     pub fn selected_index(&self) -> usize {
         self.selected_index
     }
 
-    /// Moves selection up in the marks view (wraps to bottom).
-    pub fn move_selection_up(&mut self) {
-        let count = self.count();
-        if count > 0 {
-            self.selected_index = if self.selected_index == 0 {
-                count - 1
-            } else {
-                self.selected_index - 1
-            };
+    /// Moves selection up in the marks view (does not wrap).
+    pub fn move_selection_up(&mut self, count: usize) {
+        if count > 0 && self.selected_index > 0 {
+            self.selected_index -= 1;
         }
     }
 
-    /// Moves selection down in the marks view (wraps to top).
-    pub fn move_selection_down(&mut self) {
-        let count = self.count();
-        if count > 0 {
-            self.selected_index = (self.selected_index + 1) % count;
+    /// Moves selection down in the marks view (does not wrap).
+    pub fn move_selection_down(&mut self, count: usize) {
+        if count > 0 && self.selected_index < count - 1 {
+            self.selected_index += 1;
         }
     }
 
@@ -255,7 +265,7 @@ mod tests {
         let mut marking = Marking::default();
         marking.toggle_mark(10);
         marking.toggle_mark(20);
-        marking.move_selection_down();
+        marking.move_selection_down(2);
         let mark = marking.get_selected_mark().unwrap();
         assert_eq!(mark.line_index, 20);
     }

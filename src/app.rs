@@ -512,14 +512,7 @@ impl App {
                 self.next_state(AppState::LogView);
             }
             AppState::MarksView => {
-                if let Some(selected_mark) = self.marking.get_selected_mark() {
-                    let target_line = selected_mark.line_index;
-                    if let Some(active_line) =
-                        self.log_buffer.find_closest_line_by_index(target_line)
-                    {
-                        self.viewport.goto_line(active_line, true);
-                    }
-                }
+                self.goto_selected_mark();
                 self.next_state(AppState::LogView);
             }
             AppState::GotoLineMode => {
@@ -562,10 +555,11 @@ impl App {
                 self.next_state(AppState::FilterListView);
             }
             AppState::MarkNameInputMode => {
-                if let Some(line_index) = self.marking.get_selected_marked_line() {
+                let filtered_marks = self.get_filtered_marks();
+                if let Some(mark) = filtered_marks.get(self.marking.selected_index()) {
                     if !self.input_query.is_empty() {
                         self.marking
-                            .set_mark_name(line_index, self.input_query.clone());
+                            .set_mark_name(mark.line_index, self.input_query.clone());
                     }
                 }
                 self.next_state(AppState::MarksView);
@@ -651,7 +645,10 @@ impl App {
             AppState::OptionsView => self.options.move_selection_up(),
             AppState::EventsView => self.event_tracker.move_selection_up(),
             AppState::EventsFilterView => self.event_tracker.move_filter_selection_up(),
-            AppState::MarksView => self.marking.move_selection_up(),
+            AppState::MarksView => {
+                let filtered_count = self.get_filtered_marks().len();
+                self.marking.move_selection_up(filtered_count);
+            }
             _ => {
                 self.viewport.move_up();
                 self.viewport.follow_mode = false;
@@ -670,7 +667,10 @@ impl App {
             AppState::OptionsView => self.options.move_selection_down(),
             AppState::EventsView => self.event_tracker.move_selection_down(),
             AppState::EventsFilterView => self.event_tracker.move_filter_selection_down(),
-            AppState::MarksView => self.marking.move_selection_down(),
+            AppState::MarksView => {
+                let filtered_count = self.get_filtered_marks().len();
+                self.marking.move_selection_down(filtered_count);
+            }
             _ => self.viewport.move_down(),
         }
     }
@@ -737,7 +737,8 @@ impl App {
     }
 
     pub fn activate_mark_name_input_mode(&mut self) {
-        if let Some(mark) = self.marking.get_selected_mark() {
+        let filtered_marks = self.get_filtered_marks();
+        if let Some(mark) = filtered_marks.get(self.marking.selected_index()) {
             if let Some(name) = &mark.name {
                 self.input_query = name.clone();
             } else {
@@ -790,6 +791,59 @@ impl App {
     pub fn search_previous(&mut self) {
         if let Some(line) = self.search.previous_match(self.viewport.selected_line) {
             self.viewport.goto_line(line, false);
+        }
+    }
+
+    /// Helper to get filtered marks (only marks on visible lines).
+    pub fn get_filtered_marks(&self) -> Vec<&crate::marking::Mark> {
+        let active_lines = self.log_buffer.get_active_lines();
+        self.marking
+            .get_sorted_marks()
+            .into_iter()
+            .filter(|m| active_lines.binary_search(&m.line_index).is_ok())
+            .collect()
+    }
+
+    /// Helper to get the next visible mark after the given line index.
+    fn get_next_visible_mark(&self, line_index: usize) -> Option<&crate::marking::Mark> {
+        let active_lines = self.log_buffer.get_active_lines();
+        self.marking
+            .get_sorted_marks()
+            .into_iter()
+            .filter(|m| m.line_index > line_index)
+            .find(|m| active_lines.binary_search(&m.line_index).is_ok())
+    }
+
+    /// Helper to get the previous visible mark before the given line index.
+    fn get_previous_visible_mark(&self, line_index: usize) -> Option<&crate::marking::Mark> {
+        let active_lines = self.log_buffer.get_active_lines();
+        self.marking
+            .get_sorted_marks()
+            .into_iter()
+            .rev()
+            .filter(|m| m.line_index < line_index)
+            .find(|m| active_lines.binary_search(&m.line_index).is_ok())
+    }
+
+    pub fn mark_next(&mut self) {
+        if let Some(line_index) = self
+            .log_buffer
+            .get_log_line_index(self.viewport.selected_line)
+        {
+            if let Some(next_mark) = self.get_next_visible_mark(line_index) {
+                self.goto_line(next_mark.line_index);
+            }
+        }
+    }
+
+    pub fn mark_previous(&mut self) {
+        if let Some(line_index) = self
+            .log_buffer
+            .get_log_line_index(self.viewport.selected_line)
+        {
+            if let Some(prev_mark) = self.get_previous_visible_mark(line_index) {
+                self.goto_line(prev_mark.line_index);
+            }
         }
     }
 
@@ -893,8 +947,9 @@ impl App {
     }
 
     pub fn unmark_selected(&mut self) {
-        if let Some(line_index) = self.marking.get_selected_marked_line() {
-            self.marking.unmark(line_index);
+        let filtered_marks = self.get_filtered_marks();
+        if let Some(mark) = filtered_marks.get(self.marking.selected_index()) {
+            self.marking.unmark(mark.line_index);
         }
     }
 
@@ -905,8 +960,9 @@ impl App {
     }
 
     pub fn goto_selected_mark(&mut self) {
-        if let Some(line_index) = self.marking.get_selected_marked_line() {
-            self.goto_line(line_index);
+        let filtered_marks = self.get_filtered_marks();
+        if let Some(mark) = filtered_marks.get(self.marking.selected_index()) {
+            self.goto_line(mark.line_index);
         }
     }
 }
