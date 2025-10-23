@@ -314,8 +314,6 @@ impl App {
 
     /// Restores application state from a persisted state.
     fn restore_state(&mut self, state: crate::persistence::PersistedState) {
-        let total_lines = self.log_buffer.get_lines_count();
-
         self.search
             .history
             .restore_history(state.search_history().to_vec());
@@ -346,7 +344,7 @@ impl App {
 
         for mark_state in state.marks() {
             let line_index = mark_state.line_index();
-            if line_index < total_lines {
+            if line_index < self.log_buffer.lines.len() {
                 self.marking.toggle_mark(line_index);
                 if let Some(name) = mark_state.name() {
                     self.marking.set_mark_name(line_index, name.clone());
