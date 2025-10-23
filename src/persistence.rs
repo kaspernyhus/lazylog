@@ -170,6 +170,36 @@ fn ensure_state_dir() -> bool {
     }
 }
 
+/// Clears all persisted state files from the ~/.lazylog directory.
+/// Returns Ok(message) on success or Err(error_message) on failure.
+pub fn clear_all_state() -> Result<String, String> {
+    let home = dirs::home_dir().ok_or_else(|| "Could not find home directory".to_string())?;
+    let state_dir = home.join(".lazylog");
+
+    if !state_dir.exists() {
+        return Ok("No state directory found.".to_string());
+    }
+
+    let mut count = 0;
+    for entry in
+        fs::read_dir(&state_dir).map_err(|e| format!("Failed to read state directory: {}", e))?
+    {
+        let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
+            fs::remove_file(&path)
+                .map_err(|e| format!("Failed to remove file {:?}: {}", path, e))?;
+            count += 1;
+        }
+    }
+
+    if count > 0 {
+        Ok(format!("Cleared state file(s) from {:?}", state_dir))
+    } else {
+        Ok(format!("No state files found in {:?}", state_dir))
+    }
+}
+
 impl PersistedState {
     pub fn viewport_selected_line(&self) -> usize {
         self.viewport.selected_line

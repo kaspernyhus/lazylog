@@ -10,6 +10,14 @@ pub struct Cli {
     /// Path to config file
     #[arg(short, long)]
     pub config: Option<String>,
+
+    /// Clear all persisted state files
+    #[arg(long)]
+    pub clear_state: bool,
+
+    /// Disable persistence
+    #[arg(long)]
+    pub no_persist: bool,
 }
 
 impl Cli {

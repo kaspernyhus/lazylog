@@ -10,7 +10,7 @@ use crate::{
     log_event::LogEventTracker,
     marking::Marking,
     options::Options,
-    persistence::{load_state, save_state},
+    persistence::{clear_all_state, load_state, save_state},
     search::Search,
     viewport::Viewport,
 };
@@ -92,11 +92,22 @@ pub struct App {
     keybindings: KeybindingRegistry,
     /// Indicates whether the screen needs to be redrawn.
     needs_redraw: bool,
+    /// Whether persistence is enabled.
+    persist_enabled: bool,
 }
 
 impl App {
     /// Constructs a new instance of [`App`].
     pub fn new(args: Cli) -> Self {
+        let initial_state = if args.clear_state {
+            match clear_all_state() {
+                Ok(msg) => AppState::Message(msg),
+                Err(err) => AppState::ErrorState(err),
+            }
+        } else {
+            AppState::LogView
+        };
+
         let use_stdin = args.should_use_stdin();
 
         let events = EventHandler::new(use_stdin);
@@ -113,7 +124,7 @@ impl App {
             running: true,
             config,
             help,
-            app_state: AppState::LogView,
+            app_state: initial_state,
             events,
             log_buffer: LogBuffer::default(),
             viewport: Viewport::default(),
@@ -127,6 +138,7 @@ impl App {
             marking: Marking::default(),
             keybindings,
             needs_redraw: true,
+            persist_enabled: !args.no_persist,
         };
 
         if use_stdin {
@@ -141,8 +153,10 @@ impl App {
                 Ok(_) => {
                     app.update_view();
 
-                    if let Some(state) = load_state(&file_path) {
-                        app.restore_state(state);
+                    if app.persist_enabled {
+                        if let Some(state) = load_state(&file_path) {
+                            app.restore_state(state);
+                        }
                     }
                 }
                 Err(e) => {
@@ -303,7 +317,7 @@ impl App {
     ///
     /// If not in streaming mode, persist current state to disk.
     pub fn quit(&mut self) {
-        if !self.log_buffer.streaming {
+        if self.persist_enabled && !self.log_buffer.streaming {
             if let Some(ref file_path) = self.log_buffer.file_path {
                 save_state(file_path, self);
             }
