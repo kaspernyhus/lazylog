@@ -349,13 +349,13 @@ impl KeybindingRegistry {
         self.bind_simple(state.clone(), KeyCode::Char('d'), Command::UnmarkSelected);
         self.bind_simple(
             state.clone(),
-            KeyCode::Char('e'),
+            KeyCode::Char('r'),
             Command::ActivateMarkNameInputMode,
         );
         self.bind_simple(state.clone(), KeyCode::Char('c'), Command::ClearAllMarks);
         self.bind_simple(
             state.clone(),
-            KeyCode::Char('a'),
+            KeyCode::Char('n'),
             Command::ActivateMarkAddInputMode,
         );
     }

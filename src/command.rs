@@ -136,7 +136,7 @@ impl Command {
             Command::ToggleMark => "Toggle mark on line",
             Command::ActivateMarksView => "View marked lines",
             Command::GotoSelectedMark => "Go to selected mark",
-            Command::ActivateMarkNameInputMode => "Name/tag the mark",
+            Command::ActivateMarkNameInputMode => "Name the mark",
             Command::ActivateMarkAddInputMode => "Add mark(s) from a pattern",
             Command::UnmarkSelected => "Remove selected mark",
             Command::ClearAllMarks => "Clear all marks",
