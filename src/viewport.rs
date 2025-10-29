@@ -26,6 +26,7 @@ impl Viewport {
     pub fn resize(&mut self, width: usize, height: usize) {
         self.width = width;
         self.height = height;
+        self.adjust_visible();
     }
 
     /// Sets the total number of available lines.
