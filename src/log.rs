@@ -191,7 +191,7 @@ impl LogBuffer {
     /// Returns the original log line index for an active line index.
     ///
     /// Returns `None` if the line_index is out of bounds.
-    pub fn get_log_line_index(&self, line_index: usize) -> Option<usize> {
+    pub fn viewport_to_log_index(&self, line_index: usize) -> Option<usize> {
         if line_index >= self.active_lines.len() {
             return None;
         }

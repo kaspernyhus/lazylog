@@ -174,7 +174,7 @@ impl App {
     fn update_view(&mut self) {
         let log_line_index = self
             .log_buffer
-            .get_log_line_index(self.viewport.selected_line);
+            .viewport_to_log_index(self.viewport.selected_line);
 
         self.log_buffer.apply_filters(&self.filter);
         let num_lines = self.log_buffer.get_lines_count();
@@ -725,8 +725,12 @@ impl App {
     pub fn activate_events_view(&mut self) {
         self.event_tracker
             .scan(&self.log_buffer, self.highlighter.events());
-        self.event_tracker
-            .select_nearest_event(self.viewport.selected_line);
+        if let Some(line_index) = self
+            .log_buffer
+            .viewport_to_log_index(self.viewport.selected_line)
+        {
+            self.event_tracker.select_nearest_event(line_index);
+        }
         self.next_state(AppState::EventsView);
     }
 
@@ -739,7 +743,7 @@ impl App {
     pub fn activate_marks_view(&mut self) {
         if let Some(line_index) = self
             .log_buffer
-            .get_log_line_index(self.viewport.selected_line)
+            .viewport_to_log_index(self.viewport.selected_line)
         {
             self.marking.select_nearest_mark(line_index);
         } else {
@@ -775,7 +779,7 @@ impl App {
     pub fn toggle_mark(&mut self) {
         if let Some(line_index) = self
             .log_buffer
-            .get_log_line_index(self.viewport.selected_line)
+            .viewport_to_log_index(self.viewport.selected_line)
         {
             self.marking.toggle_mark(line_index);
         }
@@ -840,7 +844,7 @@ impl App {
     pub fn mark_next(&mut self) {
         if let Some(line_index) = self
             .log_buffer
-            .get_log_line_index(self.viewport.selected_line)
+            .viewport_to_log_index(self.viewport.selected_line)
         {
             if let Some(next_mark) = self.get_next_visible_mark(line_index) {
                 self.goto_line(next_mark.line_index);
@@ -851,7 +855,7 @@ impl App {
     pub fn mark_previous(&mut self) {
         if let Some(line_index) = self
             .log_buffer
-            .get_log_line_index(self.viewport.selected_line)
+            .viewport_to_log_index(self.viewport.selected_line)
         {
             if let Some(prev_mark) = self.get_previous_visible_mark(line_index) {
                 self.goto_line(prev_mark.line_index);
