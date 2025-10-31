@@ -6,6 +6,7 @@ use ratatui::widgets::{
     Block, Borders, Clear, List, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState,
     StatefulWidget, Widget,
 };
+use std::cell::Cell;
 
 use crate::app::AppState;
 use crate::command::Command;
@@ -17,6 +18,10 @@ pub struct Help {
     selected_index: usize,
     help_items: Vec<HelpItem>,
     visible: bool,
+    /// Viewport offset for scrolling the list
+    viewport_offset: usize,
+    /// Last rendered viewport height, set in ui rendering, therefore need interior mutability.
+    viewport_height: Cell<usize>,
 }
 
 /// Type of help item.
@@ -66,11 +71,7 @@ impl HelpItem {
 impl Help {
     /// Creates a new Help instance with all keybinding documentation.
     pub fn new() -> Self {
-        Self {
-            selected_index: 0,
-            help_items: Vec::new(),
-            visible: false,
-        }
+        Self::default()
     }
 
     /// Builds the help items from the keybinding registry.
@@ -164,6 +165,41 @@ impl Help {
         self.visible
     }
 
+    /// Gets the current viewport offset.
+    pub fn viewport_offset(&self) -> usize {
+        self.viewport_offset
+    }
+
+    /// Sets the viewport height (should be called when rendering the popup).
+    pub fn set_viewport_height(&self, height: usize) {
+        self.viewport_height.set(height);
+    }
+
+    /// Adjusts the viewport offset to keep the selected item visible.
+    fn adjust_viewport(&mut self) {
+        if self.help_items.is_empty() {
+            self.viewport_offset = 0;
+            return;
+        }
+
+        let viewport_height = self.viewport_height.get();
+
+        // Scroll up
+        if self.selected_index < self.viewport_offset {
+            self.viewport_offset = self.selected_index;
+        }
+
+        // Scroll down
+        let bottom_threshold = self.viewport_offset + viewport_height.saturating_sub(1);
+        if self.selected_index > bottom_threshold {
+            self.viewport_offset = self.selected_index + 1 - viewport_height;
+        }
+
+        // Ensure viewport doesn't go past the end
+        let max_offset = self.help_items.len().saturating_sub(viewport_height);
+        self.viewport_offset = self.viewport_offset.min(max_offset);
+    }
+
     /// Finds the next selectable item in the given direction.
     fn find_next_selectable(&self, start: usize, direction: i32) -> Option<usize> {
         let len = self.help_items.len();
@@ -187,6 +223,7 @@ impl Help {
     pub fn move_up(&mut self) {
         if let Some(new_index) = self.find_next_selectable(self.selected_index, -1) {
             self.selected_index = new_index;
+            self.adjust_viewport();
         }
     }
 
@@ -194,6 +231,7 @@ impl Help {
     pub fn move_down(&mut self) {
         if let Some(new_index) = self.find_next_selectable(self.selected_index, 1) {
             self.selected_index = new_index;
+            self.adjust_viewport();
         }
     }
 
@@ -242,6 +280,8 @@ impl Help {
         let [help_area, scrollbar_area] =
             Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(inner_area);
 
+        self.set_viewport_height(help_area.height as usize);
+
         block.render(popup_area, buf);
 
         let help_list = List::new(self.get_display_lines())
@@ -250,6 +290,7 @@ impl Help {
 
         let mut list_state = ListState::default();
         list_state.select(Some(self.selected_index));
+        *list_state.offset_mut() = self.viewport_offset;
 
         StatefulWidget::render(help_list, help_area, buf, &mut list_state);
 
