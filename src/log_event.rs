@@ -162,19 +162,15 @@ impl LogEventTracker {
 
     /// Moves selection up (wraps to bottom).
     pub fn move_selection_up(&mut self) {
-        if !self.events.is_empty() {
-            self.selected_index = if self.selected_index == 0 {
-                self.events.len() - 1
-            } else {
-                self.selected_index - 1
-            };
+        if !self.events.is_empty() && self.selected_index > 0 {
+            self.selected_index -= 1;
         }
     }
 
     /// Moves selection down (wraps to top).
     pub fn move_selection_down(&mut self) {
-        if !self.events.is_empty() {
-            self.selected_index = (self.selected_index + 1) % self.events.len();
+        if !self.events.is_empty() && self.selected_index < self.events.len() - 1 {
+            self.selected_index += 1;
         }
     }
 
