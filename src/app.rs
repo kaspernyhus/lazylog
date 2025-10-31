@@ -431,8 +431,11 @@ impl App {
                         // Update event list if in events view
                         let log_line = self.log_buffer.get_line(log_line_index);
                         if let Some(log_line) = log_line {
-                            self.event_tracker
-                                .scan_line(log_line, self.highlighter.events());
+                            self.event_tracker.scan_line(
+                                log_line,
+                                self.highlighter.events(),
+                                self.viewport.follow_mode,
+                            );
                         }
 
                         if self.viewport.follow_mode {

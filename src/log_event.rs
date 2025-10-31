@@ -80,7 +80,12 @@ impl LogEventTracker {
     }
 
     /// Checks a single line for event matches and adds it if it matches.
-    pub fn scan_line(&mut self, log_line: &LogLine, event_patterns: &[HighlightPattern]) {
+    pub fn scan_line(
+        &mut self,
+        log_line: &LogLine,
+        event_patterns: &[HighlightPattern],
+        follow_mode: bool,
+    ) {
         for event in event_patterns {
             if event.matcher.matches(&log_line.content) {
                 if let Some(name) = &event.name {
@@ -90,6 +95,9 @@ impl LogEventTracker {
                             event_name: name.clone(),
                             line_index: log_line.index,
                         });
+                        if follow_mode {
+                            self.select_last_event();
+                        }
                     }
                 }
                 break;
@@ -212,6 +220,14 @@ impl LogEventTracker {
     pub fn move_selection_down(&mut self) {
         if !self.events.is_empty() && self.selected_index < self.events.len() - 1 {
             self.selected_index += 1;
+            self.adjust_viewport();
+        }
+    }
+
+    /// Selects the last (most recent) event in the list.
+    pub fn select_last_event(&mut self) {
+        if !self.events.is_empty() {
+            self.selected_index = self.events.len() - 1;
             self.adjust_viewport();
         }
     }
