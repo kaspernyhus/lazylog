@@ -523,6 +523,10 @@ impl App {
                 }
                 self.next_state(AppState::LogView);
             }
+            AppState::OptionsView => {
+                self.options.enable_selected_option();
+                self.next_state(AppState::LogView);
+            }
             AppState::MarksView => {
                 self.goto_selected_mark();
                 self.next_state(AppState::LogView);

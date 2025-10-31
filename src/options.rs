@@ -92,6 +92,13 @@ impl Options {
         }
     }
 
+    /// Enables the currently selected option (sets it to true).
+    pub fn enable_selected_option(&mut self) {
+        if self.selected_index < self.options.len() {
+            self.options[self.selected_index].enabled = true;
+        }
+    }
+
     /// Applies all options to a line.
     pub fn apply_to_line<'a>(&self, line: &'a str) -> &'a str {
         let has_enabled = self.options.iter().any(|option| option.enabled);
