@@ -1,5 +1,6 @@
 use crate::highlighter::HighlightPattern;
 use crate::log::{Interval, LogBuffer, LogLine};
+use std::cell::Cell;
 use std::collections::HashMap;
 
 /// Information about a matched event occurrence.
@@ -25,6 +26,10 @@ pub struct EventFilter {
 pub struct LogEventTracker {
     events: Vec<LogEvent>,
     selected_index: usize,
+    /// Viewport offset for scrolling the list
+    viewport_offset: usize,
+    /// Last rendered viewport height. Set in ui rendering, therefor need interior mutability.
+    viewport_height: Cell<usize>,
     /// Event filters - maps event name to enabled state
     event_filters: HashMap<String, bool>,
     /// Event names in config file order
@@ -147,6 +152,41 @@ impl LogEventTracker {
         self.selected_index
     }
 
+    /// Gets the current viewport offset.
+    pub fn viewport_offset(&self) -> usize {
+        self.viewport_offset
+    }
+
+    /// Sets the viewport height.
+    pub fn set_viewport_height(&self, height: usize) {
+        self.viewport_height.set(height);
+    }
+
+    /// Adjusts the viewport offset to keep the selected item visible.
+    fn adjust_viewport(&mut self) {
+        if self.events.is_empty() {
+            self.viewport_offset = 0;
+            return;
+        }
+
+        let viewport_height = self.viewport_height.get();
+
+        // scroll up
+        if self.selected_index < self.viewport_offset {
+            self.viewport_offset = self.selected_index;
+        }
+
+        // scroll down
+        let bottom_threshold = self.viewport_offset + self.viewport_height.get().saturating_sub(1);
+        if self.selected_index > bottom_threshold {
+            self.viewport_offset = self.selected_index + 1 - viewport_height;
+        }
+
+        // Ensure viewport doesn't go past the end
+        let max_offset = self.events.len().saturating_sub(viewport_height);
+        self.viewport_offset = self.viewport_offset.min(max_offset);
+    }
+
     /// Sets the selected index to the nearest event to the given line number.
     ///
     /// This also returns the index that was set, or `None` if there are no events.
@@ -164,6 +204,7 @@ impl LogEventTracker {
     pub fn move_selection_up(&mut self) {
         if !self.events.is_empty() && self.selected_index > 0 {
             self.selected_index -= 1;
+            self.adjust_viewport();
         }
     }
 
@@ -171,20 +212,25 @@ impl LogEventTracker {
     pub fn move_selection_down(&mut self) {
         if !self.events.is_empty() && self.selected_index < self.events.len() - 1 {
             self.selected_index += 1;
+            self.adjust_viewport();
         }
     }
 
-    /// Moves selection up by page_size entries.
-    pub fn selection_page_up(&mut self, page_size: usize) {
+    /// Moves selection up by half a page.
+    pub fn selection_page_up(&mut self) {
         if !self.events.is_empty() {
+            let page_size = self.viewport_height.get().saturating_sub(1).max(1) / 2; // At least 1
             self.selected_index = self.selected_index.saturating_sub(page_size);
+            self.adjust_viewport();
         }
     }
 
-    /// Moves selection down by page_size entries.
-    pub fn selection_page_down(&mut self, page_size: usize) {
+    /// Moves selection down by half a page.
+    pub fn selection_page_down(&mut self) {
         if !self.events.is_empty() {
+            let page_size = self.viewport_height.get().saturating_sub(1).max(1) / 2; // At least 1
             self.selected_index = (self.selected_index + page_size).min(self.events.len() - 1);
+            self.adjust_viewport();
         }
     }
 

@@ -690,13 +690,11 @@ impl App {
     pub fn page_up(&mut self) {
         match self.app_state {
             AppState::EventsView => {
-                let page_size = 16; // hardcoded for simplicity
-                self.event_tracker.selection_page_up(page_size);
+                self.event_tracker.selection_page_up();
             }
             AppState::MarksView => {
-                let page_size = 16; // hardcoded for simplicity
                 let filtered_count = self.get_filtered_marks().len();
-                self.marking.selection_page_up(page_size, filtered_count);
+                self.marking.selection_page_up(filtered_count);
             }
             _ => {
                 self.viewport.page_up();
@@ -708,13 +706,11 @@ impl App {
     pub fn page_down(&mut self) {
         match self.app_state {
             AppState::EventsView | AppState::EventsFilterView => {
-                let page_size = 16; // hardcoded for simplicity
-                self.event_tracker.selection_page_down(page_size);
+                self.event_tracker.selection_page_down();
             }
             AppState::MarksView | AppState::MarkNameInputMode => {
-                let page_size = 16; // hardcoded for simplicity
                 let filtered_count = self.get_filtered_marks().len();
-                self.marking.selection_page_down(page_size, filtered_count);
+                self.marking.selection_page_down(filtered_count);
             }
             _ => self.viewport.page_down(),
         }

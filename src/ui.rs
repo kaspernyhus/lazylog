@@ -351,6 +351,9 @@ impl App {
         let [list_area, scrollbar_area] =
             Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(inner_area);
 
+        self.event_tracker
+            .set_viewport_height(list_area.height as usize);
+
         block.render(area, buf);
 
         let events_list = List::new(items)
@@ -365,6 +368,7 @@ impl App {
         let mut list_state = ListState::default();
         if !self.event_tracker.is_empty() {
             list_state.select(Some(self.event_tracker.selected_index()));
+            *list_state.offset_mut() = self.event_tracker.viewport_offset();
         }
 
         StatefulWidget::render(events_list, list_area, buf, &mut list_state);
@@ -622,6 +626,8 @@ impl App {
         let [list_area, scrollbar_area] =
             Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(inner_area);
 
+        self.marking.set_viewport_height(list_area.height as usize);
+
         block.render(area, buf);
 
         // Create list without block (block is rendered separately above)
@@ -638,6 +644,7 @@ impl App {
         let mut list_state = ListState::default();
         if !filtered_marks.is_empty() {
             list_state.select(Some(self.marking.selected_index()));
+            *list_state.offset_mut() = self.marking.viewport_offset();
         }
 
         StatefulWidget::render(marks_list, list_area, buf, &mut list_state);

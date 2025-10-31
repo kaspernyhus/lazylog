@@ -1,4 +1,5 @@
 use crate::utils::contains_ignore_case;
+use std::cell::Cell;
 
 /// A mark with an optional name/tag.
 #[derive(Debug, Clone)]
@@ -37,6 +38,10 @@ pub struct Marking {
     marked_lines: Vec<Mark>,
     /// Currently selected index in the marks view.
     selected_index: usize,
+    /// Viewport offset for scrolling the list
+    viewport_offset: usize,
+    /// Last rendered viewport height, set in ui rendering, therefor need interior mutability.
+    viewport_height: Cell<usize>,
 }
 
 impl Marking {
@@ -142,10 +147,46 @@ impl Marking {
         self.selected_index
     }
 
+    /// Gets the current viewport offset.
+    pub fn viewport_offset(&self) -> usize {
+        self.viewport_offset
+    }
+
+    /// Sets the viewport height (should be called when rendering the popup).
+    pub fn set_viewport_height(&self, height: usize) {
+        self.viewport_height.set(height);
+    }
+
+    /// Adjusts the viewport offset to keep the selected item visible.
+    fn adjust_viewport(&mut self) {
+        if self.count() == 0 {
+            self.viewport_offset = 0;
+            return;
+        }
+
+        let viewport_height = self.viewport_height.get();
+
+        // scroll up
+        if self.selected_index < self.viewport_offset {
+            self.viewport_offset = self.selected_index;
+        }
+
+        // scroll down
+        let bottom_threshold = self.viewport_offset + viewport_height.saturating_sub(1);
+        if self.selected_index > bottom_threshold {
+            self.viewport_offset = self.selected_index + 1 - viewport_height;
+        }
+
+        // Ensure viewport doesn't go past the end
+        let max_offset = self.count().saturating_sub(viewport_height);
+        self.viewport_offset = self.viewport_offset.min(max_offset);
+    }
+
     /// Moves selection up in the marks view (does not wrap).
     pub fn move_selection_up(&mut self, count: usize) {
         if count > 0 && self.selected_index > 0 {
             self.selected_index -= 1;
+            self.adjust_viewport();
         }
     }
 
@@ -153,20 +194,25 @@ impl Marking {
     pub fn move_selection_down(&mut self, count: usize) {
         if count > 0 && self.selected_index < count - 1 {
             self.selected_index += 1;
+            self.adjust_viewport();
         }
     }
 
-    /// Moves selection up by page_size entries.
-    pub fn selection_page_up(&mut self, page_size: usize, count: usize) {
+    /// Moves selection up by half a page.
+    pub fn selection_page_up(&mut self, count: usize) {
         if count > 0 {
+            let page_size = self.viewport_height.get().saturating_sub(1).max(1) / 2; // at least 1 line
             self.selected_index = self.selected_index.saturating_sub(page_size);
+            self.adjust_viewport();
         }
     }
 
-    /// Moves selection down by page_size entries.
-    pub fn selection_page_down(&mut self, page_size: usize, count: usize) {
+    /// Moves selection down by half a page.
+    pub fn selection_page_down(&mut self, count: usize) {
         if count > 0 {
+            let page_size = self.viewport_height.get().saturating_sub(1).max(1) / 2; // at least 1 line
             self.selected_index = (self.selected_index + page_size).min(count - 1);
+            self.adjust_viewport();
         }
     }
 
