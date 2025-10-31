@@ -687,6 +687,39 @@ impl App {
         }
     }
 
+    pub fn page_up(&mut self) {
+        match self.app_state {
+            AppState::EventsView => {
+                let page_size = 16; // hardcoded for simplicity
+                self.event_tracker.selection_page_up(page_size);
+            }
+            AppState::MarksView => {
+                let page_size = 16; // hardcoded for simplicity
+                let filtered_count = self.get_filtered_marks().len();
+                self.marking.selection_page_up(page_size, filtered_count);
+            }
+            _ => {
+                self.viewport.page_up();
+                self.viewport.follow_mode = false;
+            }
+        }
+    }
+
+    pub fn page_down(&mut self) {
+        match self.app_state {
+            AppState::EventsView | AppState::EventsFilterView => {
+                let page_size = 16; // hardcoded for simplicity
+                self.event_tracker.selection_page_down(page_size);
+            }
+            AppState::MarksView | AppState::MarkNameInputMode => {
+                let page_size = 16; // hardcoded for simplicity
+                let filtered_count = self.get_filtered_marks().len();
+                self.marking.selection_page_down(page_size, filtered_count);
+            }
+            _ => self.viewport.page_down(),
+        }
+    }
+
     pub fn activate_search_mode(&mut self) {
         self.input_query.clear();
         self.search.clear_matches();

@@ -156,6 +156,20 @@ impl Marking {
         }
     }
 
+    /// Moves selection up by page_size entries.
+    pub fn selection_page_up(&mut self, page_size: usize, count: usize) {
+        if count > 0 {
+            self.selected_index = self.selected_index.saturating_sub(page_size);
+        }
+    }
+
+    /// Moves selection down by page_size entries.
+    pub fn selection_page_down(&mut self, page_size: usize, count: usize) {
+        if count > 0 {
+            self.selected_index = (self.selected_index + page_size).min(count - 1);
+        }
+    }
+
     /// Gets the mark at the given index in the marks list (insertion order).
     pub fn get_mark_at(&self, index: usize) -> Option<&Mark> {
         self.marked_lines.get(index)

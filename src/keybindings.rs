@@ -311,6 +311,8 @@ impl KeybindingRegistry {
         self.bind_shift(state.clone(), 'F', Command::ActivateEventFilterView);
         self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
         self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(state.clone(), KeyCode::PageUp, Command::PageUp);
+        self.bind_simple(state.clone(), KeyCode::PageDown, Command::PageDown);
         self.bind_simple(
             state.clone(),
             KeyCode::Char(' '),
@@ -325,6 +327,8 @@ impl KeybindingRegistry {
         self.bind_simple(state.clone(), KeyCode::Char('h'), Command::ToggleHelp);
         self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
         self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(state.clone(), KeyCode::PageUp, Command::PageUp);
+        self.bind_simple(state.clone(), KeyCode::PageDown, Command::PageDown);
         self.bind_simple(
             state.clone(),
             KeyCode::Char(' '),
@@ -344,6 +348,8 @@ impl KeybindingRegistry {
         self.bind_simple(state.clone(), KeyCode::Char('h'), Command::ToggleHelp);
         self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
         self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(state.clone(), KeyCode::PageUp, Command::PageUp);
+        self.bind_simple(state.clone(), KeyCode::PageDown, Command::PageDown);
         self.bind_simple(state.clone(), KeyCode::Char(' '), Command::GotoSelectedMark);
         self.bind_simple(state.clone(), KeyCode::Delete, Command::UnmarkSelected);
         self.bind_simple(state.clone(), KeyCode::Char('d'), Command::UnmarkSelected);

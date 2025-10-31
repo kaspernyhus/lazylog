@@ -174,6 +174,20 @@ impl LogEventTracker {
         }
     }
 
+    /// Moves selection up by page_size entries.
+    pub fn selection_page_up(&mut self, page_size: usize) {
+        if !self.events.is_empty() {
+            self.selected_index = self.selected_index.saturating_sub(page_size);
+        }
+    }
+
+    /// Moves selection down by page_size entries.
+    pub fn selection_page_down(&mut self, page_size: usize) {
+        if !self.events.is_empty() {
+            self.selected_index = (self.selected_index + page_size).min(self.events.len() - 1);
+        }
+    }
+
     /// Returns a list of event filters in config file order.
     pub fn get_event_filters(&self) -> Vec<EventFilter> {
         self.event_order

@@ -157,8 +157,8 @@ impl Command {
             // Navigation
             Command::MoveUp => app.move_up(),
             Command::MoveDown => app.move_down(),
-            Command::PageUp => app.viewport.page_up(),
-            Command::PageDown => app.viewport.page_down(),
+            Command::PageUp => app.page_up(),
+            Command::PageDown => app.page_down(),
             Command::GotoTop => app.viewport.goto_top(),
             Command::GotoBottom => app.viewport.goto_bottom(),
             Command::CenterSelected => app.viewport.center_selected(),
