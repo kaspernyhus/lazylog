@@ -50,9 +50,7 @@ impl KeybindingRegistry {
     /// Looks up a command for the given state and key event.
     pub fn lookup(&self, app_state: &AppState, key_event: KeyEvent) -> Option<Command> {
         if let Some((_, cmd)) = self.bindings.iter().find(|((state, kcode, kmod), _)| {
-            self.states_match(state, app_state)
-                && *kcode == key_event.code
-                && *kmod == key_event.modifiers
+            state.matches(app_state) && *kcode == key_event.code && *kmod == key_event.modifiers
         }) {
             return Some(*cmd);
         }
@@ -65,18 +63,10 @@ impl KeybindingRegistry {
         let bindings: Vec<(String, Command)> = self
             .bindings
             .iter()
-            .filter(|((state, _, _), _)| self.states_match(state, target_state))
+            .filter(|((state, _, _), _)| state.matches(target_state))
             .map(|((_, keycode, modifiers), cmd)| (Self::format_key(*keycode, *modifiers), *cmd))
             .collect();
         bindings
-    }
-
-    fn states_match(&self, state1: &AppState, state2: &AppState) -> bool {
-        match (state1, state2) {
-            (AppState::Message(_), AppState::Message(_)) => true,
-            (AppState::ErrorState(_), AppState::ErrorState(_)) => true,
-            _ => state1 == state2,
-        }
     }
 
     fn format_key(keycode: KeyCode, modifiers: KeyModifiers) -> String {

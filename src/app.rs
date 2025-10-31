@@ -55,6 +55,16 @@ pub enum AppState {
     ErrorState(String),
 }
 
+impl AppState {
+    pub fn matches(&self, other: &AppState) -> bool {
+        match (self, other) {
+            (AppState::Message(_), AppState::Message(_)) => true,
+            (AppState::ErrorState(_), AppState::ErrorState(_)) => true,
+            _ => self == other,
+        }
+    }
+}
+
 /// Application.
 #[derive(Debug)]
 pub struct App {
@@ -929,6 +939,14 @@ impl App {
         self.viewport.center_cursor_mode = !self.viewport.center_cursor_mode;
         if self.viewport.center_cursor_mode {
             self.viewport.center_selected();
+        }
+    }
+
+    pub fn toggle_help(&mut self) {
+        if self.help.is_visible() {
+            self.help.toggle_visibility();
+        } else {
+            self.help.show_for_state(&self.app_state);
         }
     }
 

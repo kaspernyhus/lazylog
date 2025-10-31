@@ -45,6 +45,8 @@ pub struct HelpItem {
     pub description: String,
     /// Type of this help item.
     pub item_type: HelpItemType,
+    /// Optional AppState this header represents (only for headers)
+    pub state: Option<AppState>,
 }
 
 impl HelpItem {
@@ -54,6 +56,27 @@ impl HelpItem {
             key: key.to_string(),
             description: description.to_string(),
             item_type,
+            state: None,
+        }
+    }
+
+    /// Creates a new header help item.
+    pub fn new_header(key: &str, state: Option<AppState>) -> Self {
+        Self {
+            key: key.to_string(),
+            description: String::new(),
+            item_type: HelpItemType::Header,
+            state,
+        }
+    }
+
+    /// Creates a new empty help item (an empty line).
+    pub fn new_empty() -> Self {
+        Self {
+            key: String::new(),
+            description: String::new(),
+            item_type: HelpItemType::Empty,
+            state: None,
         }
     }
 
@@ -80,53 +103,68 @@ impl Help {
 
         let mut help_items = vec![
             // Global bindings section
-            HelpItem::new("Global", "", HelpItemType::Header),
+            HelpItem::new_header("Global", None),
             HelpItem::new("Ctrl+c/q", "Quit", HelpItemType::Keybind),
-            HelpItem::new("esc", "Cancel/Exit mode", HelpItemType::Keybind),
-            HelpItem::new("enter", "Confirm", HelpItemType::Keybind),
+            HelpItem::new("Esc", "Cancel/Exit mode", HelpItemType::Keybind),
+            HelpItem::new("Enter", "Confirm", HelpItemType::Keybind),
             HelpItem::new("Ctrl+l", "Clear buffer (stdin)", HelpItemType::Keybind),
             HelpItem::new("Ctrl+s", "Save to file (stdin)", HelpItemType::Keybind),
             HelpItem::new("h", "Show help", HelpItemType::Keybind),
         ];
 
         // LogView section
-        help_items.push(HelpItem::new("", "", HelpItemType::Empty));
-        help_items.push(HelpItem::new("LogView", "", HelpItemType::Header));
+        help_items.push(HelpItem::new_empty());
+        help_items.push(HelpItem::new_header("LogView", None));
         self.add_state_bindings(&mut help_items, registry, &AppState::LogView);
 
         // Search Mode section
-        help_items.push(HelpItem::new("", "", HelpItemType::Empty));
-        help_items.push(HelpItem::new("Search", "", HelpItemType::Header));
+        help_items.push(HelpItem::new_empty());
+        help_items.push(HelpItem::new_header("Search", Some(AppState::SearchMode)));
         self.add_state_bindings(&mut help_items, registry, &AppState::SearchMode);
 
         // Filter Mode section
-        help_items.push(HelpItem::new("", "", HelpItemType::Empty));
-        help_items.push(HelpItem::new("Filter", "", HelpItemType::Header));
+        help_items.push(HelpItem::new_empty());
+        help_items.push(HelpItem::new_header("Filter", Some(AppState::FilterMode)));
         self.add_state_bindings(&mut help_items, registry, &AppState::FilterMode);
 
         // Filter List section
-        help_items.push(HelpItem::new("", "", HelpItemType::Empty));
-        help_items.push(HelpItem::new("Filter List", "", HelpItemType::Header));
+        help_items.push(HelpItem::new_empty());
+        help_items.push(HelpItem::new_header(
+            "Filter List",
+            Some(AppState::FilterListView),
+        ));
         self.add_state_bindings(&mut help_items, registry, &AppState::FilterListView);
 
         // Events View section
-        help_items.push(HelpItem::new("", "", HelpItemType::Empty));
-        help_items.push(HelpItem::new("Events View", "", HelpItemType::Header));
+        help_items.push(HelpItem::new_empty());
+        help_items.push(HelpItem::new_header(
+            "Events View",
+            Some(AppState::EventsView),
+        ));
         self.add_state_bindings(&mut help_items, registry, &AppState::EventsView);
 
         // Event Filters section
-        help_items.push(HelpItem::new("", "", HelpItemType::Empty));
-        help_items.push(HelpItem::new("Event Filters", "", HelpItemType::Header));
+        help_items.push(HelpItem::new_empty());
+        help_items.push(HelpItem::new_header(
+            "Event Filters",
+            Some(AppState::EventsFilterView),
+        ));
         self.add_state_bindings(&mut help_items, registry, &AppState::EventsFilterView);
 
         // Display Options section
-        help_items.push(HelpItem::new("", "", HelpItemType::Empty));
-        help_items.push(HelpItem::new("Display Options", "", HelpItemType::Header));
+        help_items.push(HelpItem::new_empty());
+        help_items.push(HelpItem::new_header(
+            "Display Options",
+            Some(AppState::OptionsView),
+        ));
         self.add_state_bindings(&mut help_items, registry, &AppState::OptionsView);
 
         // Marks View section
-        help_items.push(HelpItem::new("", "", HelpItemType::Empty));
-        help_items.push(HelpItem::new("Marks View", "", HelpItemType::Header));
+        help_items.push(HelpItem::new_empty());
+        help_items.push(HelpItem::new_header(
+            "Marks View",
+            Some(AppState::MarksView),
+        ));
         self.add_state_bindings(&mut help_items, registry, &AppState::MarksView);
 
         self.help_items = help_items;
@@ -142,7 +180,18 @@ impl Help {
     ) {
         let bindings = registry.get_keybindings_for_state(state);
         for (key, command) in bindings {
-            if command == Command::Quit || command == Command::ToggleHelp {
+            // Skip commands that should not be shown in help
+            if matches!(
+                command,
+                Command::Quit
+                    | Command::Confirm
+                    | Command::Cancel
+                    | Command::ToggleHelp
+                    | Command::PageUp
+                    | Command::PageDown
+                    | Command::MoveUp
+                    | Command::MoveDown
+            ) {
                 continue;
             }
 
@@ -157,6 +206,31 @@ impl Help {
     /// Toggles help visibility and resets selection.
     pub fn toggle_visibility(&mut self) {
         self.visible = !self.visible;
+        self.reset();
+    }
+
+    /// Shows help and jumps to the section for the given AppState.
+    pub fn show_for_state(&mut self, state: &AppState) {
+        self.visible = true;
+        self.jump_to_state(state);
+    }
+
+    /// Jumps to the section header for the given AppState.
+    fn jump_to_state(&mut self, target_state: &AppState) {
+        for (index, item) in self.help_items.iter().enumerate() {
+            if item.item_type == HelpItemType::Header {
+                if let Some(ref item_state) = item.state {
+                    if item_state.matches(target_state) {
+                        self.selected_index = index;
+                        let viewport_height = self.viewport_height.get();
+                        let max_offset = self.help_items.len().saturating_sub(viewport_height);
+                        self.viewport_offset = index.min(max_offset);
+                        return;
+                    }
+                }
+            }
+        }
+        // if not found
         self.reset();
     }
 

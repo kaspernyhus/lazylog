@@ -103,8 +103,8 @@ impl Command {
             Command::SearchNext => "Next match",
             Command::SearchPrevious => "Previous match",
             Command::ToggleCaseSearch => "Toggle case sensitivity",
-            Command::SearchHistoryPrevious => "Previous search",
-            Command::SearchHistoryNext => "Next search",
+            Command::SearchHistoryPrevious => "Previous search from history",
+            Command::SearchHistoryNext => "Next search from history",
 
             // Filter
             Command::ActivateFilterMode => "Start filter",
@@ -168,7 +168,7 @@ impl Command {
 
             // Application Control
             Command::Quit => app.quit(),
-            Command::ToggleHelp => app.help.toggle_visibility(),
+            Command::ToggleHelp => app.toggle_help(),
             Command::ClearLogBuffer => app.clear_log_buffer(),
             Command::Cancel => app.cancel(),
             Command::Confirm => app.confirm(),
