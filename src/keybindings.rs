@@ -100,6 +100,12 @@ impl KeybindingRegistry {
 
         if modifiers.contains(KeyModifiers::CONTROL) {
             format!("Ctrl+{}", key_str)
+        } else if modifiers.contains(KeyModifiers::SHIFT) {
+            if let KeyCode::Char(c) = keycode {
+                c.to_uppercase().to_string()
+            } else {
+                format!("Shift+{}", key_str)
+            }
         } else if modifiers.is_empty() {
             key_str
         } else {
