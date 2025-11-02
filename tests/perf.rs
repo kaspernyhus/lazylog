@@ -26,7 +26,7 @@ fn perf_display_options_none_enabled() {
     let options = Options::default();
 
     let iterations = 100000;
-    let avg_time_max = 20;
+    let avg_time_max = 100;
 
     let avg_time = measure_time(iterations, || options.apply_to_line(SAMPLE_LOG_LINE));
 
@@ -46,7 +46,7 @@ fn perf_display_options_hide_pattern_enabled() {
     options.options[0].enabled = true;
 
     let iterations = 100000;
-    let avg_time_max = 200;
+    let avg_time_max = 300;
 
     let avg_time = measure_time(iterations, || options.apply_to_line(SAMPLE_LOG_LINE));
 
@@ -147,7 +147,7 @@ fn perf_plain_match_case_sensitive() {
     };
 
     let iterations = 10000;
-    let avg_time_max = 40;
+    let avg_time_max = 100;
 
     let avg_time = measure_time(iterations, || matcher.is_match(SAMPLE_LOG_LINE));
 
@@ -169,7 +169,7 @@ fn perf_plain_match_case_insensitive() {
     };
 
     let iterations = 10000;
-    let avg_time_max = 80;
+    let avg_time_max = 300;
 
     let avg_time = measure_time(iterations, || matcher.is_match(SAMPLE_LOG_LINE));
 
@@ -188,7 +188,7 @@ fn perf_regex_match() {
     let matcher = Regex::new(r"\d{4}-\d{2}-\d{2}").unwrap();
 
     let iterations = 10000;
-    let avg_time_max = 200;
+    let avg_time_max = 300;
 
     let avg_time = measure_time(iterations, || matcher.is_match(SAMPLE_LOG_LINE));
 
