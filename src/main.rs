@@ -15,6 +15,7 @@ pub mod event;
 pub mod filter;
 pub mod help;
 pub mod highlighter;
+pub mod history;
 pub mod keybindings;
 pub mod log;
 pub mod log_event;

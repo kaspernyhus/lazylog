@@ -1,13 +1,5 @@
+use crate::history::History;
 use crate::utils::contains_ignore_case;
-
-/// Stores and navigates search query history.
-#[derive(Debug, Default)]
-pub struct SearchHistory {
-    /// List of previous search queries.
-    history: Vec<String>,
-    /// Current position in history (None when not navigating history).
-    index: Option<usize>,
-}
 
 /// Manages search pattern matching and navigation through search results.
 #[derive(Debug, Default)]
@@ -23,83 +15,7 @@ pub struct Search {
     /// Line indices where matches were found.
     match_indices: Vec<usize>,
     /// Search query history.
-    pub history: SearchHistory,
-}
-
-impl SearchHistory {
-    /// Adds a query to the search history if it doesn't already exist.
-    pub fn add_query(&mut self, pattern: String) {
-        if !self.history.contains(&pattern) {
-            self.history.push(pattern);
-        }
-        self.index = None;
-    }
-
-    /// Navigates to the previous query in history.
-    ///
-    /// Returns `None` if already at the oldest entry.
-    pub fn previous_query(&mut self) -> Option<String> {
-        if self.history.is_empty() {
-            return None;
-        }
-
-        match self.index {
-            None => {
-                // First time navigating history, start from the end
-                self.index = Some(self.history.len() - 1);
-                Some(self.history[self.history.len() - 1].clone())
-            }
-            Some(current) => {
-                if current > 0 {
-                    self.index = Some(current - 1);
-                    Some(self.history[current - 1].clone())
-                } else {
-                    // Already at the oldest entry
-                    None
-                }
-            }
-        }
-    }
-
-    /// Navigates to the next query in history.
-    ///
-    /// Returns an empty string when reaching the newest entry to clear input.
-    /// Returns `None` if not currently in history mode.
-    pub fn next_query(&mut self) -> Option<String> {
-        if self.history.is_empty() {
-            return None;
-        }
-
-        match self.index {
-            None => None, // Not currently in history mode
-            Some(current) => {
-                if current < self.history.len() - 1 {
-                    self.index = Some(current + 1);
-                    Some(self.history[current + 1].clone())
-                } else {
-                    // At the newest entry, exit history mode
-                    self.index = None;
-                    Some(String::new()) // Return empty string to clear input
-                }
-            }
-        }
-    }
-
-    /// Resets history navigation state.
-    pub fn reset(&mut self) {
-        self.index = None;
-    }
-
-    /// Returns the search history.
-    pub fn get_history(&self) -> &[String] {
-        &self.history
-    }
-
-    /// Restores search history from a vector of queries.
-    pub fn restore_history(&mut self, queries: Vec<String>) {
-        self.history = queries;
-        self.index = None;
-    }
+    pub history: History<String>,
 }
 
 impl Search {
@@ -109,7 +25,7 @@ impl Search {
     pub fn apply_pattern<'a>(&mut self, pattern: &str, lines: impl Iterator<Item = &'a str>) {
         if !pattern.is_empty() {
             self.active_pattern = Some(pattern.to_string());
-            self.history.add_query(pattern.to_string());
+            self.history.add(pattern.to_string());
             self.update_matches(pattern, lines);
         }
     }

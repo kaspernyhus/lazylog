@@ -338,9 +338,7 @@ impl App {
 
     /// Restores application state from a persisted state.
     fn restore_state(&mut self, state: crate::persistence::PersistedState) {
-        self.search
-            .history
-            .restore_history(state.search_history().to_vec());
+        self.search.history.restore(state.search_history().to_vec());
 
         for filter_state in state.filters() {
             if let Some(existing) =
@@ -1003,15 +1001,18 @@ impl App {
     }
 
     pub fn search_history_previous(&mut self) {
-        if let Some(history_query) = self.search.history.previous_query() {
+        if let Some(history_query) = self.search.history.previous_record().cloned() {
             self.input_query = history_query;
             self.update_temporary_highlights();
         }
     }
 
     pub fn search_history_next(&mut self) {
-        if let Some(history_query) = self.search.history.next_query() {
+        if let Some(history_query) = self.search.history.next_record().cloned() {
             self.input_query = history_query;
+            self.update_temporary_highlights();
+        } else {
+            self.input_query.clear();
             self.update_temporary_highlights();
         }
     }
