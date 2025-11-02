@@ -42,6 +42,8 @@ pub enum Command {
     ToggleFilterPatternMode,
     ToggleCaseFilter,
     ToggleFilterModeInOut,
+    FilterHistoryPrevious,
+    FilterHistoryNext,
 
     // Goto Line
     ActivateGotoLineMode,
@@ -117,6 +119,8 @@ impl Command {
             Command::ToggleFilterPatternMode => "Toggle include/exclude",
             Command::ToggleCaseFilter => "Toggle case sensitivity",
             Command::ToggleFilterModeInOut => "Toggle include/exclude",
+            Command::FilterHistoryPrevious => "Previous filter from history",
+            Command::FilterHistoryNext => "Next filter from history",
 
             // Goto Line
             Command::ActivateGotoLineMode => "Go to line",
@@ -192,6 +196,8 @@ impl Command {
             Command::ToggleFilterPatternMode => app.toggle_filter_pattern_mode(),
             Command::ToggleCaseFilter => app.toggle_case_sensitive(),
             Command::ToggleFilterModeInOut => app.filter.toggle_mode(),
+            Command::FilterHistoryPrevious => app.filter_history_previous(),
+            Command::FilterHistoryNext => app.filter_history_next(),
 
             // Goto Line
             Command::ActivateGotoLineMode => app.activate_goto_line_mode(),

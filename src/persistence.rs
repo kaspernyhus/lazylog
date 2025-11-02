@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::filter::FilterMode;
+use crate::filter::{FilterHistoryEntry, FilterMode};
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
@@ -12,6 +12,8 @@ pub struct PersistedState {
     log_file_path: String,
     viewport: ViewportState,
     search_history: Vec<String>,
+    #[serde(default)]
+    filter_history: Vec<FilterHistoryEntry>,
     filters: Vec<FilterPatternState>,
     marks: Vec<MarkState>,
     #[serde(default)]
@@ -58,6 +60,7 @@ impl PersistedState {
                 center_cursor_mode: app.viewport.center_cursor_mode,
             },
             search_history: app.search.history.get_history().to_vec(),
+            filter_history: app.filter.history.get_history().to_vec(),
             filters: app
                 .filter
                 .get_filter_patterns()
@@ -219,6 +222,10 @@ impl PersistedState {
 
     pub fn search_history(&self) -> &[String] {
         &self.search_history
+    }
+
+    pub fn filter_history(&self) -> &[FilterHistoryEntry] {
+        &self.filter_history
     }
 
     pub fn filters(&self) -> &[FilterPatternState] {

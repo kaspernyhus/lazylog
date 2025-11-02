@@ -1,13 +1,22 @@
+use crate::history::History;
 use serde::{Deserialize, Serialize};
 
 /// Filter mode - include or exclude matching lines.
-#[derive(Debug, Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum FilterMode {
     /// Include only lines matching the pattern.
     #[default]
     Include,
     /// Exclude lines matching the pattern.
     Exclude,
+}
+
+/// A filter history entry containing the complete state of a filter.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct FilterHistoryEntry {
+    pub pattern: String,
+    pub mode: FilterMode,
+    pub case_sensitive: bool,
 }
 
 /// A single filter pattern.
@@ -143,6 +152,7 @@ pub struct Filter {
     filter_list: FilterList,
     filter_mode: FilterMode,
     case_sensitive: bool,
+    pub history: History<FilterHistoryEntry>,
 }
 
 impl Filter {
@@ -155,6 +165,7 @@ impl Filter {
             },
             filter_mode: FilterMode::default(),
             case_sensitive: false,
+            history: History::new(),
         }
     }
 }
@@ -193,14 +204,30 @@ impl Filter {
         self.case_sensitive = false;
     }
 
+    /// Sets the filter mode.
+    pub fn set_mode(&mut self, mode: FilterMode) {
+        self.filter_mode = mode;
+    }
+
+    /// Sets case sensitivity.
+    pub fn set_case_sensitive(&mut self, case_sensitive: bool) {
+        self.case_sensitive = case_sensitive;
+    }
+
     /// Adds a new filter pattern if it doesn't already exist.
     pub fn add_filter(&mut self, pattern: String) {
-        if !self.filter_list.pattern_exists(&pattern, self.filter_mode) {
+        if !pattern.is_empty() && !self.filter_list.pattern_exists(&pattern, self.filter_mode) {
             self.filter_list.add_pattern(FilterPattern::new(
-                pattern,
+                pattern.clone(),
                 self.filter_mode,
                 self.case_sensitive,
             ));
+
+            self.history.add(FilterHistoryEntry {
+                pattern,
+                mode: self.filter_mode,
+                case_sensitive: self.case_sensitive,
+            });
         }
     }
 

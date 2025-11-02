@@ -339,6 +339,7 @@ impl App {
     /// Restores application state from a persisted state.
     fn restore_state(&mut self, state: crate::persistence::PersistedState) {
         self.search.history.restore(state.search_history().to_vec());
+        self.filter.history.restore(state.filter_history().to_vec());
 
         for filter_state in state.filters() {
             if let Some(existing) =
@@ -748,6 +749,7 @@ impl App {
         self.input_query.clear();
         self.filter.reset_mode();
         self.filter.reset_case_sensitive();
+        self.filter.history.reset();
         self.next_state(AppState::FilterMode);
     }
 
@@ -1013,6 +1015,29 @@ impl App {
             self.update_temporary_highlights();
         } else {
             self.input_query.clear();
+            self.update_temporary_highlights();
+        }
+    }
+
+    pub fn filter_history_previous(&mut self) {
+        if let Some(history_entry) = self.filter.history.previous_record().cloned() {
+            self.input_query = history_entry.pattern;
+            self.filter.set_mode(history_entry.mode);
+            self.filter.set_case_sensitive(history_entry.case_sensitive);
+            self.update_temporary_highlights();
+        }
+    }
+
+    pub fn filter_history_next(&mut self) {
+        if let Some(history_entry) = self.filter.history.next_record().cloned() {
+            self.input_query = history_entry.pattern;
+            self.filter.set_mode(history_entry.mode);
+            self.filter.set_case_sensitive(history_entry.case_sensitive);
+            self.update_temporary_highlights();
+        } else {
+            self.input_query.clear();
+            self.filter.reset_mode();
+            self.filter.reset_case_sensitive();
             self.update_temporary_highlights();
         }
     }

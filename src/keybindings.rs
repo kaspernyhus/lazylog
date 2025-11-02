@@ -238,6 +238,8 @@ impl KeybindingRegistry {
             KeyCode::Char('d'),
             Command::RemoveFilterPattern,
         );
+        self.bind_simple(state.clone(), KeyCode::Up, Command::FilterHistoryPrevious);
+        self.bind_simple(state.clone(), KeyCode::Down, Command::FilterHistoryNext);
     }
 
     fn register_filter_list_bindings(&mut self) {
