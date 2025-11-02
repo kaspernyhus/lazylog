@@ -510,6 +510,7 @@ impl App {
                         if let Some(line) =
                             self.search.first_match_from(self.viewport.selected_line)
                         {
+                            self.push_viewport_line_to_history(line);
                             self.viewport.goto_line(line, false);
                         }
                         self.viewport.follow_mode = false;
@@ -545,8 +546,10 @@ impl App {
             }
             AppState::GotoLineMode => {
                 if let Ok(line_number) = self.input_query.parse::<usize>() {
-                    if line_number > 0 && line_number <= self.log_buffer.lines.len() {
-                        self.viewport.goto_line(line_number - 1, true);
+                    let viewport_index = line_number.saturating_sub(1);
+                    if line_number > 0 && viewport_index < self.viewport.total_lines {
+                        self.push_viewport_line_to_history(viewport_index);
+                        self.viewport.goto_line(viewport_index, true);
                     }
                 }
                 self.next_state(AppState::LogView);
@@ -846,12 +849,14 @@ impl App {
 
     pub fn search_next(&mut self) {
         if let Some(line) = self.search.next_match(self.viewport.selected_line) {
+            self.push_viewport_line_to_history(line);
             self.viewport.goto_line(line, false);
         }
     }
 
     pub fn search_previous(&mut self) {
         if let Some(line) = self.search.previous_match(self.viewport.selected_line) {
+            self.push_viewport_line_to_history(line);
             self.viewport.goto_line(line, false);
         }
     }
@@ -893,7 +898,9 @@ impl App {
             .viewport_to_log_index(self.viewport.selected_line)
         {
             if let Some(next_mark) = self.get_next_visible_mark(line_index) {
-                self.goto_line(next_mark.line_index);
+                let next_line = next_mark.line_index;
+                self.viewport.push_history(next_line);
+                self.goto_line(next_line);
             }
         }
     }
@@ -904,15 +911,35 @@ impl App {
             .viewport_to_log_index(self.viewport.selected_line)
         {
             if let Some(prev_mark) = self.get_previous_visible_mark(line_index) {
-                self.goto_line(prev_mark.line_index);
+                let prev_line = prev_mark.line_index;
+                self.viewport.push_history(prev_line);
+                self.goto_line(prev_line);
             }
         }
     }
 
-    pub fn goto_line(&mut self, line_index: usize) {
-        if let Some(active_line) = self.log_buffer.find_line(line_index) {
+    /// Helper to go to a log line by its log line index. If the line is not visible, it does nothing.
+    pub fn goto_line(&mut self, log_index: usize) {
+        if let Some(active_line) = self.log_buffer.find_line(log_index) {
             self.viewport.goto_line(active_line, true);
         }
+    }
+
+    /// Helper to record a viewport line in history by converting from viewport index to log index.
+    fn push_viewport_line_to_history(&mut self, viewport_line: usize) {
+        if let Some(line_index) = self.log_buffer.viewport_to_log_index(viewport_line) {
+            self.viewport.push_history(line_index);
+        }
+    }
+
+    pub fn goto_top(&mut self) {
+        self.viewport.goto_top();
+        self.push_viewport_line_to_history(self.viewport.selected_line);
+    }
+
+    pub fn goto_bottom(&mut self) {
+        self.viewport.goto_bottom();
+        self.push_viewport_line_to_history(self.viewport.selected_line);
     }
 
     pub fn scroll_right(&mut self) {
@@ -951,6 +978,20 @@ impl App {
         } else {
             self.help.show_for_state(&self.app_state);
         }
+    }
+
+    pub fn history_back(&mut self) {
+        if let Some(line_index) = self.viewport.history_back() {
+            self.goto_line(line_index);
+        }
+        self.viewport.follow_mode = false;
+    }
+
+    pub fn history_forward(&mut self) {
+        if let Some(line_index) = self.viewport.history_forward() {
+            self.goto_line(line_index);
+        }
+        self.viewport.follow_mode = false;
     }
 
     pub fn clear_log_buffer(&mut self) {
@@ -1051,6 +1092,7 @@ impl App {
 
     pub fn goto_selected_event(&mut self) {
         if let Some(event) = self.event_tracker.get_selected_event() {
+            self.viewport.push_history(event.line_index);
             self.goto_line(event.line_index);
         }
     }
@@ -1058,7 +1100,9 @@ impl App {
     pub fn goto_selected_mark(&mut self) {
         let filtered_marks = self.get_filtered_marks();
         if let Some(mark) = filtered_marks.get(self.marking.selected_index()) {
-            self.goto_line(mark.line_index);
+            let mark_line = mark.line_index;
+            self.viewport.push_history(mark_line);
+            self.goto_line(mark_line);
         }
     }
 }

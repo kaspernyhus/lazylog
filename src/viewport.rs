@@ -1,3 +1,6 @@
+/// Maximum number of history entries to keep.
+const MAX_HISTORY: usize = 20;
+
 /// Manages the visible window and cursor position for viewing log lines.
 #[derive(Debug, Default)]
 pub struct Viewport {
@@ -19,6 +22,10 @@ pub struct Viewport {
     pub follow_mode: bool,
     /// Whether to keep the cursor centered in the viewport when scrolling.
     pub center_cursor_mode: bool,
+    /// History stack of log line indices.
+    history: Vec<usize>,
+    /// Current position in the history stack.
+    history_position: usize,
 }
 
 impl Viewport {
@@ -179,6 +186,46 @@ impl Viewport {
     /// Resets horizontal scroll.
     pub fn reset_horizontal(&mut self) {
         self.horizontal_offset = 0;
+    }
+
+    /// Records a log line index in the navigation history.
+    pub fn push_history(&mut self, line_index: usize) {
+        // Truncate forward history when making a new jump
+        if self.history_position + 1 < self.history.len() {
+            self.history.truncate(self.history_position + 1);
+        }
+
+        if self.history.last() != Some(&line_index) {
+            self.history.push(line_index);
+
+            if self.history.len() > MAX_HISTORY {
+                self.history.remove(0);
+            }
+
+            self.history_position = self.history.len() - 1;
+        }
+    }
+
+    /// Navigate back in history.
+    /// Returns the log line index to jump to, or None if at the beginning.
+    pub fn history_back(&mut self) -> Option<usize> {
+        if self.history_position > 0 {
+            self.history_position -= 1;
+            self.history.get(self.history_position).copied()
+        } else {
+            None
+        }
+    }
+
+    /// Navigate forward in history.
+    /// Returns the log line index to jump to, or None if at the end.
+    pub fn history_forward(&mut self) -> Option<usize> {
+        if self.history_position + 1 < self.history.len() {
+            self.history_position += 1;
+            self.history.get(self.history_position).copied()
+        } else {
+            None
+        }
     }
 }
 

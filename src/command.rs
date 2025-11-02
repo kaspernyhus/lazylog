@@ -15,6 +15,8 @@ pub enum Command {
     ScrollLeft,
     ScrollRight,
     ResetHorizontal,
+    HistoryBack,
+    HistoryForward,
 
     // Application Control
     Quit,
@@ -92,6 +94,8 @@ impl Command {
             Command::ScrollLeft => "Scroll left",
             Command::ScrollRight => "Scroll right",
             Command::ResetHorizontal => "Reset horizontal scroll",
+            Command::HistoryBack => "Go back in history",
+            Command::HistoryForward => "Go forward in history",
 
             // Application Control
             Command::Quit => "Quit",
@@ -163,12 +167,14 @@ impl Command {
             Command::MoveDown => app.move_down(),
             Command::PageUp => app.page_up(),
             Command::PageDown => app.page_down(),
-            Command::GotoTop => app.viewport.goto_top(),
-            Command::GotoBottom => app.viewport.goto_bottom(),
+            Command::GotoTop => app.goto_top(),
+            Command::GotoBottom => app.goto_bottom(),
             Command::CenterSelected => app.viewport.center_selected(),
             Command::ScrollLeft => app.viewport.scroll_left(),
             Command::ScrollRight => app.scroll_right(),
             Command::ResetHorizontal => app.viewport.reset_horizontal(),
+            Command::HistoryBack => app.history_back(),
+            Command::HistoryForward => app.history_forward(),
 
             // Application Control
             Command::Quit => app.quit(),

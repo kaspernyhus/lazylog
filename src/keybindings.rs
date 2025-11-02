@@ -207,11 +207,18 @@ impl KeybindingRegistry {
             Command::ClearLogBuffer,
         );
         self.bind(
-            state,
+            state.clone(),
             KeyCode::Char('s'),
             KeyModifiers::CONTROL,
             Command::ActivateSaveToFileMode,
         );
+        self.bind(
+            state.clone(),
+            KeyCode::Char('o'),
+            KeyModifiers::CONTROL,
+            Command::HistoryBack,
+        );
+        self.bind_simple(state.clone(), KeyCode::Tab, Command::HistoryForward);
     }
 
     fn register_search_mode_bindings(&mut self) {
