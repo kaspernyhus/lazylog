@@ -6,11 +6,13 @@ use ratatui::{
     crossterm::{execute, terminal::*},
 };
 use std::io::stderr;
+use tracing::info;
 
 pub mod app;
 pub mod cli;
 pub mod command;
 pub mod config;
+pub mod debug_log;
 pub mod event;
 pub mod filter;
 pub mod help;
@@ -30,6 +32,12 @@ pub mod viewport;
 #[tokio::main]
 async fn main() -> color_eyre::Result<()> {
     let args = Cli::parse();
+
+    if let Some(ref debug_path) = args.debug {
+        debug_log::init(debug_path)?;
+    }
+
+    info!("Starting lazylog with args: {:?}", args);
 
     set_panic_hook();
     color_eyre::install()?;

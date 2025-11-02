@@ -18,6 +18,10 @@ pub struct Cli {
     /// Disable persistence
     #[arg(long)]
     pub no_persist: bool,
+
+    /// Enable debug logging to file
+    #[arg(long)]
+    pub debug: Option<String>,
 }
 
 impl Cli {
