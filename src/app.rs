@@ -2,16 +2,16 @@ use crate::{
     cli::Cli,
     config::Config,
     event::{AppEvent, Event, EventHandler},
-    filter::Filter,
+    filter::{Filter, FilterPattern},
     help::Help,
     highlighter::{Highlighter, PatternStyle},
     keybindings::KeybindingRegistry,
     log::{Interval, LogBuffer},
     log_event::LogEventTracker,
     log_processor::ProcessingContext,
-    marking::Marking,
+    marking::{Mark, Marking},
     options::Options,
-    persistence::{clear_all_state, load_state, save_state},
+    persistence::{PersistedState, clear_all_state, load_state, save_state},
     search::Search,
     viewport::Viewport,
 };
@@ -352,7 +352,7 @@ impl App {
     }
 
     /// Restores application state from a persisted state.
-    fn restore_state(&mut self, state: crate::persistence::PersistedState) {
+    fn restore_state(&mut self, state: PersistedState) {
         self.search.history.restore(state.search_history().to_vec());
         self.filter.history.restore(state.filter_history().to_vec());
 
@@ -365,7 +365,7 @@ impl App {
                 existing.case_sensitive = filter_state.case_sensitive();
                 existing.enabled = filter_state.enabled();
             } else {
-                let filter_pattern = crate::filter::FilterPattern::new(
+                let filter_pattern = FilterPattern::new(
                     filter_state.pattern().to_string(),
                     filter_state.mode(),
                     filter_state.case_sensitive(),
@@ -870,7 +870,7 @@ impl App {
     }
 
     /// Helper to get filtered marks (only marks on visible lines).
-    pub fn get_filtered_marks(&self) -> Vec<&crate::marking::Mark> {
+    pub fn get_filtered_marks(&self) -> Vec<&Mark> {
         let active_lines = self.log_buffer.get_active_lines();
         self.marking
             .get_sorted_marks()
@@ -880,7 +880,7 @@ impl App {
     }
 
     /// Helper to get the next visible mark after the given line index.
-    fn get_next_visible_mark(&self, line_index: usize) -> Option<&crate::marking::Mark> {
+    fn get_next_visible_mark(&self, line_index: usize) -> Option<&Mark> {
         let active_lines = self.log_buffer.get_active_lines();
         self.marking
             .get_sorted_marks()
@@ -890,7 +890,7 @@ impl App {
     }
 
     /// Helper to get the previous visible mark before the given line index.
-    fn get_previous_visible_mark(&self, line_index: usize) -> Option<&crate::marking::Mark> {
+    fn get_previous_visible_mark(&self, line_index: usize) -> Option<&Mark> {
         let active_lines = self.log_buffer.get_active_lines();
         self.marking
             .get_sorted_marks()
