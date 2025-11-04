@@ -1,5 +1,7 @@
 use crate::utils::contains_ignore_case;
+use rayon::prelude::*;
 use std::cell::Cell;
+use std::collections::HashSet;
 
 /// A mark with an optional name/tag.
 #[derive(Debug, Clone)]
@@ -86,16 +88,29 @@ impl Marking {
         pattern: &str,
         lines: impl Iterator<Item = &'a crate::log::LogLine>,
     ) {
-        if !pattern.is_empty() {
-            for log_line in lines {
-                if contains_ignore_case(log_line.content(), pattern)
-                    && !self.is_marked(log_line.index)
-                {
-                    self.marked_lines
-                        .push(Mark::new_with_name(log_line.index, pattern));
-                }
-            }
+        if pattern.is_empty() {
+            return;
         }
+
+        let marked_set: HashSet<usize> = self.marked_lines.iter().map(|m| m.line_index).collect();
+
+        let lines_vec: Vec<_> = lines.collect();
+        let pattern_str = pattern.to_string();
+
+        let new_marks: Vec<Mark> = lines_vec
+            .par_iter()
+            .filter_map(|log_line| {
+                if contains_ignore_case(log_line.content(), &pattern_str)
+                    && !marked_set.contains(&log_line.index)
+                {
+                    Some(Mark::new_with_name(log_line.index, &pattern_str))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        self.marked_lines.extend(new_marks);
     }
 
     /// Returns whether a log line is marked.

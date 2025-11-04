@@ -1,11 +1,13 @@
 use color_eyre::eyre::OptionExt;
 use futures::{FutureExt, StreamExt};
 use ratatui::crossterm::event::Event as CrosstermEvent;
+use std::io::{BufRead, BufReader};
 use std::time::Duration;
 use tokio::sync::mpsc;
 
+use crate::log_processor::{ProcessedLine, ProcessorHandle};
+
 /// The frequency at which tick events are emitted.
-/// Reduced from 30.0 to 5.0 since dirty flag system handles redraw timing.
 const TICK_FPS: f64 = 5.0;
 
 /// Representation of all possible events.
@@ -32,8 +34,8 @@ pub enum Event {
 /// Keep events minimal - only for async operations.
 #[derive(Clone, Debug)]
 pub enum AppEvent {
-    /// New line received from stdin
-    NewLine(String),
+    /// New line(s) received from stdin and processed.
+    NewLines(Vec<ProcessedLine>),
 }
 
 /// Terminal event handler.
@@ -43,6 +45,8 @@ pub struct EventHandler {
     sender: mpsc::UnboundedSender<Event>,
     /// Event receiver channel.
     receiver: mpsc::UnboundedReceiver<Event>,
+    /// Log processor handle for streaming mode.
+    pub processor: Option<ProcessorHandle>,
 }
 
 impl EventHandler {
@@ -52,16 +56,58 @@ impl EventHandler {
             let (sender, receiver) = mpsc::unbounded_channel();
             let actor = EventTask::new(sender.clone());
             tokio::spawn(async { actor.run().await });
-            let stdin_sender = sender.clone();
-            tokio::spawn(async move {
-                stdin_reader_task(stdin_sender).await;
+
+            let (output_tx, mut output_rx) = mpsc::unbounded_channel();
+            let processor = ProcessorHandle::spawn(output_tx);
+
+            let event_sender = sender.clone();
+            let proc_input = processor.input_tx.clone();
+
+            // Spawn a blocking thread to read stdin lines
+            std::thread::spawn({
+                move || {
+                    let stdin = std::io::stdin();
+                    let reader = BufReader::new(stdin);
+
+                    for line in reader.lines() {
+                        match line {
+                            Ok(log_line) => {
+                                if proc_input.send(log_line).is_err() {
+                                    break;
+                                }
+                            }
+                            Err(_) => break,
+                        }
+                    }
+                }
             });
-            Self { sender, receiver }
+
+            tokio::spawn(async move {
+                while let Some(processed_lines) = output_rx.recv().await {
+                    if event_sender
+                        .send(Event::App(AppEvent::NewLines(processed_lines)))
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
+            });
+
+            Self {
+                sender,
+                receiver,
+                processor: Some(processor),
+            }
         } else {
             let (sender, receiver) = mpsc::unbounded_channel();
             let actor = EventTask::new(sender.clone());
             tokio::spawn(async { actor.run().await });
-            Self { sender, receiver }
+
+            Self {
+                sender,
+                receiver,
+                processor: None,
+            }
         }
     }
 
@@ -83,7 +129,7 @@ impl EventHandler {
 
     /// Queue an app event to be sent to the event receiver.
     pub fn send(&mut self, app_event: AppEvent) {
-        // Ignore the result as the reciever cannot be dropped while this struct still has a
+        // Ignore the result as the receiver cannot be dropped while this struct still has a
         // reference to it
         let _ = self.sender.send(Event::App(app_event));
     }
@@ -131,85 +177,5 @@ impl EventTask {
         // Ignores the result because shutting down the app drops the receiver, which causes the send
         // operation to fail. This is expected behavior and should not panic.
         let _ = self.sender.send(event);
-    }
-}
-
-/// Background task that reads lines from stdin and sends them as events.
-async fn stdin_reader_task(sender: mpsc::UnboundedSender<Event>) {
-    const BATCH_INTERVAL: Duration = Duration::from_millis(50);
-    const MAX_BATCH_SIZE: usize = 100;
-
-    let (line_tx, mut line_rx) = mpsc::unbounded_channel::<String>();
-
-    // Spawn stdin reader on a separate std::thread.
-    // We use std::thread instead of tokio because stdin read is blocking and cannot be cancelled.
-    // The thread will be orphaned on shutdown, but this is acceptable since there's no way to
-    // interrupt a blocking stdin read in Rust.
-    std::thread::spawn(move || {
-        use std::io::{BufRead, BufReader};
-        let stdin = std::io::stdin();
-        let reader = BufReader::new(stdin);
-
-        for line in reader.lines() {
-            match line {
-                Ok(content) => {
-                    if line_tx.send(content).is_err() {
-                        break;
-                    }
-                }
-                Err(_) => break,
-            }
-        }
-    });
-
-    let mut batch = Vec::new();
-    let mut interval = tokio::time::interval(BATCH_INTERVAL);
-    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-
-    loop {
-        tokio::select! {
-            biased;
-
-            _ = sender.closed() => {
-                // Send remaining batch before exiting
-                for line in batch.drain(..) {
-                    let _ = sender.send(Event::App(AppEvent::NewLine(line)));
-                }
-                return;
-            }
-            _ = interval.tick() => {
-                // Send batch on interval
-                for line in batch.drain(..) {
-                    if sender.send(Event::App(AppEvent::NewLine(line))).is_err() {
-                        return;
-                    }
-                }
-            }
-            result = tokio::time::timeout(Duration::from_millis(100), line_rx.recv()) => {
-                match result {
-                    Ok(Some(line)) => {
-                        batch.push(line);
-                        if batch.len() >= MAX_BATCH_SIZE {
-                            // Send batch immediately when max size reached
-                            for line in batch.drain(..) {
-                                if sender.send(Event::App(AppEvent::NewLine(line))).is_err() {
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                    Ok(None) => {
-                        // Channel closed - send remaining batch and exit
-                        for line in batch.drain(..) {
-                            let _ = sender.send(Event::App(AppEvent::NewLine(line)));
-                        }
-                        return;
-                    }
-                    Err(_) => {
-                        // Timeout - continue loop to check sender.closed()
-                    }
-                }
-            }
-        }
     }
 }

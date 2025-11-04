@@ -1,5 +1,6 @@
 use crate::history::History;
 use crate::utils::contains_ignore_case;
+use rayon::prelude::*;
 
 /// Manages search pattern matching and navigation through search results.
 #[derive(Debug, Default)]
@@ -68,18 +69,26 @@ impl Search {
             return;
         }
 
-        for (line_index, line) in lines.enumerate() {
-            let matching = if self.case_sensitive {
-                line.contains(pattern)
-            } else {
-                contains_ignore_case(line, pattern)
-            };
+        // Collect lines into a vector for parallel processing
+        let lines_vec: Vec<&str> = lines.collect();
+        let case_sensitive = self.case_sensitive;
+        let pattern_str = pattern.to_string();
 
-            if matching {
-                self.match_indices.push(line_index);
-                self.total_matches += 1;
-            }
-        }
+        self.match_indices = lines_vec
+            .par_iter()
+            .enumerate()
+            .filter_map(|(line_index, line)| {
+                let matching = if case_sensitive {
+                    line.contains(&pattern_str)
+                } else {
+                    contains_ignore_case(line, &pattern_str)
+                };
+
+                if matching { Some(line_index) } else { None }
+            })
+            .collect();
+
+        self.total_matches = self.match_indices.len();
     }
 
     /// Finds the next match after the current line.

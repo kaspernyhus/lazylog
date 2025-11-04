@@ -1,7 +1,5 @@
-use crate::{
-    filter::{Filter, FilterMode, FilterPattern},
-    utils::contains_ignore_case,
-};
+use crate::{filter::Filter, processing};
+use rayon::prelude::*;
 
 /// A single log line with its content and original index.
 #[derive(Debug, Clone)]
@@ -79,15 +77,6 @@ impl LogBuffer {
         &self.lines[index]
     }
 
-    /// Checks if a log line passes the given filters.
-    pub fn check_line_passes_filters(&self, content: &str, filter: &Filter) -> bool {
-        let temp_line = LogLine {
-            content: content.to_string(),
-            index: 0,
-        };
-        self.line_passes_filters(&temp_line, filter.get_filter_patterns())
-    }
-
     /// Adds a line index to the active lines list.
     pub fn add_to_active_lines(&mut self, index: usize) {
         self.active_lines.push(index);
@@ -103,10 +92,15 @@ impl LogBuffer {
         } else {
             self.active_lines = self
                 .lines
-                .iter()
+                .par_iter()
                 .enumerate()
-                .filter(|(_, log_line)| self.line_passes_filters(log_line, filter_patterns))
-                .map(|(index, _)| index)
+                .filter_map(|(index, log_line)| {
+                    if processing::apply_filters(&log_line.content, filter_patterns) {
+                        Some(index)
+                    } else {
+                        None
+                    }
+                })
                 .collect();
         }
     }
@@ -235,41 +229,5 @@ impl LogBuffer {
         }
 
         Some(best_match)
-    }
-
-    fn line_passes_filters(&self, line: &LogLine, filters: &[FilterPattern]) -> bool {
-        // Exclude filters take precedence
-        for filter in filters
-            .iter()
-            .filter(|f| f.enabled && f.mode == FilterMode::Exclude)
-        {
-            if self.line_matches_pattern(&line.content, &filter.pattern, filter.case_sensitive) {
-                return false;
-            }
-        }
-
-        // Check for Include filters
-        let has_include_filters = filters
-            .iter()
-            .any(|f| f.enabled && f.mode == FilterMode::Include);
-
-        if has_include_filters {
-            filters
-                .iter()
-                .filter(|f| f.enabled && f.mode == FilterMode::Include)
-                .any(|filter| {
-                    self.line_matches_pattern(&line.content, &filter.pattern, filter.case_sensitive)
-                })
-        } else {
-            true
-        }
-    }
-
-    fn line_matches_pattern(&self, line: &str, pattern: &str, case_sensitive: bool) -> bool {
-        if case_sensitive {
-            line.contains(pattern)
-        } else {
-            contains_ignore_case(line, pattern)
-        }
     }
 }

@@ -1,3 +1,10 @@
+pub mod filter;
 pub mod highlighter;
+pub mod history;
+pub mod log;
+pub mod log_event;
+pub mod log_processor;
 pub mod options;
+pub mod processing;
+pub mod search;
 pub mod utils;

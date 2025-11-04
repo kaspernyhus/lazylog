@@ -8,6 +8,7 @@ use crate::{
     keybindings::KeybindingRegistry,
     log::{Interval, LogBuffer},
     log_event::LogEventTracker,
+    log_processor::ProcessingContext,
     marking::Marking,
     options::Options,
     persistence::{clear_all_state, load_state, save_state},
@@ -218,6 +219,20 @@ impl App {
 
             self.viewport.goto_line(new_selected_line, false);
         }
+
+        self.update_processor_context();
+    }
+
+    fn update_processor_context(&self) {
+        if let Some(processor) = &self.events.processor {
+            let context = ProcessingContext {
+                filter_patterns: self.filter.get_filter_patterns().to_vec(),
+                search_pattern: self.search.get_active_pattern().map(|p| p.to_string()),
+                search_case_sensitive: self.search.is_case_sensitive(),
+                event_patterns: self.highlighter.events().to_vec(),
+            };
+            processor.update_context(context);
+        }
     }
 
     fn next_state(&mut self, state: AppState) {
@@ -400,46 +415,39 @@ impl App {
     /// Handles application events and updates the state of [`App`].
     fn handle_app_event(&mut self, app_event: AppEvent) -> color_eyre::Result<()> {
         match app_event {
-            AppEvent::NewLine(line) => {
+            AppEvent::NewLines(processed_lines) => {
                 if !self.streaming_paused {
-                    let log_line = self.log_buffer.append_line(line);
-                    let log_line_content = log_line.content.clone();
-                    let log_line_index = log_line.index;
+                    for processed_line in processed_lines {
+                        let log_line_index = processed_line.log_line.index;
+                        self.log_buffer.lines.push(processed_line.log_line);
 
-                    let passes_filter = self
-                        .log_buffer
-                        .check_line_passes_filters(&log_line_content, &self.filter);
+                        if processed_line.passes_filter {
+                            self.log_buffer.add_to_active_lines(log_line_index);
 
-                    if passes_filter {
-                        self.log_buffer.add_to_active_lines(log_line_index);
-
-                        let num_lines = self.log_buffer.get_lines_count();
-                        self.viewport.set_total_lines(num_lines);
-
-                        // Update search matches if there's an active search
-                        if let Some(pattern) =
-                            self.search.get_active_pattern().map(|p| p.to_string())
-                        {
-                            let lines = self
-                                .log_buffer
-                                .get_lines_iter(Interval::All)
-                                .map(|log_line| log_line.content());
-                            self.search.update_matches(&pattern, lines);
+                            let log_line = self.log_buffer.get_line(log_line_index);
+                            if let Some(log_line) = log_line {
+                                self.event_tracker.scan_line(
+                                    log_line,
+                                    self.highlighter.events(),
+                                    self.viewport.follow_mode,
+                                );
+                            }
                         }
+                    }
 
-                        // Update event list if in events view
-                        let log_line = self.log_buffer.get_line(log_line_index);
-                        if let Some(log_line) = log_line {
-                            self.event_tracker.scan_line(
-                                log_line,
-                                self.highlighter.events(),
-                                self.viewport.follow_mode,
-                            );
-                        }
+                    let num_lines = self.log_buffer.get_lines_count();
+                    self.viewport.set_total_lines(num_lines);
 
-                        if self.viewport.follow_mode {
-                            self.viewport.goto_bottom();
-                        }
+                    if let Some(pattern) = self.search.get_active_pattern().map(|p| p.to_string()) {
+                        let lines = self
+                            .log_buffer
+                            .get_lines_iter(Interval::All)
+                            .map(|log_line| log_line.content());
+                        self.search.update_matches(&pattern, lines);
+                    }
+
+                    if self.viewport.follow_mode {
+                        self.viewport.goto_bottom();
                     }
                 }
             }

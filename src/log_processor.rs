@@ -1,0 +1,161 @@
+use crate::{
+    filter::FilterPattern, highlighter::HighlightPattern, log::LogLine, processing::apply_filters,
+};
+use rayon::prelude::*;
+use std::{sync::Arc, time::Duration};
+use tokio::{
+    sync::mpsc,
+    time::{MissedTickBehavior, interval},
+};
+
+#[derive(Debug, Clone)]
+pub struct ProcessedLine {
+    pub log_line: LogLine,
+    pub passes_filter: bool,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ProcessingContext {
+    pub filter_patterns: Vec<FilterPattern>,
+    pub search_pattern: Option<String>,
+    pub search_case_sensitive: bool,
+    pub event_patterns: Vec<HighlightPattern>,
+}
+
+pub struct LogProcessor {
+    input_rx: mpsc::UnboundedReceiver<String>,
+    output_tx: mpsc::UnboundedSender<Vec<ProcessedLine>>,
+    context_rx: mpsc::UnboundedReceiver<ProcessingContext>,
+    current_context: ProcessingContext,
+    line_index: usize,
+}
+
+impl LogProcessor {
+    pub fn new(
+        input_rx: mpsc::UnboundedReceiver<String>,
+        output_tx: mpsc::UnboundedSender<Vec<ProcessedLine>>,
+        context_rx: mpsc::UnboundedReceiver<ProcessingContext>,
+    ) -> Self {
+        Self {
+            input_rx,
+            output_tx,
+            context_rx,
+            current_context: ProcessingContext::default(),
+            line_index: 0,
+        }
+    }
+
+    pub async fn run(mut self) {
+        const BATCH_SIZE: usize = 5;
+        const BATCH_TIMEOUT_MS: u64 = 100;
+
+        let mut batch = Vec::with_capacity(BATCH_SIZE);
+        let mut interval = interval(Duration::from_millis(BATCH_TIMEOUT_MS));
+        interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+        loop {
+            tokio::select! {
+                biased; // causes select to poll the futures in the order they appear from top to bottom (https://docs.rs/tokio/latest/tokio/macro.select.html#fairness)
+
+                _ = self.output_tx.closed() => {
+                    break;
+                }
+
+                Some(new_context) = self.context_rx.recv() => {
+                    self.current_context = new_context;
+                }
+
+                _ = interval.tick() => {
+                    if !batch.is_empty() {
+                        if let Some(processed) = self.process(&mut batch) {
+                            if self.output_tx.send(processed).is_err() {
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                result = self.input_rx.recv() => {
+                    match result {
+                        Some(line) => {
+                            batch.push((line, self.line_index));
+                            self.line_index += 1;
+
+                            if batch.len() >= BATCH_SIZE {
+                                if let Some(processed) = self.process(&mut batch) {
+                                    if self.output_tx.send(processed).is_err() {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        None => { // processor is being shut down, process remaining lines
+                            if !batch.is_empty() {
+                                if let Some(processed) = self.process(&mut batch) {
+                                    let _ = self.output_tx.send(processed);
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn process(&self, batch: &mut Vec<(String, usize)>) -> Option<Vec<ProcessedLine>> {
+        if batch.is_empty() {
+            return None;
+        }
+
+        let context = &self.current_context;
+        let filter_patterns = Arc::new(context.filter_patterns.clone());
+
+        let processed: Vec<ProcessedLine> = batch
+            .par_drain(..)
+            .map(|(content, index)| {
+                let log_line = LogLine::new(content.clone(), index);
+                let passes_filter = apply_filters(&content, &filter_patterns);
+
+                ProcessedLine {
+                    log_line,
+                    passes_filter,
+                }
+            })
+            .collect();
+
+        Some(processed)
+    }
+}
+
+#[derive(Debug)]
+pub struct ProcessorHandle {
+    pub input_tx: mpsc::UnboundedSender<String>,
+    pub context_tx: mpsc::UnboundedSender<ProcessingContext>,
+}
+
+impl ProcessorHandle {
+    pub fn spawn(output_tx: mpsc::UnboundedSender<Vec<ProcessedLine>>) -> Self {
+        let (input_tx, input_rx) = mpsc::unbounded_channel();
+        let (context_tx, context_rx) = mpsc::unbounded_channel();
+
+        let processor = LogProcessor::new(input_rx, output_tx, context_rx);
+
+        tokio::spawn(async move {
+            processor.run().await;
+        });
+
+        Self {
+            input_tx,
+            context_tx,
+        }
+    }
+
+    pub fn update_context(&self, context: ProcessingContext) {
+        let _ = self.context_tx.send(context);
+    }
+
+    pub fn send_line(&self, line: String) {
+        let _ = self.input_tx.send(line);
+    }
+}
