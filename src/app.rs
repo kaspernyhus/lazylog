@@ -967,7 +967,7 @@ impl App {
     /// Helper to go to a log line by its log line index. If the line is not visible, it does nothing.
     pub fn goto_line(&mut self, log_index: usize) {
         if let Some(active_line) = self.log_buffer.find_line(log_index) {
-            self.viewport.goto_line(active_line, true);
+            self.viewport.goto_line(active_line, false);
         }
     }
 
