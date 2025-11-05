@@ -18,6 +18,7 @@ impl KeybindingRegistry {
         };
 
         registry.register_log_view_bindings();
+        registry.register_selection_mode_bindings();
         registry.register_search_mode_bindings();
         registry.register_filter_mode_bindings();
         registry.register_filter_list_bindings();
@@ -29,6 +30,7 @@ impl KeybindingRegistry {
         registry.register_error_state_bindings();
 
         registry.register_global_bindings(AppState::LogView);
+        registry.register_global_bindings(AppState::SelectionMode);
         registry.register_global_bindings(AppState::SearchMode);
         registry.register_global_bindings(AppState::FilterMode);
         registry.register_global_bindings(AppState::FilterListView);
@@ -219,6 +221,21 @@ impl KeybindingRegistry {
             Command::HistoryBack,
         );
         self.bind_simple(state.clone(), KeyCode::Tab, Command::HistoryForward);
+        self.bind_shift(state.clone(), 'V', Command::StartSelection);
+    }
+
+    fn register_selection_mode_bindings(&mut self) {
+        let state = AppState::SelectionMode;
+
+        self.bind_simple(state.clone(), KeyCode::Char('q'), Command::Quit);
+        self.bind_simple(state.clone(), KeyCode::Char('h'), Command::ToggleHelp);
+        self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
+        self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(state.clone(), KeyCode::PageUp, Command::PageUp);
+        self.bind_simple(state.clone(), KeyCode::PageDown, Command::PageDown);
+        self.bind_simple(state.clone(), KeyCode::Char('g'), Command::GotoTop);
+        self.bind_shift(state.clone(), 'G', Command::GotoBottom);
+        self.bind_simple(state.clone(), KeyCode::Char('y'), Command::CopySelection);
     }
 
     fn register_search_mode_bindings(&mut self) {

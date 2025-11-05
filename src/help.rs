@@ -116,6 +116,11 @@ impl Help {
         help_items.push(HelpItem::new_empty());
         help_items.push(HelpItem::new_header("LogView", None));
         self.add_state_bindings(&mut help_items, registry, &AppState::LogView);
+        help_items.push(HelpItem::new(
+            "y",
+            Command::CopySelection.description(),
+            HelpItemType::Keybind,
+        ));
 
         // Search Mode section
         help_items.push(HelpItem::new_empty());

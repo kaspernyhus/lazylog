@@ -77,6 +77,10 @@ pub enum Command {
     TogglePauseMode,
     ToggleCenterCursorMode,
     ActivateSaveToFileMode,
+
+    // Selection
+    StartSelection,
+    CopySelection,
 }
 
 impl Command {
@@ -156,6 +160,10 @@ impl Command {
             Command::TogglePauseMode => "Toggle pause mode (stdin)",
             Command::ToggleCenterCursorMode => "Toggle center cursor mode",
             Command::ActivateSaveToFileMode => "Save to file (stdin)",
+
+            // Selection
+            Command::StartSelection => "Start visual selection",
+            Command::CopySelection => "Copy selection to clipboard",
         }
     }
 
@@ -235,6 +243,10 @@ impl Command {
             Command::TogglePauseMode => app.toggle_pause_mode(),
             Command::ToggleCenterCursorMode => app.toggle_center_cursor_mode(),
             Command::ActivateSaveToFileMode => app.activate_save_to_file_mode(),
+
+            // Selection
+            Command::StartSelection => app.start_selection(),
+            Command::CopySelection => app.copy_selection_to_clipboard(),
         }
         Ok(())
     }

@@ -50,6 +50,8 @@ pub enum AppState {
     MarkAddInputMode,
     /// Active mode for entering a file name for saving the current log buffer to a file.
     SaveToFileMode,
+    /// Visual selection mode for selecting a range of lines.
+    SelectionMode,
     /// Display a message to the user.
     Message(String),
     /// Display an error message to the user.
@@ -99,6 +101,8 @@ pub struct App {
     pub event_tracker: LogEventTracker,
     /// Log line marking manager
     pub marking: Marking,
+    /// Selection range for visual selection mode.
+    selection_range: Option<(usize, usize)>,
     /// Keybinding registry for all keybindings.
     keybindings: KeybindingRegistry,
     /// Indicates whether the screen needs to be redrawn.
@@ -147,6 +151,7 @@ impl App {
             streaming_paused: false,
             event_tracker: LogEventTracker::default(),
             marking: Marking::default(),
+            selection_range: None,
             keybindings,
             needs_redraw: true,
             persist_enabled: !args.no_persist,
@@ -646,6 +651,10 @@ impl App {
             AppState::GotoLineMode | AppState::FilterMode | AppState::SaveToFileMode => {
                 self.next_state(AppState::LogView);
             }
+            AppState::SelectionMode => {
+                self.cancel_selection();
+                self.next_state(AppState::LogView);
+            }
             AppState::LogView => {
                 self.search.clear_matches();
                 self.update_temporary_highlights();
@@ -684,11 +693,19 @@ impl App {
         match self.app_state {
             AppState::FilterListView => self.filter.move_selection_up(),
             AppState::OptionsView => self.options.move_selection_up(),
-            AppState::EventsView => self.event_tracker.move_selection_up(),
+            AppState::EventsView => {
+                self.event_tracker.move_selection_up();
+                self.viewport.follow_mode = false;
+            }
             AppState::EventsFilterView => self.event_tracker.move_filter_selection_up(),
             AppState::MarksView => {
                 let filtered_count = self.get_filtered_marks().len();
                 self.marking.move_selection_up(filtered_count);
+            }
+            AppState::SelectionMode => {
+                self.viewport.move_up();
+                self.viewport.follow_mode = false;
+                self.update_selection_end();
             }
             _ => {
                 self.viewport.move_up();
@@ -712,7 +729,14 @@ impl App {
                 let filtered_count = self.get_filtered_marks().len();
                 self.marking.move_selection_down(filtered_count);
             }
-            _ => self.viewport.move_down(),
+            AppState::SelectionMode => {
+                self.viewport.move_down();
+                self.viewport.follow_mode = false;
+                self.update_selection_end();
+            }
+            _ => {
+                self.viewport.move_down();
+            }
         }
     }
 
@@ -724,6 +748,11 @@ impl App {
             AppState::MarksView => {
                 let filtered_count = self.get_filtered_marks().len();
                 self.marking.selection_page_up(filtered_count);
+            }
+            AppState::SelectionMode => {
+                self.viewport.page_up();
+                self.viewport.follow_mode = false;
+                self.update_selection_end();
             }
             _ => {
                 self.viewport.page_up();
@@ -741,7 +770,14 @@ impl App {
                 let filtered_count = self.get_filtered_marks().len();
                 self.marking.selection_page_down(filtered_count);
             }
-            _ => self.viewport.page_down(),
+            AppState::SelectionMode => {
+                self.viewport.page_down();
+                self.viewport.follow_mode = false;
+                self.update_selection_end();
+            }
+            _ => {
+                self.viewport.page_down();
+            }
         }
     }
 
@@ -1113,6 +1149,81 @@ impl App {
             let mark_line = mark.line_index;
             self.viewport.push_history(mark_line);
             self.goto_line(mark_line);
+        }
+    }
+
+    /// Enters selection mode and sets the start of the selection range.
+    pub fn start_selection(&mut self) {
+        let current_line = self.viewport.selected_line;
+        self.selection_range = Some((current_line, current_line));
+        self.next_state(AppState::SelectionMode);
+    }
+
+    /// Updates the end of the selection range as the cursor moves.
+    pub fn update_selection_end(&mut self) {
+        if let Some((start, _)) = self.selection_range {
+            self.selection_range = Some((start, self.viewport.selected_line));
+        }
+    }
+
+    /// Cancels the current selection.
+    pub fn cancel_selection(&mut self) {
+        self.selection_range = None;
+    }
+
+    /// Gets the selection range, ensuring start <= end.
+    pub fn get_selection_range(&self) -> Option<(usize, usize)> {
+        self.selection_range.map(|(start, end)| {
+            if start <= end {
+                (start, end)
+            } else {
+                (end, start)
+            }
+        })
+    }
+
+    /// Copies the selected lines to the clipboard.
+    pub fn copy_selection_to_clipboard(&mut self) {
+        if let Some((start, end)) = self.get_selection_range() {
+            let lines: Vec<String> = (start..=end)
+                .filter_map(|viewport_line| {
+                    self.log_buffer
+                        .viewport_to_log_index(viewport_line)
+                        .and_then(|log_index| self.log_buffer.get_line(log_index))
+                })
+                .map(|log_line| log_line.content.clone())
+                .collect();
+
+            if !lines.is_empty() {
+                let content = lines.join("\n");
+                match arboard::Clipboard::new() {
+                    Ok(mut clipboard) => match clipboard.set_text(content) {
+                        Ok(_) => {
+                            let num_lines = lines.len();
+                            self.selection_range = None;
+                            self.next_state(AppState::Message(format!(
+                                "Copied {} line{} to clipboard",
+                                num_lines,
+                                if num_lines == 1 { "" } else { "s" }
+                            )));
+                        }
+                        Err(e) => {
+                            self.selection_range = None;
+                            self.next_state(AppState::ErrorState(format!(
+                                "Failed to copy to clipboard: {}",
+                                e
+                            )));
+                        }
+                    },
+                    Err(e) => {
+                        self.selection_range = None;
+                        self.next_state(AppState::ErrorState(format!(
+                            "Failed to access clipboard: {}",
+                            e
+                        )));
+                    }
+                }
+            }
         }
     }
 }

@@ -224,6 +224,30 @@ impl App {
         filter_bar.render(area, buf);
     }
 
+    fn render_selection_bar(&self, area: Rect, buf: &mut Buffer) {
+        let selection_text = if let Some((start, end)) = self.get_selection_range() {
+            let num_lines = end - start + 1;
+            format!(
+                "-- VISUAL -- {} line{} selected ('y' to copy, Esc to cancel)",
+                num_lines,
+                if num_lines == 1 { "" } else { "s" }
+            )
+        } else {
+            "-- VISUAL --".to_string()
+        };
+
+        let selection_prompt = Line::from(selection_text).left_aligned();
+        let progression_text = self.format_progression_text();
+        let progression = Line::from(progression_text + " ").right_aligned();
+
+        let selection_bar = Block::default()
+            .title_bottom(selection_prompt)
+            .title_bottom(progression)
+            .style(Style::default().bg(GRAY_COLOR));
+
+        selection_bar.render(area, buf);
+    }
+
     /// Renders the edit filter popup in EditFilterMode.
     fn render_edit_filter_popup(&self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
@@ -704,6 +728,7 @@ impl App {
     /// Renders the main log view.
     fn render_logview(&self, area: Rect, buf: &mut Buffer) {
         let (start, end) = self.viewport.visible();
+        let selection_range = self.get_selection_range();
 
         let viewport_lines: Vec<(&str, usize)> = self
             .log_buffer
@@ -718,14 +743,27 @@ impl App {
 
         let items: Vec<Line> = viewport_lines
             .iter()
-            .map(|(line, line_index)| {
+            .enumerate()
+            .map(|(viewport_idx, (line, line_index))| {
                 let text = if self.viewport.horizontal_offset >= line.len() {
                     ""
                 } else {
                     &line[self.viewport.horizontal_offset..]
                 };
                 let is_marked = self.marking.is_marked(*line_index);
-                self.process_line(line, text, self.viewport.horizontal_offset, is_marked)
+                let viewport_line = start + viewport_idx;
+                let is_selected = if let Some((sel_start, sel_end)) = selection_range {
+                    viewport_line >= sel_start && viewport_line <= sel_end
+                } else {
+                    false
+                };
+                self.process_line(
+                    line,
+                    text,
+                    self.viewport.horizontal_offset,
+                    is_marked,
+                    is_selected,
+                )
             })
             .collect();
 
@@ -748,6 +786,7 @@ impl App {
         visible_text: &'a str,
         line_offset: usize,
         is_marked: bool,
+        is_selected: bool,
     ) -> Line<'a> {
         let enable_colors = !self.options.is_enabled("Disable Colors");
 
@@ -761,16 +800,22 @@ impl App {
             Span::raw(" ")
         };
 
-        if highlighted.segments.is_empty() {
+        let mut line = if highlighted.segments.is_empty() {
             let mut spans = vec![mark_indicator];
             if !visible_text.is_empty() {
                 spans.push(Span::raw(visible_text));
             }
-            return Line::from(spans);
+            Line::from(spans)
+        } else {
+            let mut line = build_line_from_highlighted(visible_text, highlighted);
+            line.spans.insert(0, mark_indicator);
+            line
+        };
+
+        if is_selected {
+            line = line.style(Style::default().bg(Color::DarkGray));
         }
 
-        let mut line = build_line_from_highlighted(visible_text, highlighted);
-        line.spans.insert(0, mark_indicator);
         line
     }
 }
@@ -838,6 +883,7 @@ impl Widget for &App {
             AppState::GotoLineMode => self.render_goto_line_bar(bottom, buf),
             AppState::FilterMode => self.render_filter_bar(bottom, buf),
             AppState::SaveToFileMode => self.render_save_to_file_bar(bottom, buf),
+            AppState::SelectionMode => self.render_selection_bar(bottom, buf),
             _ => self.render_footer(bottom, buf),
         }
 
