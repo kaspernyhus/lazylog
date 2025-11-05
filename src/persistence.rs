@@ -74,7 +74,7 @@ impl PersistedState {
                 .collect(),
             marks: app
                 .marking
-                .get_sorted_marks()
+                .get_marks()
                 .iter()
                 .map(|m| MarkState {
                     line_index: m.line_index,

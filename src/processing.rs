@@ -40,7 +40,7 @@ pub fn scan_for_events(
     let event_patterns = Arc::new(event_patterns.to_vec());
     let active_filters = Arc::new(active_filters.clone());
 
-    lines
+    let mut events: Vec<LogEvent> = lines
         .par_iter()
         .filter_map(|log_line| {
             for event in event_patterns.iter() {
@@ -58,7 +58,11 @@ pub fn scan_for_events(
             }
             None
         })
-        .collect()
+        .collect();
+
+    // Sort by line_index to maintain chronological order
+    events.sort_by_key(|e| e.line_index);
+    events
 }
 
 /// Checks if content passes the given filter patterns.

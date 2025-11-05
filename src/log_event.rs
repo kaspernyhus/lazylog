@@ -25,7 +25,9 @@ pub struct EventFilter {
 /// Manages log event tracking and scanning.
 #[derive(Debug, Default)]
 pub struct LogEventTracker {
+    /// Events sorted by line_index.
     events: Vec<LogEvent>,
+    /// Currently selected event index
     selected_index: usize,
     /// Viewport offset for scrolling the list
     viewport_offset: usize,
@@ -79,10 +81,20 @@ impl LogEventTracker {
                 if let Some(name) = &event.name {
                     *self.event_counts.entry(name.clone()).or_insert(0) += 1;
                     if *self.event_filters.get(name).unwrap_or(&true) {
-                        self.events.push(LogEvent {
+                        let new_event = LogEvent {
                             event_name: name.clone(),
                             line_index: log_line.index,
-                        });
+                        };
+
+                        match self
+                            .events
+                            .binary_search_by_key(&log_line.index, |e| e.line_index)
+                        {
+                            Ok(pos) | Err(pos) => {
+                                self.events.insert(pos, new_event);
+                            }
+                        }
+
                         if follow_mode {
                             self.select_last_event();
                         }
@@ -109,28 +121,28 @@ impl LogEventTracker {
     }
 
     /// Finds the index of the event nearest to the given line number.
-    pub fn find_nearest_event(&self, current_line: usize) -> Option<usize> {
+    pub fn find_nearest_event(&self, line_index: usize) -> Option<usize> {
         if self.events.is_empty() {
             return None;
         }
 
-        let mut min_distance = usize::MAX;
-        let mut nearest_index = 0;
-
-        for (idx, event) in self.events.iter().enumerate() {
-            let distance = if event.line_index >= current_line {
-                event.line_index - current_line
-            } else {
-                current_line - event.line_index
-            };
-
-            if distance < min_distance {
-                min_distance = distance;
-                nearest_index = idx;
+        match self
+            .events
+            .binary_search_by_key(&line_index, |e| e.line_index)
+        {
+            Ok(idx) => Some(idx),
+            Err(0) => Some(0),
+            Err(idx) if idx >= self.events.len() => Some(self.events.len() - 1),
+            Err(idx) => {
+                let dist_before = line_index - self.events[idx - 1].line_index;
+                let dist_after = self.events[idx].line_index - line_index;
+                Some(if dist_before <= dist_after {
+                    idx - 1
+                } else {
+                    idx
+                })
             }
         }
-
-        Some(nearest_index)
     }
 
     /// Gets the event at the specified index.

@@ -873,7 +873,7 @@ impl App {
     pub fn get_filtered_marks(&self) -> Vec<&Mark> {
         let active_lines = self.log_buffer.get_active_lines();
         self.marking
-            .get_sorted_marks()
+            .get_marks()
             .into_iter()
             .filter(|m| active_lines.binary_search(&m.line_index).is_ok())
             .collect()
@@ -883,7 +883,7 @@ impl App {
     fn get_next_visible_mark(&self, line_index: usize) -> Option<&Mark> {
         let active_lines = self.log_buffer.get_active_lines();
         self.marking
-            .get_sorted_marks()
+            .get_marks()
             .into_iter()
             .filter(|m| m.line_index > line_index)
             .find(|m| active_lines.binary_search(&m.line_index).is_ok())
@@ -893,7 +893,7 @@ impl App {
     fn get_previous_visible_mark(&self, line_index: usize) -> Option<&Mark> {
         let active_lines = self.log_buffer.get_active_lines();
         self.marking
-            .get_sorted_marks()
+            .get_marks()
             .into_iter()
             .rev()
             .filter(|m| m.line_index < line_index)

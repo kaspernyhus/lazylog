@@ -49,14 +49,16 @@ pub struct Marking {
 impl Marking {
     /// Toggles the mark status of a log line (creates mark without name).
     pub fn toggle_mark(&mut self, line_index: usize) {
-        if let Some(pos) = self
+        match self
             .marked_lines
-            .iter()
-            .position(|m| m.line_index == line_index)
+            .binary_search_by_key(&line_index, |mark| mark.line_index)
         {
-            self.marked_lines.remove(pos);
-        } else {
-            self.marked_lines.push(Mark::new(line_index));
+            Ok(pos) => {
+                self.marked_lines.remove(pos);
+            }
+            Err(pos) => {
+                self.marked_lines.insert(pos, Mark::new(line_index));
+            }
         }
     }
 
@@ -65,7 +67,7 @@ impl Marking {
         if let Some(mark) = self
             .marked_lines
             .iter_mut()
-            .find(|m| m.line_index == line_index)
+            .find(|mark| mark.line_index == line_index)
         {
             mark.set_name(name);
         }
@@ -73,10 +75,9 @@ impl Marking {
 
     /// Unmarks a log line.
     pub fn unmark(&mut self, line_index: usize) {
-        if let Some(pos) = self
+        if let Ok(pos) = self
             .marked_lines
-            .iter()
-            .position(|m| m.line_index == line_index)
+            .binary_search_by_key(&line_index, |mark| mark.line_index)
         {
             self.marked_lines.remove(pos);
         }
@@ -111,11 +112,14 @@ impl Marking {
             .collect();
 
         self.marked_lines.extend(new_marks);
+        self.marked_lines.sort_by_key(|mark| mark.line_index);
     }
 
     /// Returns whether a log line is marked.
     pub fn is_marked(&self, line_index: usize) -> bool {
-        self.marked_lines.iter().any(|m| m.line_index == line_index)
+        self.marked_lines
+            .binary_search_by_key(&line_index, |mark| mark.line_index)
+            .is_ok()
     }
 
     /// Returns the number of marked lines.
@@ -128,11 +132,9 @@ impl Marking {
         self.marked_lines.is_empty()
     }
 
-    /// Returns a sorted vector of all marks.
-    pub fn get_sorted_marks(&self) -> Vec<&Mark> {
-        let mut marks: Vec<&Mark> = self.marked_lines.iter().collect();
-        marks.sort_by_key(|m| m.line_index);
-        marks
+    /// Returns all marks.
+    pub fn get_marks(&self) -> Vec<&Mark> {
+        self.marked_lines.iter().collect()
     }
 
     /// Clears all marks.
@@ -231,7 +233,7 @@ impl Marking {
         }
     }
 
-    /// Gets the mark at the given index in the marks list (insertion order).
+    /// Gets the mark at the given index in the marks list.
     pub fn get_mark_at(&self, index: usize) -> Option<&Mark> {
         self.marked_lines.get(index)
     }
@@ -252,27 +254,28 @@ impl Marking {
     }
 
     /// Selects the mark closest to the given line index.
-    /// If there are no marks, does nothing.
     pub fn select_nearest_mark(&mut self, line_index: usize) {
         if self.marked_lines.is_empty() {
             return;
         }
 
-        let mut closest_index = 0;
-        let mut min_distance = usize::MAX;
-
-        for (index, mark) in self.marked_lines.iter().enumerate() {
-            let distance = if mark.line_index > line_index {
-                mark.line_index - line_index
-            } else {
-                line_index - mark.line_index
-            };
-
-            if distance < min_distance {
-                min_distance = distance;
-                closest_index = index;
+        let closest_index = match self
+            .marked_lines
+            .binary_search_by_key(&line_index, |m| m.line_index)
+        {
+            Ok(idx) => idx,
+            Err(0) => 0,
+            Err(idx) if idx >= self.marked_lines.len() => self.marked_lines.len() - 1,
+            Err(idx) => {
+                let dist_before = line_index - self.marked_lines[idx - 1].line_index;
+                let dist_after = self.marked_lines[idx].line_index - line_index;
+                if dist_before <= dist_after {
+                    idx - 1
+                } else {
+                    idx
+                }
             }
-        }
+        };
 
         self.selected_index = closest_index;
     }
@@ -389,6 +392,27 @@ mod tests {
     }
 
     #[test]
+    fn test_select_nearest_mark() {
+        let mut marking = Marking::default();
+        // Insert in non-sorted order
+        marking.toggle_mark(100);
+        marking.toggle_mark(10);
+        marking.toggle_mark(50);
+
+        // Select nearest to 48 (should be line 50)
+        marking.select_nearest_mark(48);
+
+        // The selected mark should be at line 50
+        assert_eq!(marking.get_selected_mark().unwrap().line_index, 50);
+
+        // When sorted, line 50 should be at index 1: [10, 50, 100]
+        let sorted = marking.get_marks();
+        assert_eq!(sorted[0].line_index, 10);
+        assert_eq!(sorted[1].line_index, 50);
+        assert_eq!(sorted[2].line_index, 100);
+    }
+
+    #[test]
     fn test_create_marks_from_pattern_case_insensitive() {
         use crate::log::LogLine;
 
@@ -403,7 +427,7 @@ mod tests {
         marking.create_marks_from_pattern("ErRoR", log_lines.iter());
 
         assert_eq!(marking.count(), 3);
-        let marks = marking.get_sorted_marks();
+        let marks = marking.get_marks();
         assert_eq!(marks[0].line_index, 10);
         assert_eq!(marks[1].line_index, 20);
         assert_eq!(marks[2].line_index, 30);
@@ -425,7 +449,7 @@ mod tests {
         marking.create_marks_from_pattern("error", log_lines.iter());
 
         assert_eq!(marking.count(), 2);
-        let marks = marking.get_sorted_marks();
+        let marks = marking.get_marks();
         assert_eq!(marks[0].line_index, 5);
         assert_eq!(marks[1].line_index, 23);
         assert_eq!(marks[0].name, Some("error".to_string()));
