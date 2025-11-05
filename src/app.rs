@@ -260,7 +260,7 @@ impl App {
         {
             self.highlighter.add_temporary_highlight(
                 self.input_query.clone(),
-                PatternStyle::new(Some(Color::Black), Some(Color::Cyan), false),
+                PatternStyle::new(Some(Color::Indexed(16)), Some(Color::Cyan), true),
                 self.filter.is_case_sensitive(),
             );
         }
@@ -269,7 +269,7 @@ impl App {
         if self.app_state == AppState::SearchMode && self.input_query.len() >= 2 {
             self.highlighter.add_temporary_highlight(
                 self.input_query.clone(),
-                PatternStyle::new(Some(Color::Black), Some(Color::Yellow), false),
+                PatternStyle::new(Some(Color::Indexed(16)), Some(Color::Yellow), true),
                 self.search.is_case_sensitive(),
             );
         }
@@ -292,7 +292,7 @@ impl App {
             if !pattern.is_empty() && self.app_state != AppState::SearchMode {
                 self.highlighter.add_temporary_highlight(
                     pattern.to_string(),
-                    PatternStyle::new(Some(Color::Black), Some(Color::Yellow), false),
+                    PatternStyle::new(Some(Color::Indexed(16)), Some(Color::Yellow), false),
                     self.search.is_case_sensitive(),
                 );
             }

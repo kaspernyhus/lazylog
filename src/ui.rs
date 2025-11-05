@@ -143,7 +143,7 @@ impl App {
     }
 
     /// Renders the search bar footer in SearchMode.
-    fn render_search_bar(&self, area: Rect, buf: &mut Buffer) {
+    fn render_search_footer(&self, area: Rect, buf: &mut Buffer) {
         let case_sensitive = if self.search.is_case_sensitive() {
             "Aa"
         } else {
@@ -157,13 +157,18 @@ impl App {
         let search_bar = Block::default()
             .title_bottom(search_prompt)
             .title_bottom(progression)
-            .style(Style::default().bg(GRAY_COLOR));
+            .style(
+                Style::default()
+                    .fg(Color::Indexed(16))
+                    .bg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            );
 
         search_bar.render(area, buf);
     }
 
     /// Renders the mark pattern bar footer in MarkAddInputMode.
-    fn render_mark_bar(&self, area: Rect, buf: &mut Buffer) {
+    fn render_mark_footer(&self, area: Rect, buf: &mut Buffer) {
         let mark_prompt =
             Line::from(format!("Add mark(s) from pattern: {}", self.input_query)).left_aligned();
         let progression_text = self.format_progression_text();
@@ -172,13 +177,17 @@ impl App {
         let mark_bar = Block::default()
             .title_bottom(mark_prompt)
             .title_bottom(progression)
-            .style(Style::default().bg(GRAY_COLOR));
+            .style(
+                Style::default()
+                    .fg(Color::Rgb(255, 255, 255))
+                    .bg(Color::Indexed(29)),
+            );
 
         mark_bar.render(area, buf);
     }
 
     /// Renders the goto line bar footer in GotoLineMode.
-    fn render_goto_line_bar(&self, area: Rect, buf: &mut Buffer) {
+    fn render_goto_line_footer(&self, area: Rect, buf: &mut Buffer) {
         let search_prompt = format!("Go to line: {}", self.input_query);
         let search_bar = Paragraph::new(search_prompt)
             .style(Style::default().bg(GRAY_COLOR))
@@ -196,7 +205,7 @@ impl App {
     }
 
     /// Renders the filter bar footer in FilterMode.
-    fn render_filter_bar(&self, area: Rect, buf: &mut Buffer) {
+    fn render_filter_footer(&self, area: Rect, buf: &mut Buffer) {
         let filter_mode = match self.filter.get_mode() {
             crate::filter::FilterMode::Include => "IN",
             crate::filter::FilterMode::Exclude => "EX",
@@ -219,12 +228,17 @@ impl App {
         let filter_bar = Block::default()
             .title_bottom(filter_prompt)
             .title_bottom(progression)
-            .style(Style::default().bg(GRAY_COLOR));
+            .style(
+                Style::default()
+                    .fg(Color::Indexed(16))
+                    .bg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            );
 
         filter_bar.render(area, buf);
     }
 
-    fn render_selection_bar(&self, area: Rect, buf: &mut Buffer) {
+    fn render_selection_footer(&self, area: Rect, buf: &mut Buffer) {
         let selection_text = if let Some((start, end)) = self.get_selection_range() {
             let num_lines = end - start + 1;
             format!(
@@ -878,12 +892,12 @@ impl Widget for &App {
 
         // Footer
         match self.app_state {
-            AppState::SearchMode => self.render_search_bar(bottom, buf),
-            AppState::MarkAddInputMode => self.render_mark_bar(bottom, buf),
-            AppState::GotoLineMode => self.render_goto_line_bar(bottom, buf),
-            AppState::FilterMode => self.render_filter_bar(bottom, buf),
+            AppState::SearchMode => self.render_search_footer(bottom, buf),
+            AppState::MarkAddInputMode => self.render_mark_footer(bottom, buf),
+            AppState::GotoLineMode => self.render_goto_line_footer(bottom, buf),
+            AppState::FilterMode => self.render_filter_footer(bottom, buf),
             AppState::SaveToFileMode => self.render_save_to_file_bar(bottom, buf),
-            AppState::SelectionMode => self.render_selection_bar(bottom, buf),
+            AppState::SelectionMode => self.render_selection_footer(bottom, buf),
             _ => self.render_footer(bottom, buf),
         }
 
