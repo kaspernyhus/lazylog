@@ -188,7 +188,7 @@ impl App {
             .viewport_to_log_index(self.viewport.selected_line);
 
         self.log_buffer.apply_filters(&self.filter);
-        let num_lines = self.log_buffer.get_lines_count();
+        let num_lines = self.log_buffer.get_active_lines_count();
 
         self.viewport.set_total_lines(num_lines);
 
@@ -398,7 +398,7 @@ impl App {
         self.event_tracker
             .restore_filter_states(&event_filter_states);
 
-        let filtered_lines = self.log_buffer.get_lines_count();
+        let filtered_lines = self.log_buffer.get_active_lines_count();
         if filtered_lines > 0 {
             self.viewport.selected_line = state.viewport_selected_line().min(filtered_lines - 1);
             self.viewport.top_line = state
@@ -435,7 +435,7 @@ impl App {
                         }
                     }
 
-                    let num_lines = self.log_buffer.get_lines_count();
+                    let num_lines = self.log_buffer.get_active_lines_count();
                     self.viewport.set_total_lines(num_lines);
 
                     if let Some(pattern) = self.search.get_active_pattern().map(|p| p.to_string()) {

@@ -1,6 +1,7 @@
 use crate::app::{App, AppState};
 use crate::highlighter::HighlightedLine;
 use crate::log::Interval;
+use num_format::{Locale, ToFormattedString};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Clear, ListState};
@@ -49,20 +50,43 @@ fn popup_area(area: Rect, width: u16, height: u16) -> Rect {
 impl App {
     /// Returns current line information (progression in the file).
     ///
-    /// Returns (current_line, total_lines, percent).
-    fn get_progression(&self) -> (usize, usize, usize) {
-        let total_lines = self.viewport.total_lines;
+    /// Returns (current_line, active_lines, total_lines, percent).
+    fn get_progression(&self) -> (usize, usize, usize, usize) {
+        let active_lines = self.log_buffer.get_active_lines_count();
+        let total_lines = self.log_buffer.get_total_lines_count();
         let current_line = self.viewport.selected_line + 1;
-        let percent = if total_lines > 0 {
-            if current_line == total_lines {
+        let percent = if active_lines > 0 {
+            if current_line == active_lines {
                 100
             } else {
-                (current_line * 100) / (total_lines)
+                (current_line * 100) / active_lines
             }
         } else {
             0
         };
-        (current_line, total_lines, percent)
+        (current_line, active_lines, total_lines, percent)
+    }
+
+    /// Formats progression information for display in footers.
+    fn format_progression_text(&self) -> String {
+        let (current_line, active_lines, total_lines, percent) = self.get_progression();
+
+        if active_lines == total_lines {
+            format!(
+                "{}/{} {:3}%",
+                current_line.to_formatted_string(&Locale::en_DK),
+                total_lines.to_formatted_string(&Locale::en_DK),
+                percent
+            )
+        } else {
+            format!(
+                "{}/{} ({}) {:3}%",
+                current_line.to_formatted_string(&Locale::en_DK),
+                active_lines.to_formatted_string(&Locale::en_DK),
+                total_lines.to_formatted_string(&Locale::en_DK),
+                percent
+            )
+        }
     }
 
     /// Renders the default footer bar in LogView mode.
@@ -98,15 +122,16 @@ impl App {
         let middle = Line::from("h:View Help").centered();
 
         let (current_match, total_matches) = self.search.get_match_info();
-        let (current_line, total_lines, percent) = self.get_progression();
+        let progression_text = self.format_progression_text();
+
         let right = if total_matches > 0 {
             Line::from(format!(
-                "{}/{} | {}/{} {:3}% ",
-                current_match, total_matches, current_line, total_lines, percent
+                "{}/{} | {} ",
+                current_match, total_matches, progression_text
             ))
             .right_aligned()
         } else {
-            Line::from(format!("{}/{} {:3}% ", current_line, total_lines, percent)).right_aligned()
+            Line::from(progression_text + " ").right_aligned()
         };
 
         let footer = Block::default()
@@ -126,9 +151,8 @@ impl App {
         };
         let search_prompt =
             Line::from(format!("Search: [{}] {}", case_sensitive, self.input_query)).left_aligned();
-        let (current_line, total_lines, percent) = self.get_progression();
-        let progression =
-            Line::from(format!("{}/{} {:3}% ", current_line, total_lines, percent)).right_aligned();
+        let progression_text = self.format_progression_text();
+        let progression = Line::from(progression_text + " ").right_aligned();
 
         let search_bar = Block::default()
             .title_bottom(search_prompt)
@@ -142,9 +166,8 @@ impl App {
     fn render_mark_bar(&self, area: Rect, buf: &mut Buffer) {
         let mark_prompt =
             Line::from(format!("Add mark(s) from pattern: {}", self.input_query)).left_aligned();
-        let (current_line, total_lines, percent) = self.get_progression();
-        let progression =
-            Line::from(format!("{}/{} {:3}% ", current_line, total_lines, percent)).right_aligned();
+        let progression_text = self.format_progression_text();
+        let progression = Line::from(progression_text + " ").right_aligned();
 
         let mark_bar = Block::default()
             .title_bottom(mark_prompt)
@@ -190,9 +213,8 @@ impl App {
             case_sensitive, filter_mode, self.input_query
         ))
         .left_aligned();
-        let (current_line, total_lines, percent) = self.get_progression();
-        let progression =
-            Line::from(format!("{}/{} {:3}% ", current_line, total_lines, percent)).right_aligned();
+        let progression_text = self.format_progression_text();
+        let progression = Line::from(progression_text + " ").right_aligned();
 
         let filter_bar = Block::default()
             .title_bottom(filter_prompt)

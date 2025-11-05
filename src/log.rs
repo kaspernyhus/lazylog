@@ -173,8 +173,13 @@ impl LogBuffer {
     }
 
     /// Returns the count of active (filtered) lines.
-    pub fn get_lines_count(&self) -> usize {
+    pub fn get_active_lines_count(&self) -> usize {
         self.active_lines.len()
+    }
+
+    /// Returns the total count of log lines.
+    pub fn get_total_lines_count(&self) -> usize {
+        self.lines.len()
     }
 
     /// Returns a reference to the active lines (original indices of visible lines).
