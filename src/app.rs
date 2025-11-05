@@ -103,6 +103,8 @@ pub struct App {
     pub marking: Marking,
     /// Selection range for visual selection mode.
     selection_range: Option<(usize, usize)>,
+    /// Timestamp when a message was shown.
+    message_timestamp: Option<std::time::Instant>,
     /// Keybinding registry for all keybindings.
     keybindings: KeybindingRegistry,
     /// Indicates whether the screen needs to be redrawn.
@@ -152,6 +154,7 @@ impl App {
             event_tracker: LogEventTracker::default(),
             marking: Marking::default(),
             selection_range: None,
+            message_timestamp: None,
             keybindings,
             needs_redraw: true,
             persist_enabled: !args.no_persist,
@@ -241,6 +244,11 @@ impl App {
     }
 
     fn next_state(&mut self, state: AppState) {
+        if matches!(state, AppState::Message(_)) {
+            self.message_timestamp = Some(std::time::Instant::now());
+        } else {
+            self.message_timestamp = None;
+        }
         self.app_state = state;
         self.update_temporary_highlights();
         self.mark_dirty();
@@ -341,7 +349,14 @@ impl App {
     ///
     /// The tick event is where you can update the state of your application with any logic that
     /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
-    pub fn tick(&mut self) {}
+    pub fn tick(&mut self) {
+        if let Some(timestamp) = self.message_timestamp {
+            if timestamp.elapsed().as_secs() >= 3 && matches!(self.app_state, AppState::Message(_))
+            {
+                self.next_state(AppState::LogView);
+            }
+        }
+    }
 
     /// Set running to false to quit the application.
     ///
