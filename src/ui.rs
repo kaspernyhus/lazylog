@@ -119,7 +119,7 @@ impl App {
             left_parts.push("| center".to_string());
         }
         let left = Line::from(left_parts.join(" "));
-        let middle = Line::from("h:View Help").centered();
+        let middle = Line::from("F1:View Help").centered();
 
         let (current_match, total_matches) = self.search.get_match_info();
         let progression_text = self.format_progression_text();

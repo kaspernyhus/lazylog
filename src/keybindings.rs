@@ -142,9 +142,11 @@ impl KeybindingRegistry {
         let state = AppState::LogView;
 
         self.bind_simple(state.clone(), KeyCode::Char('q'), Command::Quit);
-        self.bind_simple(state.clone(), KeyCode::Char('h'), Command::ToggleHelp);
+        self.bind_simple(state.clone(), KeyCode::F(1), Command::ToggleHelp);
         self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
         self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
+        self.bind_simple(state.clone(), KeyCode::Char('j'), Command::MoveDown);
         self.bind_simple(state.clone(), KeyCode::PageUp, Command::PageUp);
         self.bind_simple(state.clone(), KeyCode::PageDown, Command::PageDown);
         self.bind_simple(state.clone(), KeyCode::Char('g'), Command::GotoTop);
@@ -152,6 +154,8 @@ impl KeybindingRegistry {
         self.bind_simple(state.clone(), KeyCode::Char('z'), Command::CenterSelected);
         self.bind_simple(state.clone(), KeyCode::Left, Command::ScrollLeft);
         self.bind_simple(state.clone(), KeyCode::Right, Command::ScrollRight);
+        self.bind_simple(state.clone(), KeyCode::Char('h'), Command::ScrollLeft);
+        self.bind_simple(state.clone(), KeyCode::Char('l'), Command::ScrollRight);
         self.bind_simple(state.clone(), KeyCode::Char('0'), Command::ResetHorizontal);
         self.bind_simple(
             state.clone(),
@@ -231,6 +235,8 @@ impl KeybindingRegistry {
         self.bind_simple(state.clone(), KeyCode::Char('h'), Command::ToggleHelp);
         self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
         self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
+        self.bind_simple(state.clone(), KeyCode::Char('j'), Command::MoveDown);
         self.bind_simple(state.clone(), KeyCode::PageUp, Command::PageUp);
         self.bind_simple(state.clone(), KeyCode::PageDown, Command::PageDown);
         self.bind_simple(state.clone(), KeyCode::Char('g'), Command::GotoTop);
@@ -267,6 +273,8 @@ impl KeybindingRegistry {
         self.bind_simple(state.clone(), KeyCode::Char('h'), Command::ToggleHelp);
         self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
         self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
+        self.bind_simple(state.clone(), KeyCode::Char('j'), Command::MoveDown);
         self.bind_simple(
             state.clone(),
             KeyCode::Char(' '),
@@ -312,6 +320,8 @@ impl KeybindingRegistry {
         self.bind_simple(state.clone(), KeyCode::Char('h'), Command::ToggleHelp);
         self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
         self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
+        self.bind_simple(state.clone(), KeyCode::Char('j'), Command::MoveDown);
         self.bind_simple(
             state.clone(),
             KeyCode::Char(' '),
@@ -327,6 +337,8 @@ impl KeybindingRegistry {
         self.bind_shift(state.clone(), 'F', Command::ActivateEventFilterView);
         self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
         self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
+        self.bind_simple(state.clone(), KeyCode::Char('j'), Command::MoveDown);
         self.bind_simple(state.clone(), KeyCode::PageUp, Command::PageUp);
         self.bind_simple(state.clone(), KeyCode::PageDown, Command::PageDown);
         self.bind_simple(
@@ -343,6 +355,8 @@ impl KeybindingRegistry {
         self.bind_simple(state.clone(), KeyCode::Char('h'), Command::ToggleHelp);
         self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
         self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
+        self.bind_simple(state.clone(), KeyCode::Char('j'), Command::MoveDown);
         self.bind_simple(state.clone(), KeyCode::PageUp, Command::PageUp);
         self.bind_simple(state.clone(), KeyCode::PageDown, Command::PageDown);
         self.bind_simple(
@@ -364,6 +378,8 @@ impl KeybindingRegistry {
         self.bind_simple(state.clone(), KeyCode::Char('h'), Command::ToggleHelp);
         self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
         self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
+        self.bind_simple(state.clone(), KeyCode::Char('j'), Command::MoveDown);
         self.bind_simple(state.clone(), KeyCode::PageUp, Command::PageUp);
         self.bind_simple(state.clone(), KeyCode::PageDown, Command::PageDown);
         self.bind_simple(state.clone(), KeyCode::Char(' '), Command::GotoSelectedMark);
