@@ -239,12 +239,6 @@ impl KeybindingRegistry {
             KeyCode::Right,
             Command::ToggleFilterModeInOut,
         );
-        self.bind_simple(state.clone(), KeyCode::Delete, Command::RemoveFilterPattern);
-        self.bind_simple(
-            state.clone(),
-            KeyCode::Char('d'),
-            Command::RemoveFilterPattern,
-        );
         self.bind_simple(state.clone(), KeyCode::Up, Command::FilterHistoryPrevious);
         self.bind_simple(state.clone(), KeyCode::Down, Command::FilterHistoryNext);
     }

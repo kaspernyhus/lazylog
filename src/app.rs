@@ -586,9 +586,11 @@ impl App {
                 }
             }
             AppState::EditFilterMode => {
-                if !self.input_query.is_empty() {
-                    self.filter
-                        .update_selected_pattern(self.input_query.clone());
+                if !self.input_query.is_empty()
+                    && self
+                        .filter
+                        .update_selected_pattern(self.input_query.clone())
+                {
                     self.update_view();
                 }
                 self.next_state(AppState::FilterListView);
