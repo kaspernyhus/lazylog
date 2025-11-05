@@ -21,14 +21,18 @@ pub struct Search {
 
 impl Search {
     /// Applies a search pattern and updates matches.
-    ///
-    /// Adds the pattern to search history list.
-    pub fn apply_pattern<'a>(&mut self, pattern: &str, lines: impl Iterator<Item = &'a str>) {
-        if !pattern.is_empty() {
-            self.active_pattern = Some(pattern.to_string());
-            self.history.add(pattern.to_string());
-            self.update_matches(pattern, lines);
+    pub fn apply_pattern<'a>(
+        &mut self,
+        pattern: &str,
+        lines: impl Iterator<Item = &'a str>,
+    ) -> Option<usize> {
+        if pattern.is_empty() {
+            return None;
         }
+        self.active_pattern = Some(pattern.to_string());
+        self.history.add(pattern.to_string());
+        self.update_matches(pattern, lines);
+        Some(self.total_matches)
     }
 
     /// Clears all matches and active pattern.

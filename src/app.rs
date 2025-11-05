@@ -518,7 +518,17 @@ impl App {
                         .log_buffer
                         .get_lines_iter(Interval::All)
                         .map(|log_line| log_line.content());
-                    self.search.apply_pattern(&self.input_query, lines);
+
+                    if let Some(matches) = self.search.apply_pattern(&self.input_query, lines) {
+                        if matches == 0 {
+                            self.next_state(AppState::Message(format!(
+                                "0 hits for '{}'",
+                                self.input_query
+                            )));
+                            return;
+                        }
+                    }
+
                     if !self.options.is_enabled("Search: Disable jumping to match") {
                         if let Some(line) =
                             self.search.first_match_from(self.viewport.selected_line)
