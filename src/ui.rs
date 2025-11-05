@@ -19,7 +19,7 @@ pub const RIGHT_ARROW: &str = "▶";
 /// Three-quarters block for mark indicator.
 pub const MARK_INDICATOR: &str = "▊";
 /// Maximum length for file path display in footer.
-const MAX_PATH_LENGTH: usize = 42;
+const MAX_PATH_LENGTH: usize = 60;
 /// Background color for footer and title bars.
 const GRAY_COLOR: Color = Color::Indexed(237);
 
@@ -67,13 +67,15 @@ impl App {
 
     /// Renders the default footer bar in LogView mode.
     fn render_footer(&self, area: Rect, buf: &mut Buffer) {
+        let max_width = MAX_PATH_LENGTH.min((self.viewport.width / 2).saturating_sub(13));
+
         let file_name = if let Some(path) = &self.log_buffer.file_path {
             let abs_path = std::fs::canonicalize(path)
                 .map(|p| p.to_string_lossy().to_string())
                 .unwrap_or_else(|_| path.to_string());
 
-            if abs_path.len() > MAX_PATH_LENGTH {
-                let skip = abs_path.len() - MAX_PATH_LENGTH;
+            if abs_path.len() > max_width {
+                let skip = abs_path.len() - max_width;
                 format!("...{}", &abs_path[skip..])
             } else {
                 abs_path
