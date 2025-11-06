@@ -232,7 +232,7 @@ impl KeybindingRegistry {
         let state = AppState::SelectionMode;
 
         self.bind_simple(state.clone(), KeyCode::Char('q'), Command::Quit);
-        self.bind_simple(state.clone(), KeyCode::Char('h'), Command::ToggleHelp);
+        self.bind_simple(state.clone(), KeyCode::F(1), Command::ToggleHelp);
         self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
         self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
         self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
@@ -270,7 +270,7 @@ impl KeybindingRegistry {
         let state = AppState::FilterListView;
 
         self.bind_simple(state.clone(), KeyCode::Char('q'), Command::Quit);
-        self.bind_simple(state.clone(), KeyCode::Char('h'), Command::ToggleHelp);
+        self.bind_simple(state.clone(), KeyCode::F(1), Command::ToggleHelp);
         self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
         self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
         self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
@@ -317,7 +317,7 @@ impl KeybindingRegistry {
         let state = AppState::OptionsView;
 
         self.bind_simple(state.clone(), KeyCode::Char('q'), Command::Quit);
-        self.bind_simple(state.clone(), KeyCode::Char('h'), Command::ToggleHelp);
+        self.bind_simple(state.clone(), KeyCode::F(1), Command::ToggleHelp);
         self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
         self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
         self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
@@ -333,7 +333,7 @@ impl KeybindingRegistry {
         let state = AppState::EventsView;
 
         self.bind_simple(state.clone(), KeyCode::Char('q'), Command::Quit);
-        self.bind_simple(state.clone(), KeyCode::Char('h'), Command::ToggleHelp);
+        self.bind_simple(state.clone(), KeyCode::F(1), Command::ToggleHelp);
         self.bind_shift(state.clone(), 'F', Command::ActivateEventFilterView);
         self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
         self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
@@ -352,7 +352,7 @@ impl KeybindingRegistry {
         let state = AppState::EventsFilterView;
 
         self.bind_simple(state.clone(), KeyCode::Char('q'), Command::Quit);
-        self.bind_simple(state.clone(), KeyCode::Char('h'), Command::ToggleHelp);
+        self.bind_simple(state.clone(), KeyCode::F(1), Command::ToggleHelp);
         self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
         self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
         self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
@@ -375,7 +375,7 @@ impl KeybindingRegistry {
         let state = AppState::MarksView;
 
         self.bind_simple(state.clone(), KeyCode::Char('q'), Command::Quit);
-        self.bind_simple(state.clone(), KeyCode::Char('h'), Command::ToggleHelp);
+        self.bind_simple(state.clone(), KeyCode::F(1), Command::ToggleHelp);
         self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
         self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
         self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
