@@ -60,17 +60,18 @@ impl App {
         Clear.render(area, buf);
 
         let filter_patterns = self.filter.get_filter_patterns();
+
+        let block = Block::default()
+            .title(" Filters ")
+            .title_alignment(Alignment::Center)
+            .title_style(Style::default().bold())
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(FILTER_MODE_BG));
+
         if filter_patterns.is_empty() {
             let popup = Paragraph::new("No filters configured")
-                .block(
-                    Block::default()
-                        .title(" Filters ")
-                        .title_alignment(Alignment::Center)
-                        .title_style(Style::default().bold())
-                        .borders(Borders::ALL)
-                        .border_type(BorderType::Rounded)
-                        .border_style(Style::default().fg(FILTER_MODE_BG)),
-                )
+                .block(block)
                 .alignment(Alignment::Center);
             popup.render(area, buf);
             return;
@@ -101,15 +102,7 @@ impl App {
         }
 
         let filter_list = List::new(items)
-            .block(
-                Block::default()
-                    .title(" Filters ")
-                    .title_alignment(Alignment::Center)
-                    .title_style(Style::default().bold())
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded)
-                    .border_style(Style::default().fg(FILTER_MODE_BG)),
-            )
+            .block(block)
             .highlight_symbol("")
             .highlight_style(
                 Style::default()
@@ -142,30 +135,6 @@ impl App {
     pub(super) fn render_events_list(&self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
 
-        if self.event_tracker.is_empty() {
-            let popup = Paragraph::new("No events found")
-                .block(
-                    Block::default()
-                        .title(" Log Events ")
-                        .title_alignment(Alignment::Center)
-                        .title_style(Style::default().bold())
-                        .borders(Borders::ALL)
-                        .border_type(BorderType::Rounded)
-                        .border_style(Style::default().fg(EVENT_LIST_BG)),
-                )
-                .alignment(Alignment::Center);
-            popup.render(area, buf);
-            return;
-        }
-
-        let max_name_length = self
-            .event_tracker
-            .events()
-            .iter()
-            .map(|e| e.event_name.len())
-            .max()
-            .unwrap_or(0);
-
         let block = Block::default()
             .title(" Log Events ")
             .title_alignment(Alignment::Center)
@@ -174,10 +143,26 @@ impl App {
             .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(EVENT_LIST_BG));
 
+        if self.event_tracker.is_empty() {
+            let popup = Paragraph::new("No events found")
+                .block(block)
+                .alignment(Alignment::Center);
+            popup.render(area, buf);
+            return;
+        }
+
         let inner_area = block.inner(area);
 
         let [list_area, scrollbar_area] =
             Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(inner_area);
+
+        let max_name_length = self
+            .event_tracker
+            .events()
+            .iter()
+            .map(|e| e.event_name.len())
+            .max()
+            .unwrap_or(0);
 
         let available_width = list_area
             .width
@@ -253,16 +238,18 @@ impl App {
         Clear.render(area, buf);
 
         let event_filters = self.event_tracker.get_event_filters();
+
+        let block = Block::default()
+            .title(" Event Filters ")
+            .title_alignment(Alignment::Center)
+            .title_style(Style::default().bold())
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(EVENT_LIST_BG));
+
         if event_filters.is_empty() {
             let popup = Paragraph::new("No event filters available")
-                .block(
-                    Block::default()
-                        .title(" Event Filters ")
-                        .title_alignment(Alignment::Center)
-                        .borders(Borders::ALL)
-                        .border_type(BorderType::Rounded)
-                        .border_style(Style::default().fg(EVENT_LIST_BG)),
-                )
+                .block(block)
                 .alignment(Alignment::Center);
             popup.render(area, buf);
             return;
@@ -289,15 +276,7 @@ impl App {
         }
 
         let event_filter_list = List::new(items)
-            .block(
-                Block::default()
-                    .title(" Event Filters ")
-                    .title_alignment(Alignment::Center)
-                    .title_style(Style::default().bold())
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded)
-                    .border_style(Style::default().fg(EVENT_LIST_BG)),
-            )
+            .block(block)
             .highlight_symbol(RIGHT_ARROW)
             .highlight_style(Style::default().add_modifier(Modifier::BOLD));
 
@@ -309,17 +288,17 @@ impl App {
 
         let filtered_marks = self.get_filtered_marks();
 
+        let block = Block::default()
+            .title(" Marked Lines ")
+            .title_alignment(Alignment::Center)
+            .title_style(Style::default().bold())
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(MARK_MODE_BG));
+
         if filtered_marks.is_empty() {
             let popup = Paragraph::new("No marked lines")
-                .block(
-                    Block::default()
-                        .title(" Marked Lines ")
-                        .title_alignment(Alignment::Center)
-                        .title_style(Style::default().bold())
-                        .borders(Borders::ALL)
-                        .border_type(BorderType::Rounded)
-                        .border_style(Style::default().fg(MARK_MODE_BG)),
-                )
+                .block(block)
                 .alignment(Alignment::Center);
             popup.render(area, buf);
             return;
@@ -330,14 +309,6 @@ impl App {
             .filter_map(|m| m.name.as_ref().map(|n| n.len()))
             .max()
             .unwrap_or(0);
-
-        let block = Block::default()
-            .title(" Marked Lines ")
-            .title_alignment(Alignment::Center)
-            .title_style(Style::default().bold())
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Style::default().fg(MARK_MODE_BG));
 
         let inner_area = block.inner(area);
 
