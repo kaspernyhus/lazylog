@@ -41,6 +41,8 @@ pub struct LogEventTracker {
     event_counts: HashMap<String, usize>,
     /// Selected index in the filter list
     filter_selected_index: usize,
+    /// Tracks whether the event list needs rescanning
+    needs_rescan: bool,
 }
 
 impl LogEventTracker {
@@ -67,6 +69,17 @@ impl LogEventTracker {
         let lines: Vec<LogLine> = log_buffer.get_lines_iter(Interval::All).cloned().collect();
         self.event_counts = count_events(&lines, event_patterns);
         self.events = scan_for_events(&lines, event_patterns, &self.event_filters);
+        self.needs_rescan = false;
+    }
+
+    /// Marks the event list as needing a rescan (called when log filters change).
+    pub fn mark_needs_rescan(&mut self) {
+        self.needs_rescan = true;
+    }
+
+    /// Returns true if the event list needs rescanning.
+    pub fn needs_rescan(&self) -> bool {
+        self.needs_rescan
     }
 
     /// Checks a single line for event matches and adds it if it matches.

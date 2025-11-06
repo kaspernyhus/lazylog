@@ -177,6 +177,9 @@ impl App {
                             app.restore_state(state);
                         }
                     }
+
+                    app.event_tracker
+                        .scan(&app.log_buffer, app.highlighter.events());
                 }
                 Err(e) => {
                     app.app_state = AppState::ErrorState(format!(
@@ -199,6 +202,8 @@ impl App {
         let num_lines = self.log_buffer.get_active_lines_count();
 
         self.viewport.set_total_lines(num_lines);
+
+        self.event_tracker.mark_needs_rescan();
 
         // Update search matches if there's an active search
         if let Some(pattern) = self.search.get_active_pattern().map(|p| p.to_string()) {
@@ -415,6 +420,7 @@ impl App {
             .iter()
             .map(|ef| (ef.name().to_string(), ef.enabled()))
             .collect();
+
         self.event_tracker
             .restore_filter_states(&event_filter_states);
 
@@ -843,8 +849,10 @@ impl App {
     }
 
     pub fn activate_events_view(&mut self) {
-        self.event_tracker
-            .scan(&self.log_buffer, self.highlighter.events());
+        if self.event_tracker.needs_rescan() {
+            self.event_tracker
+                .scan(&self.log_buffer, self.highlighter.events());
+        }
         if let Some(line_index) = self
             .log_buffer
             .viewport_to_log_index(self.viewport.selected_line)
