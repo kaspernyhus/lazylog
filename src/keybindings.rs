@@ -387,7 +387,7 @@ impl KeybindingRegistry {
         self.bind_simple(state.clone(), KeyCode::Char('d'), Command::UnmarkSelected);
         self.bind_simple(
             state.clone(),
-            KeyCode::Char('r'),
+            KeyCode::Char('e'),
             Command::ActivateMarkNameInputMode,
         );
         self.bind_simple(state.clone(), KeyCode::Char('c'), Command::ClearAllMarks);

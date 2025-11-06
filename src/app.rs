@@ -1,5 +1,8 @@
 use crate::{
     cli::Cli,
+    colors::{
+        FILTER_MODE_BG, FILTER_MODE_FG, MARK_MODE_BG, MARK_MODE_FG, SEARCH_MODE_BG, SEARCH_MODE_FG,
+    },
     config::Config,
     event::{AppEvent, Event, EventHandler},
     filter::{Filter, FilterPattern},
@@ -19,7 +22,6 @@ use ratatui::{
     Terminal,
     backend::Backend,
     crossterm::event::{KeyCode, KeyEvent},
-    style::Color,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -273,7 +275,7 @@ impl App {
         {
             self.highlighter.add_temporary_highlight(
                 self.input_query.clone(),
-                PatternStyle::new(Some(Color::Indexed(16)), Some(Color::Cyan), true),
+                PatternStyle::new(Some(FILTER_MODE_FG), Some(FILTER_MODE_BG), true),
                 self.filter.is_case_sensitive(),
             );
         }
@@ -282,7 +284,7 @@ impl App {
         if self.app_state == AppState::SearchMode && self.input_query.len() >= 2 {
             self.highlighter.add_temporary_highlight(
                 self.input_query.clone(),
-                PatternStyle::new(Some(Color::Indexed(16)), Some(Color::Yellow), true),
+                PatternStyle::new(Some(SEARCH_MODE_FG), Some(SEARCH_MODE_BG), true),
                 self.search.is_case_sensitive(),
             );
         }
@@ -291,11 +293,7 @@ impl App {
         if self.app_state == AppState::MarkAddInputMode && self.input_query.len() >= 2 {
             self.highlighter.add_temporary_highlight(
                 self.input_query.clone(),
-                PatternStyle::new(
-                    Some(Color::Rgb(255, 255, 255)),
-                    Some(Color::Indexed(29)),
-                    false,
-                ),
+                PatternStyle::new(Some(MARK_MODE_FG), Some(MARK_MODE_BG), false),
                 false,
             );
         }
@@ -305,7 +303,7 @@ impl App {
             if !pattern.is_empty() && self.app_state != AppState::SearchMode {
                 self.highlighter.add_temporary_highlight(
                     pattern.to_string(),
-                    PatternStyle::new(Some(Color::Indexed(16)), Some(Color::Yellow), false),
+                    PatternStyle::new(Some(SEARCH_MODE_FG), Some(SEARCH_MODE_BG), false),
                     self.search.is_case_sensitive(),
                 );
             }
@@ -900,8 +898,10 @@ impl App {
     }
 
     pub fn activate_save_to_file_mode(&mut self) {
-        self.input_query.clear();
-        self.next_state(AppState::SaveToFileMode);
+        if self.log_buffer.streaming {
+            self.input_query.clear();
+            self.next_state(AppState::SaveToFileMode);
+        }
     }
 
     pub fn toggle_mark(&mut self) {

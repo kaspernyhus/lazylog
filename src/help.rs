@@ -1,6 +1,6 @@
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::Line;
 use ratatui::widgets::{
     Block, Borders, Clear, List, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState,
@@ -9,6 +9,7 @@ use ratatui::widgets::{
 use std::cell::Cell;
 
 use crate::app::AppState;
+use crate::colors::{HELP_BG, HELP_HEADER_FG, HELP_HIGHLIGHT_FG};
 use crate::command::Command;
 use crate::keybindings::KeybindingRegistry;
 
@@ -332,7 +333,7 @@ impl Help {
             .map(|item| match item.item_type {
                 HelpItemType::Header => Line::from(item.key.clone()).style(
                     Style::default()
-                        .fg(Color::Yellow)
+                        .fg(HELP_HEADER_FG)
                         .add_modifier(Modifier::BOLD),
                 ),
                 HelpItemType::Empty => Line::from(""),
@@ -352,7 +353,7 @@ impl Help {
             .title(" Help ")
             .title_alignment(Alignment::Center)
             .borders(Borders::ALL)
-            .style(Style::default().bg(Color::Blue));
+            .style(Style::default().bg(HELP_BG));
 
         let inner_area = block.inner(popup_area);
 
@@ -365,7 +366,7 @@ impl Help {
 
         let help_list = List::new(self.get_display_lines())
             .highlight_symbol("")
-            .highlight_style(Style::default().bg(Color::LightBlue));
+            .highlight_style(Style::default().bg(HELP_HIGHLIGHT_FG));
 
         let mut list_state = ListState::default();
         list_state.select(Some(self.selected_index));

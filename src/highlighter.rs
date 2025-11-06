@@ -3,6 +3,7 @@ use regex::Regex;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
+use crate::colors::{DEFAULT_EVENT_BG, DEFAULT_EVENT_FG};
 use crate::utils::contains_ignore_case;
 
 /// Style configuration for text rendering.
@@ -26,11 +27,11 @@ impl PatternStyle {
         }
     }
 
-    /// Creates a PatternStyle with blue bg and white fg.
-    pub fn white_on_blue() -> Self {
+    /// Creates a PatternStyle with a default color profile.
+    pub fn default_colors() -> Self {
         Self {
-            fg_color: Some(Color::Rgb(255, 255, 255)),
-            bg_color: Some(Color::Blue),
+            fg_color: Some(DEFAULT_EVENT_FG),
+            bg_color: Some(DEFAULT_EVENT_BG),
             bold: false,
         }
     }

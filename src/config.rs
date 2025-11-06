@@ -182,7 +182,7 @@ impl Config {
                     .style
                     .as_ref()
                     .map(Self::parse_style_config)
-                    .unwrap_or_else(PatternStyle::white_on_blue);
+                    .unwrap_or_else(PatternStyle::default_colors);
 
                 let match_type = if ev_config.regex {
                     PatternMatchType::Regex
