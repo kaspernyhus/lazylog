@@ -166,14 +166,33 @@ impl App {
             .max()
             .unwrap_or(0);
 
+        let block = Block::default()
+            .title(" Log Events ")
+            .title_alignment(Alignment::Center)
+            .title_style(Style::default().bold())
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(EVENT_LIST_BG));
+
+        let inner_area = block.inner(area);
+
+        let [list_area, scrollbar_area] =
+            Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(inner_area);
+
+        let available_width = list_area
+            .width
+            .saturating_sub(max_name_length as u16)
+            .saturating_sub(4)
+            .max(20) as usize; // Minimum 20 characters
+
         let mut items: Vec<Line> = Vec::new();
         for event in self.event_tracker.events() {
             let log_line = self.log_buffer.lines.get(event.line_index);
 
             if let Some(log_line) = log_line {
                 let content = log_line.content();
-                let preview = if content.len() > 80 {
-                    format!("{}...", &content[..77])
+                let preview = if content.len() > available_width {
+                    format!("{}...", &content[..available_width.saturating_sub(3)])
                 } else {
                     content.to_string()
                 };
@@ -196,19 +215,6 @@ impl App {
                 items.push(Line::from(spans));
             }
         }
-
-        let block = Block::default()
-            .title(" Log Events ")
-            .title_alignment(Alignment::Center)
-            .title_style(Style::default().bold())
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Style::default().fg(EVENT_LIST_BG));
-
-        let inner_area = block.inner(area);
-
-        let [list_area, scrollbar_area] =
-            Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(inner_area);
 
         self.event_tracker
             .set_viewport_height(list_area.height as usize);
@@ -325,6 +331,25 @@ impl App {
             .max()
             .unwrap_or(0);
 
+        let block = Block::default()
+            .title(" Marked Lines ")
+            .title_alignment(Alignment::Center)
+            .title_style(Style::default().bold())
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(MARK_MODE_BG));
+
+        let inner_area = block.inner(area);
+
+        let [list_area, scrollbar_area] =
+            Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(inner_area);
+
+        let available_width = list_area
+            .width
+            .saturating_sub(max_name_length as u16)
+            .saturating_sub(4)
+            .max(20) as usize; // Minimum 20 characters
+
         let items: Vec<Line> = filtered_marks
             .iter()
             .map(|mark| {
@@ -335,8 +360,8 @@ impl App {
                     .map(|l| l.content.as_str())
                     .unwrap_or("");
 
-                let preview = if log_line.len() > 80 {
-                    format!("{}...", &log_line[..77])
+                let preview = if log_line.len() > available_width {
+                    format!("{}...", &log_line[..available_width.saturating_sub(3)])
                 } else {
                     log_line.to_string()
                 };
@@ -370,21 +395,6 @@ impl App {
                 }
             })
             .collect();
-
-        // Render block first
-        let block = Block::default()
-            .title(" Marked Lines ")
-            .title_alignment(Alignment::Center)
-            .title_style(Style::default().bold())
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Style::default().fg(MARK_MODE_BG));
-
-        let inner_area = block.inner(area);
-
-        // Split inner area for list and scrollbar
-        let [list_area, scrollbar_area] =
-            Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(inner_area);
 
         self.marking.set_viewport_height(list_area.height as usize);
 
