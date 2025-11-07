@@ -1,6 +1,6 @@
 use crate::app::App;
-use crate::colors::{MESSAGE_ERROR_FG, MESSAGE_INFO_FG, WHITE_COLOR};
-use ratatui::widgets::BorderType;
+use crate::colors::{MESSAGE_BORDER, MESSAGE_ERROR_FG, MESSAGE_INFO_FG, WHITE_COLOR};
+use ratatui::widgets::{BorderType, Padding};
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Rect},
@@ -50,12 +50,20 @@ impl App {
 
         Clear.render(popup_area, buf);
 
+        let border_color = if title == "Error" {
+            MESSAGE_ERROR_FG
+        } else {
+            MESSAGE_BORDER
+        };
+
         let block = Block::default()
             .title(format!(" {} ", title))
             .title_style(Style::default().fg(title_color))
             .title_alignment(Alignment::Center)
             .borders(Borders::ALL)
-            .padding(ratatui::widgets::Padding::uniform(1));
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(border_color))
+            .padding(Padding::uniform(1));
 
         let popup = Paragraph::new(message)
             .block(block)

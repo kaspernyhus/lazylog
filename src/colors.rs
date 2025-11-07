@@ -56,6 +56,7 @@ pub const OPTION_DISABLED_FG: Color = Color::White;
 
 // Messages
 pub const MESSAGE_INFO_FG: Color = WHITE_COLOR;
+pub const MESSAGE_BORDER: Color = Color::Blue;
 pub const MESSAGE_ERROR_FG: Color = Color::Red;
 
 // Selection colors
