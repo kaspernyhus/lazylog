@@ -55,6 +55,11 @@ impl Marking {
         {
             Ok(pos) => {
                 self.marked_lines.remove(pos);
+                if !self.marked_lines.is_empty() {
+                    self.selected_index = self.selected_index.min(self.marked_lines.len() - 1);
+                } else {
+                    self.selected_index = 0;
+                }
             }
             Err(pos) => {
                 self.marked_lines.insert(pos, Mark::new(line_index));
@@ -80,6 +85,11 @@ impl Marking {
             .binary_search_by_key(&line_index, |mark| mark.line_index)
         {
             self.marked_lines.remove(pos);
+            if !self.marked_lines.is_empty() {
+                self.selected_index = self.selected_index.min(self.marked_lines.len() - 1);
+            } else {
+                self.selected_index = 0;
+            }
         }
     }
 
@@ -199,17 +209,17 @@ impl Marking {
         self.viewport_offset = self.viewport_offset.min(max_offset);
     }
 
-    /// Moves selection up in the marks view (does not wrap).
-    pub fn move_selection_up(&mut self, count: usize) {
-        if count > 0 && self.selected_index > 0 {
+    /// Moves selection up in the marks view (filtered count).
+    pub fn move_selection_up(&mut self, _count: usize) {
+        if self.selected_index > 0 {
             self.selected_index -= 1;
             self.adjust_viewport();
         }
     }
 
-    /// Moves selection down in the marks view (does not wrap).
+    /// Moves selection down in the marks view (filtered count).
     pub fn move_selection_down(&mut self, count: usize) {
-        if count > 0 && self.selected_index < count - 1 {
+        if count > 0 && self.selected_index < count.saturating_sub(1) {
             self.selected_index += 1;
             self.adjust_viewport();
         }
