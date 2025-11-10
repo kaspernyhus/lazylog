@@ -173,7 +173,7 @@ impl App {
 
         let mut items: Vec<Line> = Vec::new();
         for event in self.event_tracker.events() {
-            let log_line = self.log_buffer.lines.get(event.line_index);
+            let log_line = self.log_buffer.get_line(event.line_index);
 
             if let Some(log_line) = log_line {
                 let content = log_line.content();
@@ -327,8 +327,7 @@ impl App {
             .map(|mark| {
                 let log_line = self
                     .log_buffer
-                    .lines
-                    .get(mark.line_index)
+                    .get_line(mark.line_index)
                     .map(|l| l.content.as_str())
                     .unwrap_or("");
 

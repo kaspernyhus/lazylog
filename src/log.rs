@@ -16,7 +16,7 @@ pub struct LogBuffer {
     /// Optional path to the file being viewed.
     pub file_path: Option<String>,
     /// All log lines (unfiltered).
-    pub lines: Vec<LogLine>,
+    lines: Vec<LogLine>,
     /// Indices of lines that pass the applied filters.
     active_lines: Vec<usize>,
     /// Whether the buffer is in streaming mode (reading from stdin).
@@ -69,12 +69,12 @@ impl LogBuffer {
 
     /// Appends a new line to the buffer.
     ///
-    /// Returns a reference to the newly created LogLine.
-    pub fn append_line(&mut self, content: String) -> &LogLine {
+    /// Returns the index of the newly created LogLine.
+    pub fn append_line(&mut self, content: String) -> usize {
         let index = self.lines.len();
         let log_line = LogLine::new(content, index);
         self.lines.push(log_line);
-        &self.lines[index]
+        index
     }
 
     /// Adds a line index to the active lines list.

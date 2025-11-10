@@ -1,6 +1,4 @@
-use crate::{
-    filter::FilterPattern, highlighter::HighlightPattern, log::LogLine, processing::apply_filters,
-};
+use crate::{filter::FilterPattern, highlighter::HighlightPattern, processing::apply_filters};
 use rayon::prelude::*;
 use std::{sync::Arc, time::Duration};
 use tokio::{
@@ -10,7 +8,7 @@ use tokio::{
 
 #[derive(Debug, Clone)]
 pub struct ProcessedLine {
-    pub log_line: LogLine,
+    pub line_content: String,
     pub passes_filter: bool,
 }
 
@@ -27,7 +25,6 @@ pub struct LogProcessor {
     output_tx: mpsc::UnboundedSender<Vec<ProcessedLine>>,
     context_rx: mpsc::UnboundedReceiver<ProcessingContext>,
     current_context: ProcessingContext,
-    line_index: usize,
 }
 
 impl LogProcessor {
@@ -41,7 +38,6 @@ impl LogProcessor {
             output_tx,
             context_rx,
             current_context: ProcessingContext::default(),
-            line_index: 0,
         }
     }
 
@@ -49,7 +45,7 @@ impl LogProcessor {
         const BATCH_SIZE: usize = 5;
         const BATCH_TIMEOUT_MS: u64 = 100;
 
-        let mut batch = Vec::with_capacity(BATCH_SIZE);
+        let mut batched_lines = Vec::with_capacity(BATCH_SIZE);
         let mut interval = interval(Duration::from_millis(BATCH_TIMEOUT_MS));
         interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
@@ -66,8 +62,8 @@ impl LogProcessor {
                 }
 
                 _ = interval.tick() => {
-                    if !batch.is_empty() {
-                        if let Some(processed) = self.process(&mut batch) {
+                    if !batched_lines.is_empty() {
+                        if let Some(processed) = self.process(&mut batched_lines) {
                             if self.output_tx.send(processed).is_err() {
                                 break;
                             }
@@ -78,11 +74,10 @@ impl LogProcessor {
                 result = self.input_rx.recv() => {
                     match result {
                         Some(line) => {
-                            batch.push((line, self.line_index));
-                            self.line_index += 1;
+                            batched_lines.push(line);
 
-                            if batch.len() >= BATCH_SIZE {
-                                if let Some(processed) = self.process(&mut batch) {
+                            if batched_lines.len() >= BATCH_SIZE {
+                                if let Some(processed) = self.process(&mut batched_lines) {
                                     if self.output_tx.send(processed).is_err() {
                                         break;
                                     }
@@ -90,8 +85,8 @@ impl LogProcessor {
                             }
                         }
                         None => { // processor is being shut down, process remaining lines
-                            if !batch.is_empty() {
-                                if let Some(processed) = self.process(&mut batch) {
+                            if !batched_lines.is_empty() {
+                                if let Some(processed) = self.process(&mut batched_lines) {
                                     let _ = self.output_tx.send(processed);
                                 }
                             }
@@ -103,7 +98,7 @@ impl LogProcessor {
         }
     }
 
-    fn process(&self, batch: &mut Vec<(String, usize)>) -> Option<Vec<ProcessedLine>> {
+    fn process(&self, batch: &mut Vec<String>) -> Option<Vec<ProcessedLine>> {
         if batch.is_empty() {
             return None;
         }
@@ -113,12 +108,11 @@ impl LogProcessor {
 
         let processed: Vec<ProcessedLine> = batch
             .par_drain(..)
-            .map(|(content, index)| {
-                let log_line = LogLine::new(content.clone(), index);
-                let passes_filter = apply_filters(&content, &filter_patterns);
+            .map(|line_content| {
+                let passes_filter = apply_filters(&line_content, &filter_patterns);
 
                 ProcessedLine {
-                    log_line,
+                    line_content,
                     passes_filter,
                 }
             })

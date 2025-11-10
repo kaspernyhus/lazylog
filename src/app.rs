@@ -3,6 +3,7 @@ use crate::{
     colors::{
         FILTER_MODE_BG, FILTER_MODE_FG, MARK_MODE_BG, MARK_MODE_FG, SEARCH_MODE_BG, SEARCH_MODE_FG,
     },
+    completion::CompletionEngine,
     config::Config,
     event::{AppEvent, Event, EventHandler},
     filter::{Filter, FilterMode, FilterPattern},
@@ -110,6 +111,8 @@ pub struct App {
     selection_range: Option<(usize, usize)>,
     /// Timestamp when a message was shown.
     message_timestamp: Option<std::time::Instant>,
+    /// Tab completion.
+    completion: CompletionEngine,
     /// Keybinding registry for all keybindings.
     keybindings: KeybindingRegistry,
     /// Indicates whether the screen needs to be redrawn.
@@ -160,6 +163,7 @@ impl App {
             marking: Marking::default(),
             selection_range: None,
             message_timestamp: None,
+            completion: CompletionEngine::default(),
             keybindings,
             needs_redraw: true,
             persist_enabled: !args.no_persist,
@@ -176,6 +180,7 @@ impl App {
             match app.log_buffer.load_from_file(file_path.as_str()) {
                 Ok(_) => {
                     app.update_view();
+                    app.update_completion_words();
 
                     if app.persist_enabled {
                         if let Some(state) = load_state(&file_path) {
@@ -267,6 +272,23 @@ impl App {
     /// Marks the screen as needing a redraw.
     fn mark_dirty(&mut self) {
         self.needs_redraw = true;
+    }
+
+    fn update_completion_words(&mut self) {
+        self.completion
+            .update(self.log_buffer.get_lines_iter(Interval::All));
+    }
+
+    pub fn apply_tab_completion(&mut self) {
+        if !matches!(self.app_state, AppState::SearchMode | AppState::FilterMode) {
+            return;
+        }
+
+        if let Some(completion) = self.completion.find_completion(self.input.value()) {
+            let full_text = format!("{}{}", self.input.value(), completion);
+            self.input = Input::new(full_text);
+            self.update_temporary_highlights();
+        }
     }
 
     /// Returns the input prefix for the current state.
@@ -469,7 +491,7 @@ impl App {
 
         for mark_state in state.marks() {
             let line_index = mark_state.line_index();
-            if line_index < self.log_buffer.lines.len() {
+            if line_index < self.log_buffer.get_total_lines_count() {
                 self.marking.toggle_mark(line_index);
                 if let Some(name) = mark_state.name() {
                     self.marking.set_mark_name(line_index, name.clone());
@@ -504,39 +526,32 @@ impl App {
     fn handle_app_event(&mut self, app_event: AppEvent) -> color_eyre::Result<()> {
         match app_event {
             AppEvent::NewLines(processed_lines) => {
-                if !self.streaming_paused {
-                    for processed_line in processed_lines {
-                        let log_line_index = processed_line.log_line.index;
-                        self.log_buffer.lines.push(processed_line.log_line);
+                if self.streaming_paused {
+                    return Ok(());
+                }
 
-                        if processed_line.passes_filter {
-                            self.log_buffer.add_to_active_lines(log_line_index);
+                for pl in processed_lines {
+                    let log_line_index = self.log_buffer.append_line(pl.line_content);
 
-                            let log_line = self.log_buffer.get_line(log_line_index);
-                            if let Some(log_line) = log_line {
-                                self.event_tracker.scan_line(
-                                    log_line,
-                                    self.highlighter.events(),
-                                    self.viewport.follow_mode,
-                                );
-                            }
-                        }
+                    if pl.passes_filter {
+                        self.log_buffer.add_to_active_lines(log_line_index);
+
+                        let log_line = self.log_buffer.get_line(log_line_index).unwrap();
+                        self.event_tracker.scan_line(
+                            log_line,
+                            self.highlighter.events(),
+                            self.viewport.follow_mode,
+                        );
+                        self.completion.append_line(log_line);
+                        self.search.append_line(log_line_index, log_line.content());
                     }
+                }
 
-                    let num_lines = self.log_buffer.get_active_lines_count();
-                    self.viewport.set_total_lines(num_lines);
+                self.viewport
+                    .set_total_lines(self.log_buffer.get_active_lines_count());
 
-                    if let Some(pattern) = self.search.get_active_pattern().map(|p| p.to_string()) {
-                        let lines = self
-                            .log_buffer
-                            .get_lines_iter(Interval::All)
-                            .map(|log_line| log_line.content());
-                        self.search.update_matches(&pattern, lines);
-                    }
-
-                    if self.viewport.follow_mode {
-                        self.viewport.goto_bottom();
-                    }
+                if self.viewport.follow_mode {
+                    self.viewport.goto_bottom();
                 }
             }
         }

@@ -248,6 +248,7 @@ impl KeybindingRegistry {
     fn register_search_mode_bindings(&mut self) {
         let state = AppState::SearchMode;
 
+        self.bind_simple(state.clone(), KeyCode::Tab, Command::TabCompletion);
         self.bind(
             state.clone(),
             KeyCode::Char('a'),
@@ -260,6 +261,8 @@ impl KeybindingRegistry {
 
     fn register_filter_mode_bindings(&mut self) {
         let state = AppState::FilterMode;
+
+        self.bind_simple(state.clone(), KeyCode::Tab, Command::TabCompletion);
         self.bind(
             state.clone(),
             KeyCode::Char('a'),

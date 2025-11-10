@@ -11,8 +11,6 @@ pub struct Search {
     case_sensitive: bool,
     /// Index of the current match in match_indices.
     current_match_index: usize,
-    /// Total number of matches found.
-    total_matches: usize,
     /// Line indices where matches were found.
     match_indices: Vec<usize>,
     /// Search query history.
@@ -32,14 +30,13 @@ impl Search {
         self.active_pattern = Some(pattern.to_string());
         self.history.add(pattern.to_string());
         self.update_matches(pattern, lines);
-        Some(self.total_matches)
+        Some(self.match_indices.len())
     }
 
     /// Clears all matches and active pattern.
     pub fn clear_matches(&mut self) {
         self.active_pattern = None;
         self.match_indices.clear();
-        self.total_matches = 0;
         self.current_match_index = 0;
     }
 
@@ -66,7 +63,6 @@ impl Search {
     /// Updates the list of matching line indices for a given pattern without storing in search history.
     pub fn update_matches<'a>(&mut self, pattern: &str, lines: impl Iterator<Item = &'a str>) {
         self.match_indices.clear();
-        self.total_matches = 0;
         self.current_match_index = 0;
 
         if pattern.is_empty() {
@@ -91,8 +87,21 @@ impl Search {
                 if matching { Some(line_index) } else { None }
             })
             .collect();
+    }
 
-        self.total_matches = self.match_indices.len();
+    /// Appends a single line to matches if it matches the active pattern.
+    pub fn append_line(&mut self, line_index: usize, line_content: &str) {
+        if let Some(pattern) = &self.active_pattern {
+            let matching = if self.case_sensitive {
+                line_content.contains(pattern)
+            } else {
+                contains_ignore_case(line_content, pattern)
+            };
+
+            if matching {
+                self.match_indices.push(line_index);
+            }
+        }
     }
 
     /// Finds the next match after the current line.
@@ -174,7 +183,7 @@ impl Search {
         if self.match_indices.is_empty() {
             (0, 0)
         } else {
-            (self.current_match_index + 1, self.total_matches)
+            (self.current_match_index + 1, self.match_indices.len())
         }
     }
 }

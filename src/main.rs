@@ -12,6 +12,7 @@ pub mod app;
 pub mod cli;
 pub mod colors;
 pub mod command;
+pub mod completion;
 pub mod config;
 pub mod debug_log;
 pub mod event;

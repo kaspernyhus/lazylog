@@ -32,6 +32,7 @@ pub enum Command {
     ToggleCaseSearch,
     SearchHistoryPrevious,
     SearchHistoryNext,
+    TabCompletion,
 
     // Filter
     ActivateFilterMode,
@@ -115,6 +116,7 @@ impl Command {
             Command::ToggleCaseSearch => "Toggle case sensitivity",
             Command::SearchHistoryPrevious => "Previous search from history",
             Command::SearchHistoryNext => "Next search from history",
+            Command::TabCompletion => "Tab completion",
 
             // Filter
             Command::ActivateFilterMode => "Start filter",
@@ -198,6 +200,7 @@ impl Command {
             Command::ToggleCaseSearch => app.toggle_case_sensitive(),
             Command::SearchHistoryPrevious => app.search_history_previous(),
             Command::SearchHistoryNext => app.search_history_next(),
+            Command::TabCompletion => app.apply_tab_completion(),
 
             // Filter
             Command::ActivateFilterMode => app.activate_filter_mode(),
