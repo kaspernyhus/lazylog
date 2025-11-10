@@ -99,14 +99,7 @@ impl LogEventTracker {
                             line_index: log_line.index,
                         };
 
-                        match self
-                            .events
-                            .binary_search_by_key(&log_line.index, |e| e.line_index)
-                        {
-                            Ok(pos) | Err(pos) => {
-                                self.events.insert(pos, new_event);
-                            }
-                        }
+                        self.events.push(new_event);
 
                         if follow_mode {
                             self.select_last_event();
