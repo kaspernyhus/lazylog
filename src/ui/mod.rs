@@ -94,7 +94,7 @@ impl Widget for &App {
             self.render_save_to_file_popup(save_area, buf);
         }
         if self.help.is_visible() {
-            let help_area = popup_area(area, 48, 32);
+            let help_area = popup_area(area, 50, 32);
             self.help.render(help_area, buf);
         }
         if let AppState::Message(ref message) = self.app_state {

@@ -72,6 +72,7 @@ pub enum Command {
     ClearAllMarks,
     MarkNext,
     MarkPrevious,
+    ToggleShowMarkedOnly,
 
     // Streaming
     ToggleFollowMode,
@@ -156,6 +157,7 @@ impl Command {
             Command::ClearAllMarks => "Clear all marks",
             Command::MarkNext => "Go to next mark",
             Command::MarkPrevious => "Go to previous mark",
+            Command::ToggleShowMarkedOnly => "Show marked lines only on/off",
 
             // Streaming
             Command::ToggleFollowMode => "Toggle follow mode (stdin)",
@@ -240,6 +242,7 @@ impl Command {
             Command::ClearAllMarks => app.marking.clear_all(),
             Command::MarkNext => app.mark_next(),
             Command::MarkPrevious => app.mark_previous(),
+            Command::ToggleShowMarkedOnly => app.toggle_show_marked_only(),
 
             // Streaming
             Command::ToggleFollowMode => app.toggle_follow_mode(),

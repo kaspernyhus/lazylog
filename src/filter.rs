@@ -164,6 +164,7 @@ pub struct Filter {
     filter_mode: FilterMode,
     case_sensitive: bool,
     pub history: History<FilterHistoryEntry>,
+    show_marked_only: bool,
 }
 
 impl Filter {
@@ -177,6 +178,7 @@ impl Filter {
             filter_mode: FilterMode::default(),
             case_sensitive: false,
             history: History::new(),
+            show_marked_only: false,
         }
     }
 }
@@ -300,6 +302,16 @@ impl Filter {
     /// Updates the pattern text of the currently selected filter.
     pub fn update_selected_pattern(&mut self, new_pattern: String) -> bool {
         self.filter_list.update_selected(new_pattern)
+    }
+
+    /// Toggles the "show marked only" filter mode.
+    pub fn toggle_show_marked_only(&mut self) {
+        self.show_marked_only = !self.show_marked_only;
+    }
+
+    /// Returns whether "show marked only" mode is enabled.
+    pub fn is_show_marked_only(&self) -> bool {
+        self.show_marked_only
     }
 }
 

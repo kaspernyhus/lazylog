@@ -208,7 +208,8 @@ impl App {
             .log_buffer
             .viewport_to_log_index(self.viewport.selected_line);
 
-        self.log_buffer.apply_filters(&self.filter);
+        let marked_indices = self.marking.get_marked_indices();
+        self.log_buffer.apply_filters(&self.filter, &marked_indices);
         let num_lines = self.log_buffer.get_active_lines_count();
 
         self.viewport.set_total_lines(num_lines);
@@ -762,6 +763,11 @@ impl App {
             AppState::LogView => {
                 self.search.clear_matches();
                 self.update_temporary_highlights();
+
+                if self.filter.is_show_marked_only() {
+                    self.filter.toggle_show_marked_only();
+                    self.update_view();
+                }
             }
             AppState::FilterListView
             | AppState::OptionsView
@@ -978,6 +984,36 @@ impl App {
     }
 
     pub fn toggle_mark(&mut self) {
+        if self.app_state == AppState::SelectionMode {
+            if let Some((start, end)) = self.get_selection_range() {
+                let log_indices: Vec<usize> = (start..=end)
+                    .filter_map(|viewport_line| {
+                        self.log_buffer.viewport_to_log_index(viewport_line)
+                    })
+                    .collect();
+
+                if log_indices.is_empty() {
+                    return;
+                }
+
+                // Check if all lines are marked
+                let all_marked = log_indices.iter().all(|&idx| self.marking.is_marked(idx));
+
+                if all_marked {
+                    for &idx in &log_indices {
+                        self.marking.toggle_mark(idx);
+                    }
+                } else {
+                    for &idx in &log_indices {
+                        if !self.marking.is_marked(idx) {
+                            self.marking.toggle_mark(idx);
+                        }
+                    }
+                }
+            }
+            return;
+        }
+
         if let Some(line_index) = self
             .log_buffer
             .viewport_to_log_index(self.viewport.selected_line)
@@ -1178,6 +1214,15 @@ impl App {
 
     pub fn toggle_all_filter_patterns(&mut self) {
         self.filter.toggle_all_patterns();
+        self.update_view();
+    }
+
+    pub fn toggle_show_marked_only(&mut self) {
+        if !self.filter.is_show_marked_only() && self.marking.count() == 0 {
+            return;
+        }
+
+        self.filter.toggle_show_marked_only();
         self.update_view();
     }
 

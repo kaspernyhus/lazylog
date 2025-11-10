@@ -133,6 +133,11 @@ impl Marking {
             .is_ok()
     }
 
+    /// Returns a slice of all marked line indices (sorted).
+    pub fn get_marked_indices(&self) -> Vec<usize> {
+        self.marked_lines.iter().map(|m| m.line_index).collect()
+    }
+
     /// Returns the number of marked lines.
     pub fn count(&self) -> usize {
         self.marked_lines.len()

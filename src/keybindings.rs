@@ -243,6 +243,7 @@ impl KeybindingRegistry {
         self.bind_simple(state.clone(), KeyCode::Char('g'), Command::GotoTop);
         self.bind_shift(state.clone(), 'G', Command::GotoBottom);
         self.bind_simple(state.clone(), KeyCode::Char('y'), Command::CopySelection);
+        self.bind_simple(state.clone(), KeyCode::Char(' '), Command::ToggleMark);
     }
 
     fn register_search_mode_bindings(&mut self) {
@@ -406,6 +407,7 @@ impl KeybindingRegistry {
             KeyCode::Char('n'),
             Command::ActivateMarkAddInputMode,
         );
+        self.bind_shift(state.clone(), 'F', Command::ToggleShowMarkedOnly)
     }
 
     fn register_message_state_bindings(&mut self) {
