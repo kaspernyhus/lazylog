@@ -11,7 +11,7 @@ use ratatui::{
 /// Calculates a centered popup area within the given rect.
 ///
 /// The popup will be centered with at least 2 characters margin on all sides.
-pub(super) fn popup_area(area: Rect, width: u16, height: u16) -> Rect {
+pub fn popup_area(area: Rect, width: u16, height: u16) -> Rect {
     let min_margin = 2;
 
     let max_width = area.width.saturating_sub(2 * min_margin);
@@ -86,7 +86,7 @@ impl App {
     pub(super) fn render_save_to_file_popup(&self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
 
-        let prompt = self.input_query.clone();
+        let prompt = self.input.value();
         let popup = Paragraph::new(prompt)
             .block(
                 Block::default()

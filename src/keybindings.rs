@@ -98,6 +98,8 @@ impl KeybindingRegistry {
             } else {
                 format!("Shift+{}", key_str)
             }
+        } else if modifiers.contains(KeyModifiers::ALT) {
+            format!("Alt+{}", key_str)
         } else if modifiers.is_empty() {
             key_str
         } else {
@@ -246,19 +248,28 @@ impl KeybindingRegistry {
     fn register_search_mode_bindings(&mut self) {
         let state = AppState::SearchMode;
 
-        self.bind_simple(state.clone(), KeyCode::Tab, Command::ToggleCaseSearch);
+        self.bind(
+            state.clone(),
+            KeyCode::Char('a'),
+            KeyModifiers::ALT,
+            Command::ToggleCaseSearch,
+        );
         self.bind_simple(state.clone(), KeyCode::Up, Command::SearchHistoryPrevious);
         self.bind_simple(state.clone(), KeyCode::Down, Command::SearchHistoryNext);
     }
 
     fn register_filter_mode_bindings(&mut self) {
         let state = AppState::FilterMode;
-
-        self.bind_simple(state.clone(), KeyCode::Tab, Command::ToggleCaseFilter);
-        self.bind_simple(state.clone(), KeyCode::Left, Command::ToggleFilterModeInOut);
-        self.bind_simple(
+        self.bind(
             state.clone(),
-            KeyCode::Right,
+            KeyCode::Char('a'),
+            KeyModifiers::ALT,
+            Command::ToggleCaseFilter,
+        );
+        self.bind(
+            state.clone(),
+            KeyCode::Char('e'),
+            KeyModifiers::ALT,
             Command::ToggleFilterModeInOut,
         );
         self.bind_simple(state.clone(), KeyCode::Up, Command::FilterHistoryPrevious);
@@ -299,14 +310,16 @@ impl KeybindingRegistry {
             KeyCode::Char('a'),
             Command::ToggleAllFilterPatterns,
         );
-        self.bind_simple(
+        self.bind(
             state.clone(),
-            KeyCode::Tab,
+            KeyCode::Char('a'),
+            KeyModifiers::ALT,
             Command::ToggleFilterPatternCaseSensitive,
         );
-        self.bind_simple(
+        self.bind(
             state.clone(),
-            KeyCode::Char('m'),
+            KeyCode::Char('e'),
+            KeyModifiers::ALT,
             Command::ToggleFilterPatternMode,
         );
     }

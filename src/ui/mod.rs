@@ -5,7 +5,7 @@ mod popups;
 
 use crate::app::{App, AppState};
 use crate::colors::{GRAY_COLOR, WHITE_COLOR};
-use popups::popup_area;
+pub use popups::popup_area;
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Layout, Rect},

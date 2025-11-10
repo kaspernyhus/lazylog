@@ -5,6 +5,7 @@ use crate::colors::{
     MARK_LIST_HIGHLIGHT_BG, MARK_MODE_BG, MARK_NAME_FG, OPTION_DISABLED_FG, OPTION_ENABLED_FG,
     RIGHT_ARROW, WHITE_COLOR,
 };
+use crate::filter::FilterMode;
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Constraint, Layout, Rect},
@@ -81,12 +82,12 @@ impl App {
             .iter()
             .map(|pattern| {
                 let mode_str = match pattern.mode {
-                    crate::filter::FilterMode::Include => "IN",
-                    crate::filter::FilterMode::Exclude => "EX",
+                    FilterMode::Include => "IN",
+                    FilterMode::Exclude => "EX",
                 };
                 let case_str = if pattern.case_sensitive { "Aa" } else { "aa" };
 
-                let content = format!("[{}] [{}] {}", mode_str, case_str, pattern.pattern);
+                let content = format!(" [{}] [{}] {}", mode_str, case_str, pattern.pattern);
 
                 if pattern.enabled {
                     Line::from(content).style(Style::default().fg(FILTER_ENABLED_FG))
@@ -103,7 +104,7 @@ impl App {
 
         let filter_list = List::new(items)
             .block(block)
-            .highlight_symbol("")
+            .highlight_symbol(RIGHT_ARROW)
             .highlight_style(
                 Style::default()
                     .bg(FILTER_LIST_HIGHLIGHT_BG)
@@ -116,7 +117,7 @@ impl App {
     pub(super) fn render_edit_filter_popup(&self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
 
-        let edit_prompt = self.input_query.clone();
+        let edit_prompt = self.input.value();
         let popup = Paragraph::new(edit_prompt)
             .block(
                 Block::default()
@@ -402,7 +403,7 @@ impl App {
     pub(super) fn render_mark_name_input_popup(&self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
 
-        let input_text = self.input_query.clone();
+        let input_text = self.input.value();
         let popup = Paragraph::new(input_text)
             .block(
                 Block::default()

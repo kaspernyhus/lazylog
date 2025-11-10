@@ -106,13 +106,12 @@ impl App {
     }
 
     pub(super) fn render_search_footer(&self, area: Rect, buf: &mut Buffer) {
-        let case_sensitive = if self.search.is_case_sensitive() {
-            "Aa"
-        } else {
-            "aa"
-        };
-        let search_prompt =
-            Line::from(format!("Search: [{}] {}", case_sensitive, self.input_query)).left_aligned();
+        let search_prompt = Line::from(format!(
+            "{}{}",
+            self.get_input_prefix(),
+            self.input.value()
+        ))
+        .left_aligned();
         let progression_text = self.format_progression_text();
         let progression = Line::from(progression_text + " ").right_aligned();
 
@@ -130,20 +129,10 @@ impl App {
     }
 
     pub(super) fn render_filter_footer(&self, area: Rect, buf: &mut Buffer) {
-        let filter_mode = match self.filter.get_mode() {
-            crate::filter::FilterMode::Include => "IN",
-            crate::filter::FilterMode::Exclude => "EX",
-        };
-
-        let case_sensitive = if self.filter.is_case_sensitive() {
-            "Aa"
-        } else {
-            "aa"
-        };
-
         let filter_prompt = Line::from(format!(
-            "Filter: [{}] [{}] {}",
-            case_sensitive, filter_mode, self.input_query
+            "{}{}",
+            self.get_input_prefix(),
+            self.input.value()
         ))
         .left_aligned();
         let progression_text = self.format_progression_text();
@@ -163,8 +152,12 @@ impl App {
     }
 
     pub(super) fn render_mark_footer(&self, area: Rect, buf: &mut Buffer) {
-        let mark_prompt =
-            Line::from(format!("Add mark(s) from pattern: {}", self.input_query)).left_aligned();
+        let mark_prompt = Line::from(format!(
+            "{}{}",
+            self.get_input_prefix(),
+            self.input.value()
+        ))
+        .left_aligned();
         let progression_text = self.format_progression_text();
         let progression = Line::from(progression_text + " ").right_aligned();
 
@@ -177,7 +170,7 @@ impl App {
     }
 
     pub(super) fn render_goto_line_footer(&self, area: Rect, buf: &mut Buffer) {
-        let search_prompt = format!("Go to line: {}", self.input_query);
+        let search_prompt = format!("{}{}", self.get_input_prefix(), self.input.value());
         let search_bar = Paragraph::new(search_prompt)
             .style(Style::default().bg(FOOTER_BG))
             .alignment(Alignment::Left);

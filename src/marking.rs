@@ -1,3 +1,4 @@
+use crate::log::LogLine;
 use crate::utils::contains_ignore_case;
 use rayon::prelude::*;
 use std::cell::Cell;
@@ -97,7 +98,7 @@ impl Marking {
     pub fn create_marks_from_pattern<'a>(
         &mut self,
         pattern: &str,
-        lines: impl Iterator<Item = &'a crate::log::LogLine>,
+        lines: impl Iterator<Item = &'a LogLine>,
     ) {
         if pattern.is_empty() {
             return;
@@ -424,8 +425,6 @@ mod tests {
 
     #[test]
     fn test_create_marks_from_pattern_case_insensitive() {
-        use crate::log::LogLine;
-
         let log_lines = [
             LogLine::new("ERROR in caps".to_string(), 10),
             LogLine::new("error in lower".to_string(), 20),
@@ -446,8 +445,6 @@ mod tests {
 
     #[test]
     fn test_create_marks_from_pattern_uses_original_indices() {
-        use crate::log::LogLine;
-
         let log_lines = [
             LogLine::new("ERROR in module A".to_string(), 5),
             LogLine::new("info message".to_string(), 12),

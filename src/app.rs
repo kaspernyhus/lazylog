@@ -5,7 +5,7 @@ use crate::{
     },
     config::Config,
     event::{AppEvent, Event, EventHandler},
-    filter::{Filter, FilterPattern},
+    filter::{Filter, FilterMode, FilterPattern},
     help::Help,
     highlighter::{Highlighter, PatternStyle},
     keybindings::KeybindingRegistry,
@@ -16,13 +16,16 @@ use crate::{
     options::Options,
     persistence::{PersistedState, clear_all_state, load_state, save_state},
     search::Search,
+    ui::popup_area,
     viewport::Viewport,
 };
+use crossterm::event::Event::Key;
 use ratatui::{
     Terminal,
     backend::Backend,
     crossterm::event::{KeyCode, KeyEvent},
 };
+use tui_input::{Input, InputRequest, backend::crossterm::EventHandler as TuiEventHandler};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppState {
@@ -95,8 +98,8 @@ pub struct App {
     pub highlighter: Highlighter,
     /// Display options state.
     pub options: Options,
-    /// Current user input query (for search, filter, goto line, etc.).
-    pub input_query: String,
+    /// Text input widget.
+    pub input: Input,
     /// Indicates whether streaming is paused (only relevant in stdin/streaming mode).
     pub streaming_paused: bool,
     /// Log event tracker for managing log events.
@@ -147,7 +150,7 @@ impl App {
             events,
             log_buffer: LogBuffer::default(),
             viewport: Viewport::default(),
-            input_query: String::new(),
+            input: Input::default(),
             search: Search::default(),
             filter: Filter::with_patterns(filter_patterns),
             options: Options::default(),
@@ -266,33 +269,64 @@ impl App {
         self.needs_redraw = true;
     }
 
+    /// Returns the input prefix for the current state.
+    /// This is the single source of truth for input prefixes used in both rendering and cursor positioning.
+    pub fn get_input_prefix(&self) -> String {
+        match self.app_state {
+            AppState::SearchMode => {
+                let case_sensitive = if self.search.is_case_sensitive() {
+                    "Aa"
+                } else {
+                    "aa"
+                };
+                format!("Search: [{}] ", case_sensitive)
+            }
+            AppState::FilterMode => {
+                let filter_mode = match self.filter.get_mode() {
+                    FilterMode::Include => "IN",
+                    FilterMode::Exclude => "EX",
+                };
+                let case_sensitive = if self.filter.is_case_sensitive() {
+                    "Aa"
+                } else {
+                    "aa"
+                };
+                format!("Filter: [{}] [{}] ", case_sensitive, filter_mode)
+            }
+            AppState::GotoLineMode => "Go to line: ".to_string(),
+            AppState::SaveToFileMode => "Save to file: ".to_string(),
+            AppState::MarkAddInputMode => "Add mark(s) from pattern: ".to_string(),
+            _ => String::new(),
+        }
+    }
+
     fn update_temporary_highlights(&mut self) {
         self.highlighter.clear_temporary_highlights();
 
         // Add filter mode preview highlight
         if (self.app_state == AppState::FilterMode || self.app_state == AppState::EditFilterMode)
-            && self.input_query.len() >= 2
+            && self.input.value().chars().count() >= 2
         {
             self.highlighter.add_temporary_highlight(
-                self.input_query.clone(),
+                self.input.value().to_string(),
                 PatternStyle::new(Some(FILTER_MODE_FG), Some(FILTER_MODE_BG), true),
                 self.filter.is_case_sensitive(),
             );
         }
 
         // Add search mode preview highlight
-        if self.app_state == AppState::SearchMode && self.input_query.len() >= 2 {
+        if self.app_state == AppState::SearchMode && self.input.value().chars().count() >= 2 {
             self.highlighter.add_temporary_highlight(
-                self.input_query.clone(),
+                self.input.value().to_string(),
                 PatternStyle::new(Some(SEARCH_MODE_FG), Some(SEARCH_MODE_BG), true),
                 self.search.is_case_sensitive(),
             );
         }
 
         // Add mark add mode preview highlight
-        if self.app_state == AppState::MarkAddInputMode && self.input_query.len() >= 2 {
+        if self.app_state == AppState::MarkAddInputMode && self.input.value().chars().count() >= 2 {
             self.highlighter.add_temporary_highlight(
-                self.input_query.clone(),
+                self.input.value().to_string(),
                 PatternStyle::new(Some(MARK_MODE_FG), Some(MARK_MODE_BG), false),
                 false,
             );
@@ -321,14 +355,44 @@ impl App {
 
         while self.running {
             if self.needs_redraw {
-                terminal.draw(|frame| frame.render_widget(&self, frame.area()))?;
+                terminal.draw(|frame| {
+                    frame.render_widget(&self, frame.area());
+
+                    // Set cursor position for text input modes
+                    let cursor_pos = match self.app_state {
+                        AppState::SearchMode
+                        | AppState::FilterMode
+                        | AppState::GotoLineMode
+                        | AppState::MarkAddInputMode => {
+                            // Footer-based input modes
+                            let footer_y = frame.area().height.saturating_sub(1);
+                            let prefix_width = self.get_input_prefix().len();
+                            let cursor_x = (prefix_width + self.input.visual_cursor()) as u16;
+                            Some((cursor_x, footer_y))
+                        }
+                        AppState::EditFilterMode
+                        | AppState::MarkNameInputMode
+                        | AppState::SaveToFileMode => {
+                            // Popup-based input modes (cursor at x=1+visual_cursor, y=1, accounting for border)
+                            let popup_rect = popup_area(frame.area(), 60, 3);
+                            let cursor_x = popup_rect.x + 1 + self.input.visual_cursor() as u16;
+                            let cursor_y = popup_rect.y + 1;
+                            Some((cursor_x, cursor_y))
+                        }
+                        _ => None,
+                    };
+
+                    if let Some((x, y)) = cursor_pos {
+                        frame.set_cursor_position((x, y));
+                    }
+                })?;
                 self.needs_redraw = false;
             }
 
             match self.events.next().await? {
                 Event::Tick => self.tick(),
                 Event::Crossterm(event) => match event {
-                    crossterm::event::Event::Key(key_event) => {
+                    Key(key_event) => {
                         self.handle_key_events(key_event)?;
                         self.mark_dirty();
                     }
@@ -509,28 +573,28 @@ impl App {
 
     /// Handles text input for input modes.
     fn handle_text_input(&mut self, key_event: KeyEvent) {
-        match key_event.code {
-            KeyCode::Backspace => {
-                self.input_query.pop();
-            }
-            KeyCode::Char(c) => match self.app_state {
-                AppState::GotoLineMode => {
-                    if c.is_ascii_digit() {
-                        self.input_query.push(c);
-                    }
+        if self.app_state == AppState::GotoLineMode {
+            match key_event.code {
+                KeyCode::Char(c) if c.is_ascii_digit() => {
+                    self.input.handle(InputRequest::InsertChar(c));
+                }
+                KeyCode::Char(_) => {
+                    // Ignore non-digit characters
                 }
                 _ => {
-                    self.input_query.push(c);
+                    self.input.handle_event(&Key(key_event));
                 }
-            },
-            _ => {}
+            }
+            return;
         }
+
+        self.input.handle_event(&Key(key_event));
     }
 
     pub fn confirm(&mut self) {
         match self.app_state {
             AppState::SearchMode => {
-                if self.input_query.is_empty() {
+                if self.input.value().is_empty() {
                     self.search.clear_matches();
                 } else {
                     let lines = self
@@ -538,11 +602,11 @@ impl App {
                         .get_lines_iter(Interval::All)
                         .map(|log_line| log_line.content());
 
-                    if let Some(matches) = self.search.apply_pattern(&self.input_query, lines) {
+                    if let Some(matches) = self.search.apply_pattern(self.input.value(), lines) {
                         if matches == 0 {
                             self.next_state(AppState::Message(format!(
                                 "0 hits for '{}'",
-                                self.input_query
+                                self.input.value()
                             )));
                             return;
                         }
@@ -561,8 +625,8 @@ impl App {
                 self.next_state(AppState::LogView);
             }
             AppState::FilterMode => {
-                if !self.input_query.is_empty() {
-                    self.filter.add_filter(self.input_query.clone());
+                if !self.input.value().is_empty() {
+                    self.filter.add_filter(self.input.value().to_string());
                     self.update_view();
                 }
                 self.next_state(AppState::LogView);
@@ -587,7 +651,7 @@ impl App {
                 self.next_state(AppState::LogView);
             }
             AppState::GotoLineMode => {
-                if let Ok(line_number) = self.input_query.parse::<usize>() {
+                if let Ok(line_number) = self.input.value().parse::<usize>() {
                     let viewport_index = line_number.saturating_sub(1);
                     if line_number > 0 && viewport_index < self.viewport.total_lines {
                         self.push_viewport_line_to_history(viewport_index);
@@ -597,12 +661,12 @@ impl App {
                 self.next_state(AppState::LogView);
             }
             AppState::SaveToFileMode => {
-                if !self.input_query.is_empty() {
-                    match self.log_buffer.save_to_file(&self.input_query) {
+                if !self.input.value().is_empty() {
+                    match self.log_buffer.save_to_file(self.input.value()) {
                         Ok(_) => {
-                            let abs_path = std::fs::canonicalize(&self.input_query)
+                            let abs_path = std::fs::canonicalize(self.input.value())
                                 .map(|p| p.to_string_lossy().to_string())
-                                .unwrap_or_else(|_| self.input_query.clone());
+                                .unwrap_or_else(|_| self.input.value().to_string());
                             self.next_state(AppState::Message(format!(
                                 "Log saved to file:\n{}",
                                 abs_path
@@ -620,11 +684,9 @@ impl App {
                 }
             }
             AppState::EditFilterMode => {
-                if !self.input_query.is_empty()
-                    && self
-                        .filter
-                        .update_selected_pattern(self.input_query.clone())
-                {
+                if !self.input.value().is_empty() {
+                    self.filter
+                        .update_selected_pattern(self.input.value().to_string());
                     self.update_view();
                 }
                 self.next_state(AppState::FilterListView);
@@ -632,22 +694,20 @@ impl App {
             AppState::MarkNameInputMode => {
                 let filtered_marks = self.get_filtered_marks();
                 if let Some(mark) = filtered_marks.get(self.marking.selected_index()) {
-                    if !self.input_query.is_empty() {
-                        self.marking
-                            .set_mark_name(mark.line_index, self.input_query.clone());
-                    }
+                    self.marking
+                        .set_mark_name(mark.line_index, self.input.value().to_string());
                 }
                 self.next_state(AppState::MarksView);
             }
             AppState::MarkAddInputMode => {
-                if self.input_query.is_empty() {
+                if self.input.value().is_empty() {
                     self.next_state(AppState::MarksView);
                     return;
                 }
                 let count_before = self.marking.count();
                 let lines = self.log_buffer.get_lines_iter(Interval::All);
                 self.marking
-                    .create_marks_from_pattern(&self.input_query, lines);
+                    .create_marks_from_pattern(self.input.value(), lines);
                 let count_after = self.marking.count();
                 let new_marks = count_after - count_before;
                 if new_marks > 0 {
@@ -655,7 +715,7 @@ impl App {
                 } else {
                     self.next_state(AppState::Message(format!(
                         "No matches found for pattern '{}'",
-                        self.input_query
+                        self.input.value()
                     )));
                 }
             }
@@ -811,7 +871,7 @@ impl App {
     }
 
     pub fn activate_search_mode(&mut self) {
-        self.input_query.clear();
+        self.input.reset();
         self.search.clear_matches();
         self.search.reset_case_sensitive();
         self.search.history.reset();
@@ -819,12 +879,12 @@ impl App {
     }
 
     pub fn activate_goto_line_mode(&mut self) {
-        self.input_query.clear();
+        self.input.reset();
         self.next_state(AppState::GotoLineMode);
     }
 
     pub fn activate_filter_mode(&mut self) {
-        self.input_query.clear();
+        self.input.reset();
         self.filter.reset_mode();
         self.filter.reset_case_sensitive();
         self.filter.history.reset();
@@ -836,8 +896,8 @@ impl App {
     }
 
     pub fn activate_edit_filter_mode(&mut self) {
-        if let Some(pattern) = self.filter.get_selected_pattern() {
-            self.input_query = pattern.pattern.clone();
+        if let Some(filter) = self.filter.get_selected_pattern() {
+            self.input = Input::new(filter.pattern.clone());
             self.next_state(AppState::EditFilterMode);
         }
     }
@@ -882,24 +942,22 @@ impl App {
         let filtered_marks = self.get_filtered_marks();
         if let Some(mark) = filtered_marks.get(self.marking.selected_index()) {
             if let Some(name) = &mark.name {
-                self.input_query = name.clone();
+                self.input = Input::new(name.clone());
             } else {
-                self.input_query.clear();
+                self.input.reset();
             }
             self.next_state(AppState::MarkNameInputMode);
-        } else {
-            self.input_query.clear();
         }
     }
 
     pub fn activate_mark_add_input_mode(&mut self) {
-        self.input_query.clear();
+        self.input.reset();
         self.next_state(AppState::MarkAddInputMode);
     }
 
     pub fn activate_save_to_file_mode(&mut self) {
         if self.log_buffer.streaming {
-            self.input_query.clear();
+            self.input.reset();
             self.next_state(AppState::SaveToFileMode);
         }
     }
@@ -916,13 +974,15 @@ impl App {
     pub fn toggle_case_sensitive(&mut self) {
         self.search.toggle_case_sensitive();
         self.filter.toggle_case_sensitive();
-        if !self.input_query.is_empty() && self.app_state == AppState::SearchMode {
+
+        if self.app_state == AppState::SearchMode {
             let lines = self
                 .log_buffer
                 .get_lines_iter(Interval::All)
                 .map(|log_line| log_line.content());
-            self.search.update_matches(&self.input_query, lines);
+            self.search.update_matches(self.input.value(), lines);
         }
+
         self.update_temporary_highlights();
     }
 
@@ -1124,24 +1184,24 @@ impl App {
 
     pub fn search_history_previous(&mut self) {
         if let Some(history_query) = self.search.history.previous_record().cloned() {
-            self.input_query = history_query;
+            self.input = Input::new(history_query);
             self.update_temporary_highlights();
         }
     }
 
     pub fn search_history_next(&mut self) {
         if let Some(history_query) = self.search.history.next_record().cloned() {
-            self.input_query = history_query;
+            self.input = Input::new(history_query);
             self.update_temporary_highlights();
         } else {
-            self.input_query.clear();
+            self.input.reset();
             self.update_temporary_highlights();
         }
     }
 
     pub fn filter_history_previous(&mut self) {
         if let Some(history_entry) = self.filter.history.previous_record().cloned() {
-            self.input_query = history_entry.pattern;
+            self.input = Input::new(history_entry.pattern);
             self.filter.set_mode(history_entry.mode);
             self.filter.set_case_sensitive(history_entry.case_sensitive);
             self.update_temporary_highlights();
@@ -1150,12 +1210,12 @@ impl App {
 
     pub fn filter_history_next(&mut self) {
         if let Some(history_entry) = self.filter.history.next_record().cloned() {
-            self.input_query = history_entry.pattern;
+            self.input = Input::new(history_entry.pattern);
             self.filter.set_mode(history_entry.mode);
             self.filter.set_case_sensitive(history_entry.case_sensitive);
             self.update_temporary_highlights();
         } else {
-            self.input_query.clear();
+            self.input.reset();
             self.filter.reset_mode();
             self.filter.reset_case_sensitive();
             self.update_temporary_highlights();
