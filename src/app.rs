@@ -502,6 +502,9 @@ impl App {
             }
         }
 
+        let marks = self.marking.get_marks();
+        self.event_tracker.set_marks(&marks);
+
         let event_filter_states: Vec<(String, bool)> = state
             .event_filters()
             .iter()
@@ -650,8 +653,7 @@ impl App {
                 self.next_state(AppState::LogView);
             }
             AppState::EventsView => {
-                if let Some(selected_event) = self.event_tracker.get_selected_event() {
-                    let target_line = selected_event.line_index;
+                if let Some(target_line) = self.event_tracker.get_selected_line_index() {
                     if let Some(active_line) =
                         self.log_buffer.find_closest_line_by_index(target_line)
                     {
@@ -714,6 +716,8 @@ impl App {
                 if let Some(mark) = filtered_marks.get(self.marking.selected_index()) {
                     self.marking
                         .set_mark_name(mark.line_index, self.input.value().to_string());
+                    let marks = self.marking.get_marks();
+                    self.event_tracker.set_marks(&marks);
                 }
                 self.next_state(AppState::MarksView);
             }
@@ -1013,15 +1017,15 @@ impl App {
                     }
                 }
             }
-            return;
-        }
-
-        if let Some(line_index) = self
+        } else if let Some(line_index) = self
             .log_buffer
             .viewport_to_log_index(self.viewport.selected_line)
         {
             self.marking.toggle_mark(line_index);
         }
+
+        let marks = self.marking.get_marks();
+        self.event_tracker.set_marks(&marks);
     }
 
     pub fn toggle_case_sensitive(&mut self) {
@@ -1236,6 +1240,12 @@ impl App {
             .select_nearest_event(self.viewport.selected_line);
     }
 
+    pub fn toggle_show_marks_in_events(&mut self) {
+        self.event_tracker.toggle_show_marks();
+        let marks = self.marking.get_marks();
+        self.event_tracker.set_marks(&marks);
+    }
+
     pub fn toggle_all_event_filters(&mut self) {
         self.event_tracker.toggle_all_filters();
         self.event_tracker
@@ -1288,13 +1298,15 @@ impl App {
         let filtered_marks = self.get_filtered_marks();
         if let Some(mark) = filtered_marks.get(self.marking.selected_index()) {
             self.marking.unmark(mark.line_index);
+            let marks = self.marking.get_marks();
+            self.event_tracker.set_marks(&marks);
         }
     }
 
     pub fn goto_selected_event(&mut self) {
-        if let Some(event) = self.event_tracker.get_selected_event() {
-            self.viewport.push_history(event.line_index);
-            self.goto_line(event.line_index);
+        if let Some(line_index) = self.event_tracker.get_selected_line_index() {
+            self.viewport.push_history(line_index);
+            self.goto_line(line_index);
         }
     }
 

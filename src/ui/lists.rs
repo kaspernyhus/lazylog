@@ -157,11 +157,11 @@ impl App {
         let [list_area, scrollbar_area] =
             Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(inner_area);
 
-        let max_name_length = self
-            .event_tracker
-            .events()
+        let event_items: Vec<_> = self.event_tracker.iter_items().collect();
+
+        let max_name_length = event_items
             .iter()
-            .map(|e| e.event_name.len())
+            .map(|item| item.name().len())
             .max()
             .unwrap_or(0);
 
@@ -172,8 +172,8 @@ impl App {
             .max(20) as usize; // Minimum 20 characters
 
         let mut items: Vec<Line> = Vec::new();
-        for event in self.event_tracker.events() {
-            let log_line = self.log_buffer.get_line(event.line_index);
+        for item in &event_items {
+            let log_line = self.log_buffer.get_line(item.line_index());
 
             if let Some(log_line) = log_line {
                 let content = log_line.content();
@@ -183,19 +183,23 @@ impl App {
                     content.to_string()
                 };
 
-                let padding = " ".repeat(max_name_length - event.event_name.len());
+                let padding = " ".repeat(max_name_length - item.name().len());
+
+                let (name_color, preview_color) = if item.is_mark() {
+                    (MARK_MODE_BG, MARK_LINE_PREVIEW)
+                } else {
+                    (EVENT_NAME_FG, EVENT_LINE_PREVIEW)
+                };
 
                 let spans = vec![
                     Span::raw(" "),
                     Span::raw(padding),
                     Span::styled(
-                        event.event_name.clone(),
-                        Style::default()
-                            .fg(EVENT_NAME_FG)
-                            .add_modifier(Modifier::BOLD),
+                        item.name().to_string(),
+                        Style::default().fg(name_color).add_modifier(Modifier::BOLD),
                     ),
                     Span::raw(" "),
-                    Span::styled(preview, Style::default().fg(EVENT_LINE_PREVIEW)),
+                    Span::styled(preview, Style::default().fg(preview_color)),
                 ];
 
                 items.push(Line::from(spans));

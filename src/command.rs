@@ -61,6 +61,7 @@ pub enum Command {
     GotoSelectedEvent,
     ToggleEventFilter,
     ToggleAllEventFilters,
+    ToggleShowMarksInEvents,
 
     // Marks
     ToggleMark,
@@ -146,6 +147,7 @@ impl Command {
             Command::GotoSelectedEvent => "Go to selected event",
             Command::ToggleEventFilter => "Toggle event filter",
             Command::ToggleAllEventFilters => "Toggle all event filters",
+            Command::ToggleShowMarksInEvents => "Include marks in events view",
 
             // Marks
             Command::ToggleMark => "Toggle mark on line",
@@ -231,6 +233,7 @@ impl Command {
             Command::GotoSelectedEvent => app.goto_selected_event(),
             Command::ToggleEventFilter => app.toggle_event_filter(),
             Command::ToggleAllEventFilters => app.toggle_all_event_filters(),
+            Command::ToggleShowMarksInEvents => app.toggle_show_marks_in_events(),
 
             // Marks
             Command::ToggleMark => app.toggle_mark(),

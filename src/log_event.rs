@@ -1,5 +1,6 @@
 use crate::highlighter::HighlightPattern;
 use crate::log::{Interval, LogBuffer, LogLine};
+use crate::marking::Mark;
 use crate::processing::{count_events, scan_for_events};
 use std::cell::Cell;
 use std::collections::HashMap;
@@ -22,11 +23,40 @@ pub struct EventFilter {
     pub enabled: bool,
 }
 
+/// Display item that can be either an event or a mark
+#[derive(Debug, Clone)]
+pub enum EventOrMark<'a> {
+    Event(&'a LogEvent),
+    Mark(&'a Mark),
+}
+
+impl EventOrMark<'_> {
+    pub fn line_index(&self) -> usize {
+        match self {
+            EventOrMark::Event(e) => e.line_index,
+            EventOrMark::Mark(m) => m.line_index,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        match self {
+            EventOrMark::Event(e) => &e.event_name,
+            EventOrMark::Mark(m) => m.name.as_deref().unwrap_or("MARK"),
+        }
+    }
+
+    pub fn is_mark(&self) -> bool {
+        matches!(self, EventOrMark::Mark(_))
+    }
+}
+
 /// Manages log event tracking and scanning.
 #[derive(Debug, Default)]
 pub struct LogEventTracker {
     /// Events sorted by line_index.
     events: Vec<LogEvent>,
+    /// Marks to show in the events view (cached)
+    marks: Vec<Mark>,
     /// Currently selected event index
     selected_index: usize,
     /// Viewport offset for scrolling the list
@@ -43,6 +73,8 @@ pub struct LogEventTracker {
     filter_selected_index: usize,
     /// Tracks whether the event list needs rescanning
     needs_rescan: bool,
+    /// Whether to show marks in the events view
+    show_marks: bool,
 }
 
 impl LogEventTracker {
@@ -111,37 +143,96 @@ impl LogEventTracker {
         }
     }
 
-    /// Returns a slice of all tracked events.
-    pub fn events(&self) -> &[LogEvent] {
-        &self.events
+    /// Updates the cached marks.
+    pub fn set_marks(&mut self, marks: &[&Mark]) {
+        self.marks = marks.iter().map(|&m| m.clone()).collect();
     }
 
-    /// Returns the number of tracked events.
+    /// Returns a vector of combined events and marks in sorted order by line_index.
+    fn get_combined_items(&self) -> Vec<EventOrMark> {
+        let mut result = Vec::new();
+
+        if self.show_marks {
+            let mut event_idx = 0;
+            let mut mark_idx = 0;
+
+            while event_idx < self.events.len() || mark_idx < self.marks.len() {
+                match (self.events.get(event_idx), self.marks.get(mark_idx)) {
+                    (Some(e), Some(m)) if e.line_index <= m.line_index => {
+                        result.push(EventOrMark::Event(e));
+                        event_idx += 1;
+                    }
+                    (Some(_), Some(m)) => {
+                        result.push(EventOrMark::Mark(m));
+                        mark_idx += 1;
+                    }
+                    (Some(e), None) => {
+                        result.push(EventOrMark::Event(e));
+                        event_idx += 1;
+                    }
+                    (None, Some(m)) => {
+                        result.push(EventOrMark::Mark(m));
+                        mark_idx += 1;
+                    }
+                    (None, None) => break,
+                }
+            }
+        } else {
+            for event in &self.events {
+                result.push(EventOrMark::Event(event));
+            }
+        }
+
+        result
+    }
+
+    /// Returns an iterator over events and marks combined in sorted order by line_index.
+    pub fn iter_items(&self) -> impl Iterator<Item = EventOrMark> {
+        self.get_combined_items().into_iter()
+    }
+
+    /// Toggles whether marks are shown in the events view.
+    pub fn toggle_show_marks(&mut self) {
+        self.show_marks = !self.show_marks;
+    }
+
+    /// Returns whether marks are shown in the events view.
+    pub fn showing_marks(&self) -> bool {
+        self.show_marks
+    }
+
+    /// Returns the number of items in the combined view.
     pub fn count(&self) -> usize {
-        self.events.len()
+        if self.show_marks {
+            self.events.len() + self.marks.len()
+        } else {
+            self.events.len()
+        }
     }
 
-    /// Returns true if no events are tracked.
+    /// Returns true if no events/marks are in the combined view.
     pub fn is_empty(&self) -> bool {
-        self.events.is_empty()
+        if self.show_marks {
+            self.events.is_empty() && self.marks.is_empty()
+        } else {
+            self.events.is_empty()
+        }
     }
 
-    /// Finds the index of the event nearest to the given line number.
-    pub fn find_nearest_event(&self, line_index: usize) -> Option<usize> {
-        if self.events.is_empty() {
+    /// Finds the index of the item nearest to the given line number.
+    pub fn find_nearest(&self, line_index: usize) -> Option<usize> {
+        if self.is_empty() {
             return None;
         }
 
-        match self
-            .events
-            .binary_search_by_key(&line_index, |e| e.line_index)
-        {
+        let items = self.get_combined_items();
+        match items.binary_search_by_key(&line_index, |item| item.line_index()) {
             Ok(idx) => Some(idx),
             Err(0) => Some(0),
-            Err(idx) if idx >= self.events.len() => Some(self.events.len() - 1),
+            Err(idx) if idx >= items.len() => Some(items.len() - 1),
             Err(idx) => {
-                let dist_before = line_index - self.events[idx - 1].line_index;
-                let dist_after = self.events[idx].line_index - line_index;
+                let dist_before = line_index - items[idx - 1].line_index();
+                let dist_after = items[idx].line_index() - line_index;
                 Some(if dist_before <= dist_after {
                     idx - 1
                 } else {
@@ -151,14 +242,10 @@ impl LogEventTracker {
         }
     }
 
-    /// Gets the event at the specified index.
-    pub fn get(&self, index: usize) -> Option<&LogEvent> {
-        self.events.get(index)
-    }
-
-    /// Gets the currently selected event.
-    pub fn get_selected_event(&self) -> Option<&LogEvent> {
-        self.events.get(self.selected_index)
+    /// Gets the line index of the currently selected item.
+    pub fn get_selected_line_index(&self) -> Option<usize> {
+        let items = self.get_combined_items();
+        items.get(self.selected_index).map(|item| item.line_index())
     }
 
     /// Gets the currently selected index.
@@ -178,7 +265,8 @@ impl LogEventTracker {
 
     /// Adjusts the viewport offset to keep the selected item visible.
     fn adjust_viewport(&mut self) {
-        if self.events.is_empty() {
+        let total_count = self.count();
+        if total_count == 0 {
             self.viewport_offset = 0;
             return;
         }
@@ -197,7 +285,7 @@ impl LogEventTracker {
         }
 
         // Ensure viewport doesn't go past the end
-        let max_offset = self.events.len().saturating_sub(viewport_height);
+        let max_offset = total_count.saturating_sub(viewport_height);
         self.viewport_offset = self.viewport_offset.min(max_offset);
     }
 
@@ -205,7 +293,7 @@ impl LogEventTracker {
     ///
     /// This also returns the index that was set, or `None` if there are no events.
     pub fn select_nearest_event(&mut self, current_line: usize) -> Option<usize> {
-        if let Some(nearest_index) = self.find_nearest_event(current_line) {
+        if let Some(nearest_index) = self.find_nearest(current_line) {
             self.selected_index = nearest_index;
             Some(nearest_index)
         } else {
@@ -216,7 +304,8 @@ impl LogEventTracker {
 
     /// Moves selection up (wraps to bottom).
     pub fn move_selection_up(&mut self) {
-        if !self.events.is_empty() && self.selected_index > 0 {
+        let total_count = self.count();
+        if total_count > 0 && self.selected_index > 0 {
             self.selected_index -= 1;
             self.adjust_viewport();
         }
@@ -224,23 +313,26 @@ impl LogEventTracker {
 
     /// Moves selection down (wraps to top).
     pub fn move_selection_down(&mut self) {
-        if !self.events.is_empty() && self.selected_index < self.events.len() - 1 {
+        let total_count = self.count();
+        if total_count > 0 && self.selected_index < total_count - 1 {
             self.selected_index += 1;
             self.adjust_viewport();
         }
     }
 
-    /// Selects the last (most recent) event in the list.
+    /// Selects the last (most recent) item in the list.
     pub fn select_last_event(&mut self) {
-        if !self.events.is_empty() {
-            self.selected_index = self.events.len() - 1;
+        let total_count = self.count();
+        if total_count > 0 {
+            self.selected_index = total_count - 1;
             self.adjust_viewport();
         }
     }
 
     /// Moves selection up by half a page.
     pub fn selection_page_up(&mut self) {
-        if !self.events.is_empty() {
+        let total_count = self.count();
+        if total_count > 0 {
             let page_size = self.viewport_height.get().saturating_sub(1).max(1) / 2; // At least 1
             self.selected_index = self.selected_index.saturating_sub(page_size);
             self.adjust_viewport();
@@ -249,9 +341,10 @@ impl LogEventTracker {
 
     /// Moves selection down by half a page.
     pub fn selection_page_down(&mut self) {
-        if !self.events.is_empty() {
+        let total_count = self.count();
+        if total_count > 0 {
             let page_size = self.viewport_height.get().saturating_sub(1).max(1) / 2; // At least 1
-            self.selected_index = (self.selected_index + page_size).min(self.events.len() - 1);
+            self.selected_index = (self.selected_index + page_size).min(total_count - 1);
             self.adjust_viewport();
         }
     }
