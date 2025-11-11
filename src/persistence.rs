@@ -5,6 +5,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
+use tracing::info;
 
 #[derive(Serialize, Deserialize)]
 pub struct PersistedState {
@@ -12,12 +13,17 @@ pub struct PersistedState {
     log_file_path: String,
     viewport: ViewportState,
     search_history: Vec<String>,
-    #[serde(default)]
     filter_history: Vec<FilterHistoryEntry>,
     filters: Vec<FilterPatternState>,
     marks: Vec<MarkState>,
-    #[serde(default)]
     event_filters: Vec<EventFilterState>,
+    options: Vec<OptionState>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct OptionState {
+    name: String,
+    enabled: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -90,6 +96,15 @@ impl PersistedState {
                     enabled: ef.enabled,
                 })
                 .collect(),
+            options: app
+                .options
+                .options
+                .iter()
+                .map(|opt| OptionState {
+                    name: opt.name.clone(),
+                    enabled: opt.enabled,
+                })
+                .collect(),
         }
     }
 }
@@ -131,12 +146,14 @@ pub fn load_state(file_path: &str) -> Option<PersistedState> {
                     None
                 }
             }
-            Err(_) => {
+            Err(e) => {
+                info!("Failed to deserialize state file {:?}: {}", state_path, e);
                 // Corrupted state file, ignore it
                 None
             }
         },
-        Err(_) => {
+        Err(e) => {
+            info!("Failed to read state file {:?}: {}", state_path, e);
             // Can't read file, ignore it
             None
         }
@@ -238,6 +255,13 @@ impl PersistedState {
 
     pub fn event_filters(&self) -> &[EventFilterState] {
         &self.event_filters
+    }
+
+    pub fn options(&self) -> Vec<(String, bool)> {
+        self.options
+            .iter()
+            .map(|opt| (opt.name.clone(), opt.enabled))
+            .collect()
     }
 }
 

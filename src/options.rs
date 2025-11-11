@@ -132,4 +132,13 @@ impl Options {
             .map(|o| o.enabled)
             .unwrap_or(false)
     }
+
+    /// Restore options from a saved state.
+    pub fn restore(&mut self, saved_options: &[(String, bool)]) {
+        for (name, enabled) in saved_options {
+            if let Some(option) = self.options.iter_mut().find(|o| o.name == *name) {
+                option.enabled = *enabled;
+            }
+        }
+    }
 }

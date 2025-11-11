@@ -463,6 +463,8 @@ impl App {
 
     /// Restores application state from a persisted state.
     fn restore_state(&mut self, state: PersistedState) {
+        self.options.restore(&state.options());
+
         self.search.history.restore(state.search_history().to_vec());
         self.filter.history.restore(state.filter_history().to_vec());
 
