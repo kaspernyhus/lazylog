@@ -1,0 +1,9 @@
+# Lazylog Filters File Example
+#
+# Use with: lazylog --filters path/to/filters.toml <logfile>
+
+filters = [
+    # Exclude debug and trace messages
+    { pattern = "WARNING", mode = "exclude", case_sensitive = false, enabled = true },
+    { pattern = "ERROR", mode = "exclude", case_sensitive = false, enabled = true },
+]

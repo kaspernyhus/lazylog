@@ -36,9 +36,14 @@ journalctl -f | lazylog
 Color highlighting patterns can be configured by creating a `config.toml` file:
 `~/.config/lazylog/config.toml`
 
-Or use a custom config file with the `-c` option:
+Use a custom config file with the `-c` option:
 ```bash
 lazylog -c /path/to/config.toml myapp.log
+```
+
+Load predefined filters from a separate file with the `-f` or `--filters` option:
+```bash
+lazylog --filters /path/to/filters.toml myapp.log
 ```
 
 ### Color Configuration
@@ -72,7 +77,7 @@ filters = [
 
 **Supported colors:** red, green, yellow, blue, magenta, cyan, white, black, gray, lightred, lightgreen, lightyellow, lightblue, lightmagenta, lightcyan, darkgray
 
-See `examples/config.toml` for a complete example.
+See `examples/config.toml` for a complete configuration example and `examples/filters.toml` for a filters file example.
 
 ## Development
 Clone the repository and build with Cargo:

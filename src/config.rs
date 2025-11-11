@@ -1,3 +1,4 @@
+use crate::filter::{FilterMode, FilterPattern};
 use crate::highlighter::{HighlightPattern, Highlighter, PatternMatchType, PatternStyle};
 use ratatui::style::Color;
 use serde::Deserialize;
@@ -12,6 +13,13 @@ pub struct Config {
     /// Event patterns for coloring and tracking.
     #[serde(default)]
     pub events: Vec<EventConfig>,
+    /// Predefined filters.
+    #[serde(default)]
+    pub filters: Vec<FilterConfig>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct Filters {
     /// Predefined filters.
     #[serde(default)]
     pub filters: Vec<FilterConfig>,
@@ -76,6 +84,43 @@ pub struct FilterConfig {
 
 fn default_true() -> bool {
     true
+}
+
+impl Filters {
+    /// Load filters from a specified file path.
+    pub fn load(path: &Option<String>) -> Option<Self> {
+        path.as_ref().and_then(|p| {
+            let filters_path = PathBuf::from(p);
+            if filters_path.exists() {
+                match std::fs::read_to_string(&filters_path) {
+                    Ok(content) => toml::from_str(&content).ok(),
+                    Err(_) => None,
+                }
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Convert to FilterPattern vector.
+    pub fn parse_filter_patterns(&self) -> Vec<crate::filter::FilterPattern> {
+        self.filters
+            .iter()
+            .map(|filter_config| {
+                let mode = match filter_config.mode.to_lowercase().as_str() {
+                    "exclude" => FilterMode::Exclude,
+                    _ => FilterMode::Include,
+                };
+
+                FilterPattern {
+                    pattern: filter_config.pattern.clone(),
+                    mode,
+                    case_sensitive: filter_config.case_sensitive,
+                    enabled: filter_config.enabled,
+                }
+            })
+            .collect()
+    }
 }
 
 impl Config {

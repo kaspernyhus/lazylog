@@ -4,7 +4,7 @@ use crate::{
         FILTER_MODE_BG, FILTER_MODE_FG, MARK_MODE_BG, MARK_MODE_FG, SEARCH_MODE_BG, SEARCH_MODE_FG,
     },
     completion::CompletionEngine,
-    config::Config,
+    config::{Config, Filters},
     event::{AppEvent, Event, EventHandler},
     filter::{Filter, FilterMode, FilterPattern},
     help::Help,
@@ -139,7 +139,11 @@ impl App {
 
         let config = Config::load(&args.config);
         let highlighter = config.build_highlighter();
-        let filter_patterns = config.parse_filter_patterns();
+
+        let mut filter_patterns = config.parse_filter_patterns();
+        if let Some(filters_file) = Filters::load(&args.filters) {
+            filter_patterns.extend(filters_file.parse_filter_patterns());
+        }
 
         let keybindings = KeybindingRegistry::new();
         let mut help = Help::new();

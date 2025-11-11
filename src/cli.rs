@@ -11,6 +11,10 @@ pub struct Cli {
     #[arg(short, long)]
     pub config: Option<String>,
 
+    /// Path to filters file (TOML file containing predefined filters)
+    #[arg(short, long)]
+    pub filters: Option<String>,
+
     /// Clear all persisted state files
     #[arg(long)]
     pub clear_state: bool,
