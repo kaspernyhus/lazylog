@@ -58,6 +58,8 @@ pub enum AppState {
     SaveToFileMode,
     /// Visual selection mode for selecting a range of lines.
     SelectionMode,
+    /// View for toggling source file visibility (merged view).
+    SourceFilesView,
     /// Display a message to the user.
     Message(String),
     /// Display an error message to the user.
@@ -107,6 +109,8 @@ pub struct App {
     pub event_tracker: LogEventTracker,
     /// Log line marking manager
     pub marking: Marking,
+    /// Selected index in source files list (for merged view).
+    pub source_file_selected_index: usize,
     /// Selection range for visual selection mode.
     selection_range: Option<(usize, usize)>,
     /// Timestamp when a message was shown.
@@ -165,6 +169,7 @@ impl App {
             streaming_paused: false,
             event_tracker: LogEventTracker::default(),
             marking: Marking::default(),
+            source_file_selected_index: 0,
             selection_range: None,
             message_timestamp: None,
             completion: CompletionEngine::default(),
@@ -180,14 +185,23 @@ impl App {
             return app;
         }
 
-        if let Some(file_path) = args.file {
-            match app.log_buffer.load_from_file(file_path.as_str()) {
+        if !args.files.is_empty() {
+            let load_result = if args.files.len() == 1 {
+                // Single file - use traditional loading
+                app.log_buffer.load_from_file(args.files[0].as_str())
+            } else {
+                // Multiple files - use merge loading
+                app.log_buffer.load_and_merge_files(&args.files)
+            };
+
+            match load_result {
                 Ok(_) => {
                     app.update_view();
                     app.update_completion_words();
 
-                    if app.persist_enabled {
-                        if let Some(state) = load_state(&file_path) {
+                    // Only restore state for single files
+                    if app.persist_enabled && args.files.len() == 1 {
+                        if let Some(state) = load_state(&args.files[0]) {
                             app.restore_state(state);
                         }
                     }
@@ -196,9 +210,10 @@ impl App {
                         .scan(&app.log_buffer, app.highlighter.events());
                 }
                 Err(e) => {
+                    let file_list = args.files.join(", ");
                     app.app_state = AppState::ErrorState(format!(
-                        "Failed to load file: {}\nError: {}",
-                        file_path, e
+                        "Failed to load file(s): {}\nError: {}",
+                        file_list, e
                     ))
                 }
             }
@@ -670,6 +685,17 @@ impl App {
                 self.options.enable_selected_option();
                 self.next_state(AppState::LogView);
             }
+            AppState::SourceFilesView => {
+                // Toggle the selected source file's visibility
+                if self.source_file_selected_index < self.log_buffer.source_files.len() {
+                    self.log_buffer
+                        .toggle_source_file_visibility(self.source_file_selected_index);
+                    // Reapply filters to update the view
+                    let marked_indices = self.marking.get_marked_indices();
+                    self.log_buffer.apply_filters(&self.filter, &marked_indices);
+                    self.update_view();
+                }
+            }
             AppState::MarksView => {
                 self.goto_selected_mark();
                 self.next_state(AppState::LogView);
@@ -781,6 +807,7 @@ impl App {
             }
             AppState::FilterListView
             | AppState::OptionsView
+            | AppState::SourceFilesView
             | AppState::EventsView
             | AppState::MarksView => {
                 self.next_state(AppState::LogView);
@@ -813,6 +840,11 @@ impl App {
         match self.app_state {
             AppState::FilterListView => self.filter.move_selection_up(),
             AppState::OptionsView => self.options.move_selection_up(),
+            AppState::SourceFilesView => {
+                if self.source_file_selected_index > 0 {
+                    self.source_file_selected_index -= 1;
+                }
+            }
             AppState::EventsView => {
                 self.event_tracker.move_selection_up();
                 self.viewport.follow_mode = false;
@@ -843,6 +875,13 @@ impl App {
         match self.app_state {
             AppState::FilterListView => self.filter.move_selection_down(),
             AppState::OptionsView => self.options.move_selection_down(),
+            AppState::SourceFilesView => {
+                if !self.log_buffer.source_files.is_empty()
+                    && self.source_file_selected_index < self.log_buffer.source_files.len() - 1
+                {
+                    self.source_file_selected_index += 1;
+                }
+            }
             AppState::EventsView => self.event_tracker.move_selection_down(),
             AppState::EventsFilterView => self.event_tracker.move_filter_selection_down(),
             AppState::MarksView => {
@@ -935,6 +974,14 @@ impl App {
 
     pub fn activate_options_view(&mut self) {
         self.next_state(AppState::OptionsView);
+    }
+
+    pub fn activate_source_files_view(&mut self) {
+        // Only allow in merged view
+        if self.log_buffer.is_merged_view() {
+            self.source_file_selected_index = 0;
+            self.next_state(AppState::SourceFilesView);
+        }
     }
 
     pub fn activate_events_view(&mut self) {

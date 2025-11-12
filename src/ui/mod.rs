@@ -69,6 +69,10 @@ impl Widget for &App {
             let options_area = popup_area(area, 42, 10);
             self.render_options(options_area, buf);
         }
+        if self.app_state == AppState::SourceFilesView {
+            let source_files_area = popup_area(area, 60, 12);
+            self.render_source_files_list(source_files_area, buf);
+        }
         if self.app_state == AppState::EventsView {
             let events_area = popup_area(area, 118, 35);
             self.render_events_list(events_area, buf);

@@ -23,6 +23,7 @@ impl KeybindingRegistry {
         registry.register_filter_mode_bindings();
         registry.register_filter_list_bindings();
         registry.register_options_view_bindings();
+        registry.register_source_files_view_bindings();
         registry.register_events_view_bindings();
         registry.register_event_filter_view_bindings();
         registry.register_marks_view_bindings();
@@ -35,6 +36,7 @@ impl KeybindingRegistry {
         registry.register_global_bindings(AppState::FilterMode);
         registry.register_global_bindings(AppState::FilterListView);
         registry.register_global_bindings(AppState::OptionsView);
+        registry.register_global_bindings(AppState::SourceFilesView);
         registry.register_global_bindings(AppState::EventsView);
         registry.register_global_bindings(AppState::EventsFilterView);
         registry.register_global_bindings(AppState::MarksView);
@@ -188,6 +190,7 @@ impl KeybindingRegistry {
             KeyCode::Char('o'),
             Command::ActivateOptionsView,
         );
+        self.bind_shift(state.clone(), 'S', Command::ActivateSourceFilesView);
         self.bind_simple(
             state.clone(),
             KeyCode::Char('e'),
@@ -341,6 +344,19 @@ impl KeybindingRegistry {
             KeyCode::Char(' '),
             Command::ToggleDisplayOption,
         );
+    }
+
+    fn register_source_files_view_bindings(&mut self) {
+        let state = AppState::SourceFilesView;
+
+        self.bind_simple(state.clone(), KeyCode::Char('q'), Command::Cancel);
+        self.bind_simple(state.clone(), KeyCode::Esc, Command::Cancel);
+        self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
+        self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
+        self.bind_simple(state.clone(), KeyCode::Char('j'), Command::MoveDown);
+        self.bind_simple(state.clone(), KeyCode::Char(' '), Command::Confirm);
+        self.bind_simple(state.clone(), KeyCode::Enter, Command::Confirm);
     }
 
     fn register_events_view_bindings(&mut self) {

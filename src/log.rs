@@ -1,4 +1,5 @@
 use crate::{filter::Filter, processing};
+use chrono::{DateTime, Utc};
 use rayon::prelude::*;
 
 /// A single log line with its content and original index.
@@ -8,6 +9,10 @@ pub struct LogLine {
     pub content: String,
     /// The original index of the line in the source.
     pub index: usize,
+    /// The source file ID (for merged log views).
+    pub source_file_id: Option<usize>,
+    /// The parsed timestamp (for merged log views).
+    pub timestamp: Option<DateTime<Utc>>,
 }
 
 /// Buffer for storing and managing log lines with filtering support.
@@ -21,6 +26,10 @@ pub struct LogBuffer {
     active_lines: Vec<usize>,
     /// Whether the buffer is in streaming mode (reading from stdin).
     pub streaming: bool,
+    /// Source file paths (for merged views).
+    pub source_files: Vec<String>,
+    /// Visibility of each source file (for merged views).
+    pub source_file_visibility: Vec<bool>,
 }
 
 /// Specifies which interval range of lines (potentially with filters) to retrieve from the buffer.
@@ -35,7 +44,27 @@ pub enum Interval {
 impl LogLine {
     /// Creates a new log line.
     pub fn new(content: String, index: usize) -> Self {
-        Self { content, index }
+        Self {
+            content,
+            index,
+            source_file_id: None,
+            timestamp: None,
+        }
+    }
+
+    /// Creates a new log line with source file and timestamp information.
+    pub fn new_with_metadata(
+        content: String,
+        index: usize,
+        source_file_id: Option<usize>,
+        timestamp: Option<DateTime<Utc>>,
+    ) -> Self {
+        Self {
+            content,
+            index,
+            source_file_id,
+            timestamp,
+        }
     }
 
     /// Returns the log message content of the log line.
@@ -88,7 +117,9 @@ impl LogBuffer {
     pub fn apply_filters(&mut self, filter: &Filter, marked_indices: &[usize]) {
         let filter_patterns = filter.get_filter_patterns();
         let show_marked_only = filter.is_show_marked_only();
-        if filter_patterns.is_empty() && !show_marked_only {
+        let source_file_visibility = self.source_file_visibility.clone();
+
+        if filter_patterns.is_empty() && !show_marked_only && !self.is_merged_view() {
             self.clear_filters();
         } else {
             self.active_lines = self
@@ -108,7 +139,13 @@ impl LogBuffer {
                         true
                     };
 
-                    if passes_text_filter && passes_marked_filter {
+                    let passes_source_visibility = if let Some(source_id) = log_line.source_file_id {
+                        source_file_visibility.get(source_id).copied().unwrap_or(true)
+                    } else {
+                        true
+                    };
+
+                    if passes_text_filter && passes_marked_filter && passes_source_visibility {
                         Some(index)
                     } else {
                         None
@@ -118,9 +155,29 @@ impl LogBuffer {
         }
     }
 
-    /// Clears all filters.
+    /// Clears all filters (but still respects source file visibility).
     pub fn clear_filters(&mut self) {
-        self.active_lines = (0..self.lines.len()).collect();
+        if self.is_merged_view() {
+            // In merged view, still need to filter by source visibility
+            self.active_lines = self
+                .lines
+                .iter()
+                .enumerate()
+                .filter_map(|(index, log_line)| {
+                    if let Some(source_id) = log_line.source_file_id {
+                        if self.source_file_visibility.get(source_id).copied().unwrap_or(true) {
+                            Some(index)
+                        } else {
+                            None
+                        }
+                    } else {
+                        Some(index)
+                    }
+                })
+                .collect();
+        } else {
+            self.active_lines = (0..self.lines.len()).collect();
+        }
     }
 
     /// Remove all lines and filters from the buffer. (Only in streaming mode.)
@@ -247,5 +304,111 @@ impl LogBuffer {
         }
 
         Some(best_match)
+    }
+
+    /// Loads and merges multiple log files, sorting by timestamp.
+    ///
+    /// Lines without parseable timestamps are skipped.
+    /// Returns an error if no files could be loaded or if no timestamps could be parsed.
+    pub fn load_and_merge_files(&mut self, paths: &[String]) -> color_eyre::Result<()> {
+        use crate::timestamp::parse_timestamp;
+
+        if paths.is_empty() {
+            return Err(color_eyre::eyre::eyre!("No files provided"));
+        }
+
+        self.streaming = false;
+        self.lines.clear();
+        self.source_files.clear();
+        self.source_file_visibility.clear();
+
+        let mut all_lines_with_metadata = Vec::new();
+        let mut lines_skipped = 0;
+        let mut total_lines_read = 0;
+
+        // Load each file
+        for (file_id, path) in paths.iter().enumerate() {
+            let content = std::fs::read_to_string(path)
+                .map_err(|e| color_eyre::eyre::eyre!("Failed to read file '{}': {}", path, e))?;
+
+            self.source_files.push(path.clone());
+            self.source_file_visibility.push(true);
+
+            // Parse each line
+            for (line_index, line_content) in content.lines().enumerate() {
+                total_lines_read += 1;
+
+                if let Some(timestamp) = parse_timestamp(line_content) {
+                    all_lines_with_metadata.push((
+                        line_content.to_string(),
+                        line_index,
+                        file_id,
+                        timestamp,
+                    ));
+                } else {
+                    lines_skipped += 1;
+                }
+            }
+        }
+
+        // Check if we parsed any timestamps
+        if all_lines_with_metadata.is_empty() {
+            return Err(color_eyre::eyre::eyre!(
+                "Failed to parse timestamps from any log lines. {} lines read, {} lines skipped.",
+                total_lines_read,
+                lines_skipped
+            ));
+        }
+
+        // Sort by timestamp
+        all_lines_with_metadata.sort_by_key(|(_, _, _, timestamp)| *timestamp);
+
+        // Create LogLines with proper global indexing
+        for (_global_index, (content, original_index, file_id, timestamp)) in
+            all_lines_with_metadata.into_iter().enumerate()
+        {
+            self.lines.push(LogLine::new_with_metadata(
+                content,
+                original_index,
+                Some(file_id),
+                Some(timestamp),
+            ));
+        }
+
+        // Set merged file_path indicator
+        if self.source_files.len() == 1 {
+            self.file_path = Some(self.source_files[0].clone());
+        } else {
+            self.file_path = Some(format!("<merged: {} files>", self.source_files.len()));
+        }
+
+        self.clear_filters();
+
+        // Log statistics
+        tracing::info!(
+            "Merged {} files: {} lines total, {} lines skipped (no timestamp)",
+            self.source_files.len(),
+            self.lines.len(),
+            lines_skipped
+        );
+
+        Ok(())
+    }
+
+    /// Checks if this buffer is displaying merged files.
+    pub fn is_merged_view(&self) -> bool {
+        self.source_files.len() > 1
+    }
+
+    /// Toggles visibility of a source file by ID.
+    pub fn toggle_source_file_visibility(&mut self, file_id: usize) {
+        if file_id < self.source_file_visibility.len() {
+            self.source_file_visibility[file_id] = !self.source_file_visibility[file_id];
+        }
+    }
+
+    /// Gets the count of visible source files.
+    pub fn get_visible_source_count(&self) -> usize {
+        self.source_file_visibility.iter().filter(|&&v| v).count()
     }
 }

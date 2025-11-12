@@ -7,10 +7,36 @@ use crate::log::Interval;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
-    style::{Modifier, Style},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{List, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget},
 };
+
+/// Color palette for source file indicators (cycles through these colors)
+const SOURCE_FILE_COLORS: &[Color] = &[
+    Color::Cyan,
+    Color::Yellow,
+    Color::Green,
+    Color::Magenta,
+    Color::Blue,
+    Color::Red,
+    Color::LightCyan,
+    Color::LightYellow,
+    Color::LightGreen,
+    Color::LightMagenta,
+    Color::LightBlue,
+    Color::LightRed,
+];
+
+/// Gets the symbol for a source file ID (A, B, C, etc.)
+pub(super) fn get_source_file_symbol(file_id: usize) -> char {
+    (b'A' + (file_id as u8 % 26)) as char
+}
+
+/// Gets the color for a source file ID
+pub(super) fn get_source_file_color(file_id: usize) -> Color {
+    SOURCE_FILE_COLORS[file_id % SOURCE_FILE_COLORS.len()]
+}
 
 impl App {
     /// Renders the vertical scrollbar.
@@ -33,13 +59,14 @@ impl App {
         let (start, end) = self.viewport.visible();
         let selection_range = self.get_selection_range();
 
-        let viewport_lines: Vec<(&str, usize)> = self
+        let viewport_lines: Vec<(&str, usize, Option<usize>)> = self
             .log_buffer
             .get_lines_iter(Interval::Range(start, end))
             .map(|log_line| {
                 (
                     self.options.apply_to_line(log_line.content()),
                     log_line.index,
+                    log_line.source_file_id,
                 )
             })
             .collect();
@@ -47,7 +74,7 @@ impl App {
         let items: Vec<Line> = viewport_lines
             .iter()
             .enumerate()
-            .map(|(viewport_idx, (line, line_index))| {
+            .map(|(viewport_idx, (line, line_index, source_file_id))| {
                 let text = if self.viewport.horizontal_offset >= line.len() {
                     ""
                 } else {
@@ -66,6 +93,7 @@ impl App {
                     self.viewport.horizontal_offset,
                     is_marked,
                     is_selected,
+                    *source_file_id,
                 )
             })
             .collect();
@@ -90,6 +118,7 @@ impl App {
         line_offset: usize,
         is_marked: bool,
         is_selected: bool,
+        source_file_id: Option<usize>,
     ) -> Line<'a> {
         let enable_colors = !self.options.is_enabled("Disable Colors");
 
@@ -103,14 +132,27 @@ impl App {
             Span::raw(" ")
         };
 
+        // Source file indicator (only in merged view)
+        let source_indicator = if let Some(file_id) = source_file_id {
+            let symbol = get_source_file_symbol(file_id);
+            let color = get_source_file_color(file_id);
+            Span::styled(
+                format!("[{}] ", symbol),
+                Style::default().fg(color).add_modifier(Modifier::BOLD),
+            )
+        } else {
+            Span::raw("")
+        };
+
         let mut line = if highlighted.segments.is_empty() {
-            let mut spans = vec![mark_indicator];
+            let mut spans = vec![mark_indicator, source_indicator];
             if !visible_text.is_empty() {
                 spans.push(Span::raw(visible_text));
             }
             Line::from(spans)
         } else {
             let mut line = build_line_from_highlighted(visible_text, highlighted);
+            line.spans.insert(0, source_indicator);
             line.spans.insert(0, mark_indicator);
             line
         };

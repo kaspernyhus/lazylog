@@ -421,4 +421,75 @@ impl App {
 
         popup.render(area, buf);
     }
+
+    pub(super) fn render_source_files_list(&self, area: Rect, buf: &mut Buffer) {
+        Clear.render(area, buf);
+
+        let block = Block::default()
+            .title(" Source Files ")
+            .title_alignment(Alignment::Center)
+            .title_style(Style::default().bold())
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(WHITE_COLOR));
+
+        if self.log_buffer.source_files.is_empty() {
+            let popup = Paragraph::new("Not in merged view")
+                .block(block)
+                .alignment(Alignment::Center);
+            popup.render(area, buf);
+            return;
+        }
+
+        let items: Vec<Line> = self
+            .log_buffer
+            .source_files
+            .iter()
+            .enumerate()
+            .map(|(file_id, file_path)| {
+                let checkbox = if self.log_buffer.source_file_visibility[file_id] {
+                    "[x]"
+                } else {
+                    "[ ]"
+                };
+
+                // Get the symbol and color for this file
+                let symbol = super::logview::get_source_file_symbol(file_id);
+                let color = super::logview::get_source_file_color(file_id);
+
+                // Extract filename from path
+                let filename = std::path::Path::new(file_path)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(file_path);
+
+                let spans = vec![
+                    Span::raw(format!("{} ", checkbox)),
+                    Span::styled(
+                        format!("[{}] ", symbol),
+                        Style::default().fg(color).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::raw(filename),
+                ];
+
+                Line::from(spans).style(if self.log_buffer.source_file_visibility[file_id] {
+                    Style::default().fg(OPTION_ENABLED_FG)
+                } else {
+                    Style::default().fg(OPTION_DISABLED_FG)
+                })
+            })
+            .collect();
+
+        let mut list_state = ListState::default();
+        if !self.log_buffer.source_files.is_empty() {
+            list_state.select(Some(self.source_file_selected_index));
+        }
+
+        let source_list = List::new(items)
+            .block(block)
+            .highlight_symbol(RIGHT_ARROW)
+            .highlight_style(Style::default().add_modifier(Modifier::BOLD));
+
+        StatefulWidget::render(source_list, area, buf, &mut list_state);
+    }
 }

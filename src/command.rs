@@ -55,6 +55,9 @@ pub enum Command {
     ActivateOptionsView,
     ToggleDisplayOption,
 
+    // Source Files (merged view)
+    ActivateSourceFilesView,
+
     // Events
     ActivateEventsView,
     ActivateEventFilterView,
@@ -141,6 +144,9 @@ impl Command {
             Command::ActivateOptionsView => "Display options",
             Command::ToggleDisplayOption => "Toggle option on/off",
 
+            // Source Files
+            Command::ActivateSourceFilesView => "Toggle source files (merged view)",
+
             // Events
             Command::ActivateEventsView => "View log events",
             Command::ActivateEventFilterView => "Filter events",
@@ -226,6 +232,9 @@ impl Command {
             // Display Options
             Command::ActivateOptionsView => app.activate_options_view(),
             Command::ToggleDisplayOption => app.options.toggle_selected_option(),
+
+            // Source Files
+            Command::ActivateSourceFilesView => app.activate_source_files_view(),
 
             // Events
             Command::ActivateEventsView => app.activate_events_view(),
