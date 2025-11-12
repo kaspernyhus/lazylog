@@ -84,6 +84,15 @@ impl App {
         if self.filter.is_show_marked_only() {
             left_parts.push("| marked only".to_string());
         }
+        if self.log_buffer.is_merged_view() {
+            let visible_count = self.log_buffer.get_visible_source_count();
+            let total_count = self.log_buffer.source_files.len();
+            if visible_count < total_count {
+                left_parts.push(format!("| {}/{} sources", visible_count, total_count));
+            } else {
+                left_parts.push(format!("| {} sources", total_count));
+            }
+        }
         let left = Line::from(left_parts.join(" "));
         let middle = Line::from("F1:View Help").centered();
 

@@ -36,3 +36,25 @@ filters = [
     { pattern = "DEBUG", mode = "exclude", case_sensitive = false, enabled = true },
     { pattern = "INFO", mode = "include", case_sensitive = true, enabled = false },
 ]
+
+# Multi-file merge configuration
+# When multiple log files are provided, they are merged and sorted by timestamp.
+[merge]
+# Custom timestamp formats to try (in addition to auto-detected formats).
+# Uses strptime format strings. Patterns are tried in order.
+# By default, the following formats are auto-detected:
+# - ISO 8601 / RFC 3339: 2024-01-15T10:30:45, 2024-01-15 10:30:45
+# - Syslog: Jan 15 10:30:45, 2024 Jan 15 10:30:45
+# custom_timestamp_formats = [
+#     "%Y-%m-%d %H:%M:%S%.f",
+#     "%d/%b/%Y:%H:%M:%S",
+# ]
+
+# Regular expression to extract timestamps from log lines.
+# If not specified, auto-detection is used.
+# Example for nginx logs: "\\d{2}/\\w{3}/\\d{4}:\\d{2}:\\d{2}:\\d{2}"
+# timestamp_regex = ""
+
+# Show statistics after merging (number of files, lines processed, lines skipped).
+# Default: true
+show_merge_stats = true

@@ -186,35 +186,57 @@ impl App {
         }
 
         if !args.files.is_empty() {
-            let load_result = if args.files.len() == 1 {
+            if args.files.len() == 1 {
                 // Single file - use traditional loading
-                app.log_buffer.load_from_file(args.files[0].as_str())
+                match app.log_buffer.load_from_file(args.files[0].as_str()) {
+                    Ok(_) => {
+                        app.update_view();
+                        app.update_completion_words();
+
+                        if app.persist_enabled {
+                            if let Some(state) = load_state(&args.files[0]) {
+                                app.restore_state(state);
+                            }
+                        }
+
+                        app.event_tracker
+                            .scan(&app.log_buffer, app.highlighter.events());
+                    }
+                    Err(e) => {
+                        app.app_state = AppState::ErrorState(format!(
+                            "Failed to load file: {}\nError: {}",
+                            args.files[0], e
+                        ))
+                    }
+                }
             } else {
                 // Multiple files - use merge loading
-                app.log_buffer.load_and_merge_files(&args.files)
-            };
+                match app.log_buffer.load_and_merge_files(&args.files) {
+                    Ok((lines_merged, lines_skipped)) => {
+                        app.update_view();
+                        app.update_completion_words();
 
-            match load_result {
-                Ok(_) => {
-                    app.update_view();
-                    app.update_completion_words();
+                        app.event_tracker
+                            .scan(&app.log_buffer, app.highlighter.events());
 
-                    // Only restore state for single files
-                    if app.persist_enabled && args.files.len() == 1 {
-                        if let Some(state) = load_state(&args.files[0]) {
-                            app.restore_state(state);
+                        // Show merge statistics as a brief message
+                        if lines_skipped > 0 {
+                            let msg = format!(
+                                "Merged {} files: {} lines merged, {} lines skipped (no timestamp)\nPress any key to continue",
+                                args.files.len(),
+                                lines_merged,
+                                lines_skipped
+                            );
+                            app.app_state = AppState::Message(msg);
                         }
                     }
-
-                    app.event_tracker
-                        .scan(&app.log_buffer, app.highlighter.events());
-                }
-                Err(e) => {
-                    let file_list = args.files.join(", ");
-                    app.app_state = AppState::ErrorState(format!(
-                        "Failed to load file(s): {}\nError: {}",
-                        file_list, e
-                    ))
+                    Err(e) => {
+                        let file_list = args.files.join(", ");
+                        app.app_state = AppState::ErrorState(format!(
+                            "Failed to merge files: {}\nError: {}",
+                            file_list, e
+                        ))
+                    }
                 }
             }
         }

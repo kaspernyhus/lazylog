@@ -310,7 +310,8 @@ impl LogBuffer {
     ///
     /// Lines without parseable timestamps are skipped.
     /// Returns an error if no files could be loaded or if no timestamps could be parsed.
-    pub fn load_and_merge_files(&mut self, paths: &[String]) -> color_eyre::Result<()> {
+    /// Returns (lines_merged, lines_skipped) on success.
+    pub fn load_and_merge_files(&mut self, paths: &[String]) -> color_eyre::Result<(usize, usize)> {
         use crate::timestamp::parse_timestamp;
 
         if paths.is_empty() {
@@ -392,7 +393,7 @@ impl LogBuffer {
             lines_skipped
         );
 
-        Ok(())
+        Ok((self.lines.len(), lines_skipped))
     }
 
     /// Checks if this buffer is displaying merged files.

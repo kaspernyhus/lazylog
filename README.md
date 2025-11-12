@@ -12,6 +12,7 @@ A terminal-based log viewer with search, filtering, and streaming capabilities.
 - **Event tracking** - Define event patterns and track these
 - **Syntax highlighting** - Configurable color patterns
 - **Save streams** - Export stdin streams to files
+- **Multi-file merging** - Merge multiple log files by timestamp
 
 ## Installation
 Installs to `/usr/local/bin/`
@@ -30,6 +31,22 @@ Stream from stdin:
 ```bash
 journalctl -f | lazylog
 ```
+
+Merge multiple log files by timestamp:
+```bash
+lazylog app.log server.log worker.log
+```
+
+When viewing merged logs:
+- Each line is prefixed with a colored symbol (`[A]`, `[B]`, `[C]`) indicating its source file
+- Lines are sorted chronologically by timestamp
+- Press `Shift+S` to open the source files menu
+- Use arrow keys or `j`/`k` to navigate, `Space` or `Enter` to toggle file visibility
+- The footer shows how many source files are visible (e.g., "2/3 sources")
+
+**Note:** Lines without parseable timestamps are skipped during merge. Supported timestamp formats include:
+- ISO 8601 / RFC 3339: `2024-01-15T10:30:45`, `2024-01-15 10:30:45`
+- Syslog: `Jan 15 10:30:45`, `2024 Jan 15 10:30:45`
 
 ## Configuration
 
@@ -73,6 +90,19 @@ filters = [
     { pattern = "DEBUG", mode = "exclude", case_sensitive = false, enabled = true },
     { pattern = "INFO", mode = "include", case_sensitive = true, enabled = false },
 ]
+```
+
+**Multi-file Merge Settings** - Configure timestamp parsing and merge behavior:
+```toml
+[merge]
+# Custom timestamp formats (optional, in addition to auto-detected formats)
+# custom_timestamp_formats = [
+#     "%Y-%m-%d %H:%M:%S%.f",
+#     "%d/%b/%Y:%H:%M:%S",
+# ]
+
+# Show merge statistics after loading (default: true)
+show_merge_stats = true
 ```
 
 **Supported colors:** red, green, yellow, blue, magenta, cyan, white, black, gray, lightred, lightgreen, lightyellow, lightblue, lightmagenta, lightcyan, darkgray
