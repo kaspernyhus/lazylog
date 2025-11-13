@@ -229,6 +229,8 @@ impl App {
             self.search.update_matches(&pattern, lines);
         }
 
+        self.update_processor_context();
+
         if num_lines == 0 {
             self.viewport.selected_line = 0;
             return;
@@ -247,8 +249,6 @@ impl App {
 
             self.viewport.goto_line(new_selected_line, false);
         }
-
-        self.update_processor_context();
     }
 
     fn update_processor_context(&self) {
