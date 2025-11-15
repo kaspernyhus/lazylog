@@ -273,13 +273,17 @@ impl LogEventTracker {
 
         let viewport_height = self.viewport_height.get();
 
+        if viewport_height == 0 {
+            return;
+        }
+
         // scroll up
         if self.selected_index < self.viewport_offset {
             self.viewport_offset = self.selected_index;
         }
 
         // scroll down
-        let bottom_threshold = self.viewport_offset + self.viewport_height.get().saturating_sub(1);
+        let bottom_threshold = self.viewport_offset + viewport_height.saturating_sub(1);
         if self.selected_index > bottom_threshold {
             self.viewport_offset = self.selected_index + 1 - viewport_height;
         }
@@ -295,9 +299,11 @@ impl LogEventTracker {
     pub fn select_nearest_event(&mut self, current_line: usize) -> Option<usize> {
         if let Some(nearest_index) = self.find_nearest(current_line) {
             self.selected_index = nearest_index;
+            self.adjust_viewport();
             Some(nearest_index)
         } else {
             self.selected_index = 0;
+            self.adjust_viewport();
             None
         }
     }
