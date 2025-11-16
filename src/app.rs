@@ -197,7 +197,7 @@ impl App {
         }
 
         if let Some(file_path) = args.file {
-            match app.log_buffer.load_from_file(file_path.as_str()) {
+            match app.log_buffer.load_file(file_path.as_str()) {
                 Ok(_) => {
                     app.update_view();
                     app.update_completion_words();

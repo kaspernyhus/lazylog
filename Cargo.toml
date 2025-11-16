@@ -32,3 +32,4 @@ rayon = "1.10"
 num-format = "0.4.4"
 arboard = { version = "3.4.1", features = ["wayland-data-control"] }
 tui-input = "0.14.0"
+chrono = "0.4"

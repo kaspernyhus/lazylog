@@ -10,4 +10,5 @@ pub mod log_event;
 pub mod marking;
 pub mod options;
 pub mod search;
+pub mod timestamp;
 pub mod utils;

@@ -1,4 +1,8 @@
-use crate::filter::{Filter, apply_filters};
+use crate::{
+    filter::{Filter, apply_filters},
+    timestamp::parse_timestamp,
+};
+use chrono::{DateTime, Utc};
 use rayon::prelude::*;
 
 /// A single log line with its content and original index.
@@ -8,6 +12,8 @@ pub struct LogLine {
     pub content: String,
     /// The original index of the line in the source.
     pub index: usize,
+    /// Parsed timestamp (if applicable).
+    pub timestamp: Option<DateTime<Utc>>,
 }
 
 /// Buffer for storing and managing log lines with filtering support.
@@ -35,7 +41,19 @@ pub enum Interval {
 impl LogLine {
     /// Creates a new log line.
     pub fn new(content: String, index: usize) -> Self {
-        Self { content, index }
+        Self {
+            content,
+            index,
+            timestamp: None,
+        }
+    }
+
+    pub fn with_timestamp(content: String, index: usize, timestamp: DateTime<Utc>) -> Self {
+        Self {
+            content,
+            index,
+            timestamp: Some(timestamp),
+        }
     }
 
     /// Returns the log message content of the log line.
@@ -46,7 +64,7 @@ impl LogLine {
 
 impl LogBuffer {
     /// Loads log lines from a file. (Not streaming mode.)
-    pub fn load_from_file(&mut self, path: &str) -> color_eyre::Result<()> {
+    pub fn load_file(&mut self, path: &str) -> color_eyre::Result<()> {
         let content = std::fs::read_to_string(path)?;
         self.file_path = Some(path.to_string());
         self.streaming = false;
@@ -56,6 +74,54 @@ impl LogBuffer {
             .map(|(index, line)| LogLine::new(line.to_string(), index))
             .collect();
         self.reset_active_lines();
+        Ok(())
+    }
+
+    pub fn load_files(&mut self, paths: &[String]) -> color_eyre::Result<()> {
+        if paths.is_empty() {
+            return Err(color_eyre::eyre::eyre!("No files provided"));
+        }
+
+        let mut total_lines_skipped = 0;
+        self.streaming = false;
+        self.file_path = Some(paths.join(", "));
+
+        for path in paths.iter() {
+            let content = std::fs::read_to_string(path)?;
+            let base_index = self.lines.len();
+
+            let mut file_lines: Vec<LogLine> = content
+                .lines()
+                .enumerate()
+                .filter_map(|(line_num, line)| {
+                    let index = base_index + line_num;
+                    if let Some(timestamp) = parse_timestamp(line) {
+                        Some(LogLine::with_timestamp(line.to_string(), index, timestamp))
+                    } else {
+                        total_lines_skipped += 1;
+                        None
+                    }
+                })
+                .collect();
+
+            self.lines.append(&mut file_lines);
+        }
+
+        self.reset_active_lines();
+
+        if total_lines_skipped > 0 {
+            return Err(color_eyre::eyre::eyre!(
+                "Failed to parse timestamp for {} lines",
+                total_lines_skipped
+            ));
+        }
+
+        self.lines.sort_by_key(|line| line.timestamp);
+
+        for (new_index, line) in self.lines.iter_mut().enumerate() {
+            line.index = new_index;
+        }
+
         Ok(())
     }
 
