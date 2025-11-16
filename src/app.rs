@@ -180,14 +180,20 @@ impl App {
             return app;
         }
 
-        if let Some(file_path) = args.file {
-            match app.log_buffer.load_file(file_path.as_str()) {
+        if !args.files.is_empty() {
+            let load_success = if args.files.len() == 1 {
+                app.log_buffer.load_file(args.files[0].as_str())
+            } else {
+                app.log_buffer.load_files(&args.files)
+            };
+
+            match load_success {
                 Ok(_) => {
                     app.update_view();
                     app.update_completion_words();
 
-                    if app.persist_enabled
-                        && let Some(state) = load_state(&file_path) {
+                    if app.persist_enabled {
+                        if let Some(state) = load_state(&args.files[0]) {
                             app.restore_state(state);
                         }
 
@@ -196,8 +202,8 @@ impl App {
                 }
                 Err(e) => {
                     app.app_state = AppState::ErrorState(format!(
-                        "Failed to load file: {}\nError: {}",
-                        file_path, e
+                        "Failed to load file(s): {}\nError: {}",
+                        args.files[0], e
                     ))
                 }
             }
