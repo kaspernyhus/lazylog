@@ -29,6 +29,7 @@ pub mod options;
 pub mod persistence;
 pub mod processing;
 pub mod search;
+pub mod timestamp;
 pub mod ui;
 pub mod utils;
 pub mod viewport;

@@ -9,4 +9,5 @@ pub mod marking;
 pub mod options;
 pub mod processing;
 pub mod search;
+pub mod timestamp;
 pub mod utils;
