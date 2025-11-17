@@ -61,3 +61,7 @@ pub const MESSAGE_ERROR_FG: Color = Color::Red;
 
 // Selection colors
 pub const SELECTION_BG: Color = Color::LightBlue;
+
+// File ID colors
+pub const FILE_ID_COLORS: &[Color] =
+    &[Color::Indexed(24), Color::Indexed(108), Color::Indexed(168)];
