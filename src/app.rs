@@ -197,29 +197,38 @@ impl App {
         }
 
         if !args.files.is_empty() {
-            let load_success = if args.files.len() == 1 {
+            let load_result = if args.files.len() == 1 {
                 app.log_buffer.load_file(args.files[0].as_str())
             } else {
                 app.log_buffer.load_files(&args.files)
             };
 
-            match load_success {
-                Ok(_) => {
+            match load_result {
+                Ok(skipped_lines) => {
                     app.update_view();
                     app.update_completion_words();
 
-                    if app.persist_enabled {
-                        if let Some(state) = load_state(&app.log_buffer.file_paths) {
-                            app.restore_state(state);
-                        }
+                    if app.persist_enabled
+                        && let Some(state) = load_state(&app.log_buffer.file_paths)
+                    {
+                        app.restore_state(state);
+                    }
 
-                        app.event_tracker
-                            .scan_all_lines(&app.log_buffer, app.highlighter.events());
-                        // Update active_lines cache after scanning events
-                        app.event_tracker.update_active_lines(app.log_buffer.get_active_lines());
+                    app.event_tracker
+                        .scan_all_lines(&app.log_buffer, app.highlighter.events());
+                    // Update active_lines cache after scanning events
+                    app.event_tracker.update_active_lines(app.log_buffer.get_active_lines());
+
+                    if skipped_lines > 0 {
+                        app.show_message(format!(
+                            "Warning: Failed to parse timestamps for {} line(s).\nThe line(s) will not be displayed in the correct order!",
+                            skipped_lines
+                        ).as_str());
                     }
                 }
-                Err(e) => app.show_error(format!("Failed to load file(s): {}\nError: {}", args.files[0], e).as_str()),
+                Err(e) => {
+                    app.show_error(format!("Failed to load file(s): {}\nError: {}", args.files.join(", "), e).as_str())
+                }
             }
         }
 
@@ -732,7 +741,6 @@ impl App {
                 {
                     self.viewport.goto_line(active_line, true);
                 }
-                self.set_view_state(ViewState::LogView);
             }
             ViewState::OptionsView => {
                 self.options.enable_selected_option();

@@ -59,7 +59,7 @@ impl LogLine {
 
 impl LogBuffer {
     /// Loads log lines from a file. (Not streaming mode.)
-    pub fn load_file(&mut self, path: &str) -> color_eyre::Result<()> {
+    pub fn load_file(&mut self, path: &str) -> color_eyre::Result<usize> {
         let content = std::fs::read_to_string(path)?;
         self.file_paths = vec![path.to_string()];
         self.streaming = false;
@@ -69,10 +69,10 @@ impl LogBuffer {
             .map(|(index, line)| LogLine::new(line.to_string(), index))
             .collect();
         self.reset_active_lines();
-        Ok(())
+        Ok(0)
     }
 
-    pub fn load_files(&mut self, paths: &[String]) -> color_eyre::Result<()> {
+    pub fn load_files(&mut self, paths: &[String]) -> color_eyre::Result<usize> {
         if paths.is_empty() {
             return Err(color_eyre::eyre::eyre!("No files provided"));
         }
@@ -87,17 +87,22 @@ impl LogBuffer {
             let mut file_lines: Vec<LogLine> = content
                 .lines()
                 .enumerate()
-                .filter_map(|(index, line)| {
+                .map(|(index, line)| {
                     if let Some(timestamp) = parse_timestamp(line) {
-                        Some(LogLine {
+                        LogLine {
                             content: line.to_string(),
                             index,
                             timestamp: Some(timestamp),
                             log_file_id: Some(file_id),
-                        })
+                        }
                     } else {
                         total_lines_skipped += 1;
-                        None
+                        LogLine {
+                            content: line.to_string(),
+                            index,
+                            timestamp: None,
+                            log_file_id: Some(file_id),
+                        }
                     }
                 })
                 .collect();
@@ -107,20 +112,19 @@ impl LogBuffer {
 
         self.reset_active_lines();
 
-        if total_lines_skipped > 0 {
-            return Err(color_eyre::eyre::eyre!(
-                "Failed to parse timestamp for {} lines",
-                total_lines_skipped
-            ));
-        }
-
-        self.lines.sort_by_key(|line| line.timestamp);
+        // Sort lines with timestamps first, then lines without timestamps
+        self.lines.sort_by(|a, b| match (&a.timestamp, &b.timestamp) {
+            (Some(ts_a), Some(ts_b)) => ts_a.cmp(ts_b),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => a.index.cmp(&b.index),
+        });
 
         for (new_index, line) in self.lines.iter_mut().enumerate() {
             line.index = new_index;
         }
 
-        Ok(())
+        Ok(total_lines_skipped)
     }
 
     /// Initializes the buffer for stdin streaming mode.
