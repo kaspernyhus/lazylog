@@ -193,7 +193,7 @@ impl App {
                     app.update_completion_words();
 
                     if app.persist_enabled {
-                        if let Some(state) = load_state(&args.files[0]) {
+                        if let Some(state) = load_state(&app.log_buffer.file_paths) {
                             app.restore_state(state);
                         }
 
@@ -203,7 +203,8 @@ impl App {
                 Err(e) => {
                     app.app_state = AppState::ErrorState(format!(
                         "Failed to load file(s): {}\nError: {}",
-                        args.files[0], e
+                        args.files.join(", "),
+                        e
                     ))
                 }
             }
@@ -459,10 +460,12 @@ impl App {
     ///
     /// If not in streaming mode, persist current state to disk.
     pub fn quit(&mut self) {
-        if self.persist_enabled && !self.log_buffer.streaming
-            && let Some(ref file_path) = self.log_buffer.file_path {
-                save_state(file_path, self);
-            }
+        if self.persist_enabled
+            && !self.log_buffer.streaming
+            && !self.log_buffer.file_paths.is_empty()
+        {
+            save_state(&self.log_buffer.file_paths, self);
+        }
 
         self.running = false;
     }
