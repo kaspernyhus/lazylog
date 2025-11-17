@@ -181,24 +181,32 @@ impl App {
         }
 
         if !args.files.is_empty() {
-            let load_success = if args.files.len() == 1 {
+            let load_result = if args.files.len() == 1 {
                 app.log_buffer.load_file(args.files[0].as_str())
             } else {
                 app.log_buffer.load_files(&args.files)
             };
 
-            match load_success {
-                Ok(_) => {
+            match load_result {
+                Ok(skipped_lines) => {
                     app.update_view();
                     app.update_completion_words();
 
-                    if app.persist_enabled {
-                        if let Some(state) = load_state(&app.log_buffer.file_paths) {
-                            app.restore_state(state);
-                        }
+                    if app.persist_enabled
+                        && let Some(state) = load_state(&app.log_buffer.file_paths)
+                    {
+                        app.restore_state(state);
+                    }
 
                     app.event_tracker
                         .scan(&app.log_buffer, app.highlighter.events());
+
+                    if skipped_lines > 0 {
+                        app.app_state = AppState::Message(format!(
+                            "Warning: Failed to parse timestamps for {} line(s).\nThe line(s) will not be displayed in the correct order!",
+                            skipped_lines
+                        ));
+                    }
                 }
                 Err(e) => {
                     app.app_state = AppState::ErrorState(format!(
@@ -367,13 +375,15 @@ impl App {
 
         // Add active search highlight
         if let Some(pattern) = self.search.get_active_pattern()
-            && !pattern.is_empty() && self.app_state != AppState::SearchMode {
-                self.highlighter.add_temporary_highlight(
-                    pattern.to_string(),
-                    PatternStyle::new(Some(SEARCH_MODE_FG), Some(SEARCH_MODE_BG), false),
-                    self.search.is_case_sensitive(),
-                );
-            }
+            && !pattern.is_empty()
+            && self.app_state != AppState::SearchMode
+        {
+            self.highlighter.add_temporary_highlight(
+                pattern.to_string(),
+                PatternStyle::new(Some(SEARCH_MODE_FG), Some(SEARCH_MODE_BG), false),
+                self.search.is_case_sensitive(),
+            );
+        }
     }
 
     /// Run the application's main loop.
@@ -450,10 +460,11 @@ impl App {
     /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
     pub fn tick(&mut self) {
         if let Some(timestamp) = self.message_timestamp
-            && timestamp.elapsed().as_secs() >= 3 && matches!(self.app_state, AppState::Message(_))
-            {
-                self.next_state(AppState::LogView);
-            }
+            && timestamp.elapsed().as_secs() >= 3
+            && matches!(self.app_state, AppState::Message(_))
+        {
+            self.next_state(AppState::LogView);
+        }
     }
 
     /// Set running to false to quit the application.
@@ -633,13 +644,14 @@ impl App {
                         .map(|log_line| log_line.content());
 
                     if let Some(matches) = self.search.apply_pattern(self.input.value(), lines)
-                        && matches == 0 {
-                            self.next_state(AppState::Message(format!(
-                                "0 hits for '{}'",
-                                self.input.value()
-                            )));
-                            return;
-                        }
+                        && matches == 0
+                    {
+                        self.next_state(AppState::Message(format!(
+                            "0 hits for '{}'",
+                            self.input.value()
+                        )));
+                        return;
+                    }
 
                     if !self.options.is_enabled("Search: Disable jumping to match") {
                         if let Some(line) =
@@ -664,9 +676,9 @@ impl App {
                 if let Some(target_line) = self.event_tracker.get_selected_line_index()
                     && let Some(active_line) =
                         self.log_buffer.find_closest_line_by_index(target_line)
-                    {
-                        self.viewport.goto_line(active_line, true);
-                    }
+                {
+                    self.viewport.goto_line(active_line, true);
+                }
                 self.next_state(AppState::LogView);
             }
             AppState::OptionsView => {
@@ -1099,22 +1111,24 @@ impl App {
         if let Some(line_index) = self
             .log_buffer
             .viewport_to_log_index(self.viewport.selected_line)
-            && let Some(next_mark) = self.get_next_visible_mark(line_index) {
-                let next_line = next_mark.line_index;
-                self.viewport.push_history(next_line);
-                self.goto_line(next_line);
-            }
+            && let Some(next_mark) = self.get_next_visible_mark(line_index)
+        {
+            let next_line = next_mark.line_index;
+            self.viewport.push_history(next_line);
+            self.goto_line(next_line);
+        }
     }
 
     pub fn mark_previous(&mut self) {
         if let Some(line_index) = self
             .log_buffer
             .viewport_to_log_index(self.viewport.selected_line)
-            && let Some(prev_mark) = self.get_previous_visible_mark(line_index) {
-                let prev_line = prev_mark.line_index;
-                self.viewport.push_history(prev_line);
-                self.goto_line(prev_line);
-            }
+            && let Some(prev_mark) = self.get_previous_visible_mark(line_index)
+        {
+            let prev_line = prev_mark.line_index;
+            self.viewport.push_history(prev_line);
+            self.goto_line(prev_line);
+        }
     }
 
     /// Helper to go to a log line by its log line index. If the line is not visible, it does nothing.
