@@ -11,7 +11,7 @@ use tracing::info;
 #[derive(Serialize, Deserialize)]
 pub struct PersistedState {
     version: u8,
-    log_file_path: String,
+    log_file_paths: Vec<String>,
     viewport: ViewportState,
     search_history: Vec<String>,
     filter_history: Vec<FilterHistoryEntry>,
@@ -56,10 +56,10 @@ pub struct EventFilterState {
 }
 
 impl PersistedState {
-    pub fn from_app(file_path: &str, app: &App) -> Self {
+    pub fn from_app(file_paths: &[String], app: &App) -> Self {
         Self {
             version: 1,
-            log_file_path: file_path.to_string(),
+            log_file_paths: file_paths.to_vec(),
             viewport: ViewportState {
                 selected_line: app.viewport.selected_line,
                 top_line: app.viewport.top_line,
@@ -110,17 +110,17 @@ impl PersistedState {
 }
 
 /// Saves the current application state to disk.
-pub fn save_state(file_path: &str, app: &App) {
+pub fn save_state(file_paths: &[String], app: &App) {
     if !ensure_state_dir() {
         return;
     }
 
-    let state_file_path = match get_state_file_path(file_path) {
+    let state_file_path = match get_state_file_path(file_paths) {
         Some(path) => path,
         None => return,
     };
 
-    let state = PersistedState::from_app(file_path, app);
+    let state = PersistedState::from_app(file_paths, app);
     let json = match serde_json::to_string_pretty(&state) {
         Ok(j) => j,
         Err(_) => return,
@@ -130,8 +130,8 @@ pub fn save_state(file_path: &str, app: &App) {
 }
 
 /// Loads the application state from disk if it exists.
-pub fn load_state(file_path: &str) -> Option<PersistedState> {
-    let state_path = get_state_file_path(file_path)?;
+pub fn load_state(file_paths: &[String]) -> Option<PersistedState> {
+    let state_path = get_state_file_path(file_paths)?;
 
     if !state_path.exists() {
         return None;
@@ -140,7 +140,7 @@ pub fn load_state(file_path: &str) -> Option<PersistedState> {
     match fs::read_to_string(&state_path) {
         Ok(json) => match serde_json::from_str::<PersistedState>(&json) {
             Ok(state) => {
-                if state.log_file_path == file_path {
+                if state.log_file_paths == file_paths {
                     Some(state)
                 } else {
                     None
@@ -160,13 +160,17 @@ pub fn load_state(file_path: &str) -> Option<PersistedState> {
     }
 }
 
-/// Calculates the state file path based on the log file path.
-fn get_state_file_path(file_path: &str) -> Option<PathBuf> {
-    let absolute_path = std::fs::canonicalize(file_path).ok()?;
-    let path_str = absolute_path.to_string_lossy();
-
+/// Calculates the state file path based on the log file paths.
+fn get_state_file_path(file_paths: &[String]) -> Option<PathBuf> {
     let mut hasher = DefaultHasher::new();
-    path_str.hash(&mut hasher);
+
+    // Hash all file paths together in a deterministic order
+    for file_path in file_paths {
+        let absolute_path = std::fs::canonicalize(file_path).ok()?;
+        let path_str = absolute_path.to_string_lossy();
+        path_str.hash(&mut hasher);
+    }
+
     let hash = hasher.finish();
 
     let home = dirs::home_dir()?;
