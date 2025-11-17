@@ -1,6 +1,5 @@
 use crate::{
     cli::Cli,
-    colors::{FILTER_MODE_BG, FILTER_MODE_FG, SEARCH_MODE_BG, SEARCH_MODE_FG},
     completion::CompletionEngine,
     config::{Config, Filters},
     event::{AppEvent, Event, EventHandler},
@@ -16,6 +15,7 @@ use crate::{
     options::{AppOption, AppOptions},
     persistence::{PersistedState, clear_all_state, load_state, save_state},
     search::Search,
+    ui::colors::{FILTER_MODE_BG, FILTER_MODE_FG, SEARCH_MODE_BG, SEARCH_MODE_FG},
     ui::popup_area,
     viewport::Viewport,
 };

@@ -1,6 +1,6 @@
 use crate::app::App;
-use crate::colors::{FILTER_MODE_BG, FILTER_MODE_FG, FOOTER_BG, SEARCH_MODE_BG, SEARCH_MODE_FG};
 use crate::ui::MAX_PATH_LENGTH;
+use crate::ui::colors::{FILTER_MODE_BG, FILTER_MODE_FG, FOOTER_BG, SEARCH_MODE_BG, SEARCH_MODE_FG};
 use num_format::{Locale, ToFormattedString};
 use ratatui::{
     buffer::Buffer,

@@ -3,7 +3,7 @@ use regex::Regex;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use crate::colors::{DEFAULT_EVENT_BG, DEFAULT_EVENT_FG};
+use crate::ui::colors::{DEFAULT_EVENT_BG, DEFAULT_EVENT_FG};
 use crate::utils::contains_ignore_case;
 
 /// Style configuration for text rendering.

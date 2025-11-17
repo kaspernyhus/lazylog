@@ -1,8 +1,8 @@
 use crate::app::App;
-use crate::colors::{MARK_INDICATOR, MARK_INDICATOR_COLOR, RIGHT_ARROW, SCROLLBAR_FG, SELECTION_BG};
 use crate::highlighter::HighlightedLine;
 use crate::log::Interval;
 use crate::options::AppOption;
+use crate::ui::colors::{MARK_INDICATOR, MARK_INDICATOR_COLOR, RIGHT_ARROW, SCROLLBAR_FG, SELECTION_BG};
 use ratatui::{
     buffer::Buffer,
     layout::Rect,

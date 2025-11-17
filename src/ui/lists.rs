@@ -1,12 +1,12 @@
-use crate::app::App;
-use crate::colors::{
+use super::colors::{
     EVENT_LINE_PREVIEW, EVENT_LIST_BG, EVENT_LIST_HIGHLIGHT_BG, EVENT_NAME_FG, FILTER_DISABLED_FG, FILTER_ENABLED_FG,
-    FILTER_LIST_HIGHLIGHT_BG, FILTER_MODE_BG, MARK_INDICATOR_COLOR, MARK_LINE_PREVIEW, MARK_LIST_HIGHLIGHT_BG,
-    MARK_MODE_BG, MARK_NAME_FG, OPTION_DISABLED_FG, OPTION_ENABLED_FG, RIGHT_ARROW, WHITE_COLOR,
+    FILTER_LIST_HIGHLIGHT_BG, FILTER_MODE_BG, MARK_LINE_PREVIEW, MARK_LIST_HIGHLIGHT_BG, MARK_MODE_BG, MARK_NAME_FG,
+    OPTION_DISABLED_FG, OPTION_ENABLED_FG, RIGHT_ARROW, WHITE_COLOR,
 };
 use crate::event_mark_view::EventMarkView;
 use crate::filter::ActiveFilterMode;
 use crate::ui::scrollable_list::ScrollableList;
+use crate::{app::App, ui::colors::MARK_INDICATOR_COLOR};
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Rect},

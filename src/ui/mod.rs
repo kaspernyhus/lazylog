@@ -1,3 +1,4 @@
+pub mod colors;
 mod footer;
 mod lists;
 mod logview;
@@ -5,7 +6,7 @@ mod popups;
 mod scrollable_list;
 
 use crate::app::{App, Overlay, ViewState};
-use crate::colors::{GRAY_COLOR, WHITE_COLOR};
+use colors::{GRAY_COLOR, WHITE_COLOR};
 pub use popups::popup_area;
 use ratatui::{
     buffer::Buffer,

@@ -8,9 +8,9 @@ use ratatui::widgets::{
 use std::cell::Cell;
 
 use crate::app::{Overlay, ViewState};
-use crate::colors::{HELP_BG, HELP_HEADER_FG, HELP_HIGHLIGHT_FG};
 use crate::command::Command;
 use crate::keybindings::{KeybindingContext, KeybindingRegistry};
+use crate::ui::colors::{HELP_BG, HELP_HEADER_FG, HELP_HIGHLIGHT_FG};
 
 /// Manages the help popup display with keybindings and navigation.
 #[derive(Debug, Default)]

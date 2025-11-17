@@ -1,39 +1,11 @@
-use crate::app::App;
 use clap::Parser;
-use cli::Cli;
+use lazylog::{app::App, cli::Cli, debug_log};
 use ratatui::{
     Terminal, backend,
     crossterm::{execute, terminal::*},
 };
 use std::io::stderr;
 use tracing::info;
-
-pub mod app;
-pub mod cli;
-pub mod colors;
-pub mod command;
-pub mod completion;
-pub mod config;
-pub mod debug_log;
-pub mod event;
-pub mod event_mark_view;
-pub mod filter;
-pub mod help;
-pub mod highlighter;
-pub mod history;
-pub mod keybindings;
-pub mod list_view_state;
-pub mod live_processor;
-pub mod log;
-pub mod log_event;
-pub mod marking;
-pub mod options;
-pub mod persistence;
-pub mod search;
-pub mod timestamp;
-pub mod ui;
-pub mod utils;
-pub mod viewport;
 
 #[tokio::main]
 async fn main() -> color_eyre::Result<()> {
