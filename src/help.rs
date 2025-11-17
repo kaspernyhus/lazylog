@@ -9,7 +9,7 @@ use ratatui::widgets::{
 use std::cell::Cell;
 
 use crate::app::AppState;
-use crate::colors::{HELP_BG, HELP_HEADER_FG, HELP_HIGHLIGHT_FG};
+use crate::ui::colors::{HELP_BG, HELP_HEADER_FG, HELP_HIGHLIGHT_FG};
 use crate::command::Command;
 use crate::keybindings::KeybindingRegistry;
 

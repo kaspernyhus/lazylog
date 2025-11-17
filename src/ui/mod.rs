@@ -1,10 +1,11 @@
+pub mod colors;
 mod footer;
 mod lists;
-mod logview;
+mod log_view;
 mod popups;
 
 use crate::app::{App, AppState};
-use crate::colors::{GRAY_COLOR, WHITE_COLOR};
+use colors::{GRAY_COLOR, WHITE_COLOR};
 pub use popups::popup_area;
 use ratatui::{
     buffer::Buffer,
@@ -41,7 +42,7 @@ impl Widget for &App {
         title.render(top, buf);
 
         // Main view
-        self.render_logview(log_view_area, buf);
+        self.render_log_view(log_view_area, buf);
         self.render_scrollbar(scrollbar_area, buf);
 
         // Footer
