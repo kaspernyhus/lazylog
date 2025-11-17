@@ -1,15 +1,20 @@
-use crate::app::App;
+use super::colors::{FILE_ID_COLORS, MARK_INDICATOR, MARK_INDICATOR_COLOR, RIGHT_ARROW, SCROLLBAR_FG, SELECTION_BG};
 use crate::highlighter::HighlightedLine;
 use crate::log::Interval;
-use crate::options::AppOption;
-use crate::ui::colors::{MARK_INDICATOR, MARK_INDICATOR_COLOR, RIGHT_ARROW, SCROLLBAR_FG, SELECTION_BG};
+use crate::{app::App, options::AppOption};
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
-    style::{Modifier, Style},
+    style::{Modifier, Style, Stylize},
     text::{Line, Span},
     widgets::{List, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget},
 };
+
+struct ViewportLine<'a> {
+    pub index: usize,
+    pub content: &'a str,
+    pub file_id: Option<usize>,
+}
 
 impl App {
     /// Renders the vertical scrollbar.
@@ -28,33 +33,44 @@ impl App {
     }
 
     /// Renders the main log view.
-    pub(super) fn render_logview(&self, area: Rect, buf: &mut Buffer) {
+    pub(super) fn render_log_view(&self, area: Rect, buf: &mut Buffer) {
         let (start, end) = self.viewport.visible();
         let selection_range = self.get_selection_range();
 
-        let viewport_lines: Vec<(&str, usize)> = self
+        let viewport_lines: Vec<ViewportLine> = self
             .log_buffer
             .get_active_lines_iter(Interval::Range(start, end))
-            .map(|log_line| (self.options.apply_to_line(log_line.content()), log_line.index))
+            .map(|log_line| ViewportLine {
+                index: log_line.index,
+                content: self.options.apply_to_line(log_line.content()),
+                file_id: log_line.log_file_id,
+            })
             .collect();
 
         let items: Vec<Line> = viewport_lines
             .iter()
             .enumerate()
-            .map(|(viewport_idx, (line, line_index))| {
-                let text = if self.viewport.horizontal_offset >= line.len() {
+            .map(|(viewport_idx, viewport_line)| {
+                let text = if self.viewport.horizontal_offset >= viewport_line.content.len() {
                     ""
                 } else {
-                    &line[self.viewport.horizontal_offset..]
+                    &viewport_line.content[self.viewport.horizontal_offset..]
                 };
-                let is_marked = self.marking.is_marked(*line_index);
-                let viewport_line = start + viewport_idx;
+                let is_marked = self.marking.is_marked(viewport_line.index);
+                let viewport_line_idx = start + viewport_idx;
                 let is_selected = if let Some((sel_start, sel_end)) = selection_range {
-                    viewport_line >= sel_start && viewport_line <= sel_end
+                    viewport_line_idx >= sel_start && viewport_line_idx <= sel_end
                 } else {
                     false
                 };
-                self.process_line(line, text, self.viewport.horizontal_offset, is_marked, is_selected)
+                self.process_line(
+                    viewport_line.content,
+                    text,
+                    self.viewport.horizontal_offset,
+                    is_marked,
+                    is_selected,
+                    viewport_line.file_id,
+                )
             })
             .collect();
 
@@ -78,6 +94,7 @@ impl App {
         line_offset: usize,
         is_marked: bool,
         is_selected: bool,
+        file_id: Option<usize>,
     ) -> Line<'a> {
         let enable_colors = !self.options.is_enabled(AppOption::DisableColors);
 
@@ -89,14 +106,23 @@ impl App {
             Span::raw(" ")
         };
 
+        let file_id_indicator = if let Some(id) = file_id {
+            let indicator = format!("[{}] ", id + 1);
+            let color = FILE_ID_COLORS[id % FILE_ID_COLORS.len()];
+            Span::styled(indicator, Style::default().fg(color)).add_modifier(Modifier::BOLD)
+        } else {
+            Span::raw("")
+        };
+
         let mut line = if highlighted.segments.is_empty() {
-            let mut spans = vec![mark_indicator];
+            let mut spans = vec![mark_indicator, file_id_indicator];
             if !visible_text.is_empty() {
                 spans.push(Span::raw(visible_text));
             }
             Line::from(spans)
         } else {
             let mut line = build_line_from_highlighted(visible_text, highlighted);
+            line.spans.insert(0, file_id_indicator);
             line.spans.insert(0, mark_indicator);
             line
         };

@@ -14,13 +14,15 @@ pub struct LogLine {
     pub index: usize,
     /// Parsed timestamp (if applicable).
     pub timestamp: Option<DateTime<Utc>>,
+    /// File id
+    pub log_file_id: Option<usize>,
 }
 
 /// Buffer for storing and managing log lines with filtering support.
 #[derive(Debug, Default)]
 pub struct LogBuffer {
-    /// Optional path to the file being viewed.
-    pub file_path: Option<String>,
+    /// Optional path(s) to the file(s) being viewed.
+    pub file_paths: Vec<String>,
     /// All log lines (unfiltered).
     lines: Vec<LogLine>,
     /// Indices of lines that pass the applied filters.
@@ -45,14 +47,7 @@ impl LogLine {
             content,
             index,
             timestamp: None,
-        }
-    }
-
-    pub fn with_timestamp(content: String, index: usize, timestamp: DateTime<Utc>) -> Self {
-        Self {
-            content,
-            index,
-            timestamp: Some(timestamp),
+            log_file_id: None,
         }
     }
 
@@ -66,7 +61,7 @@ impl LogBuffer {
     /// Loads log lines from a file. (Not streaming mode.)
     pub fn load_file(&mut self, path: &str) -> color_eyre::Result<()> {
         let content = std::fs::read_to_string(path)?;
-        self.file_path = Some(path.to_string());
+        self.file_paths = vec![path.to_string()];
         self.streaming = false;
         self.lines = content
             .lines()
@@ -84,19 +79,22 @@ impl LogBuffer {
 
         let mut total_lines_skipped = 0;
         self.streaming = false;
-        self.file_path = Some(paths.join(", "));
+        self.file_paths = paths.to_vec();
 
-        for path in paths.iter() {
+        for (file_id, path) in paths.iter().enumerate() {
             let content = std::fs::read_to_string(path)?;
-            let base_index = self.lines.len();
 
             let mut file_lines: Vec<LogLine> = content
                 .lines()
                 .enumerate()
-                .filter_map(|(line_num, line)| {
-                    let index = base_index + line_num;
+                .filter_map(|(index, line)| {
                     if let Some(timestamp) = parse_timestamp(line) {
-                        Some(LogLine::with_timestamp(line.to_string(), index, timestamp))
+                        Some(LogLine {
+                            content: line.to_string(),
+                            index,
+                            timestamp: Some(timestamp),
+                            log_file_id: Some(file_id),
+                        })
                     } else {
                         total_lines_skipped += 1;
                         None
@@ -127,7 +125,7 @@ impl LogBuffer {
 
     /// Initializes the buffer for stdin streaming mode.
     pub fn init_stdin_mode(&mut self) {
-        self.file_path = Some("<stdin>".to_string());
+        self.file_paths = vec!["<stdin>".to_string()];
         self.streaming = true;
         self.lines.clear();
         self.reset_active_lines();

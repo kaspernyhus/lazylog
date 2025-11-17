@@ -53,16 +53,41 @@ impl App {
     pub(super) fn render_default_footer(&self, area: Rect, buf: &mut Buffer) {
         let max_width = MAX_PATH_LENGTH.min((self.viewport.width / 2).saturating_sub(13));
 
-        let file_name = if let Some(path) = &self.log_buffer.file_path {
-            let abs_path = std::fs::canonicalize(path)
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_else(|_| path.to_string());
-
-            if abs_path.len() > max_width {
-                let skip = abs_path.len() - max_width;
-                format!("...{}", &abs_path[skip..])
+        let file_name = if !self.log_buffer.file_paths.is_empty() {
+            if self.log_buffer.file_paths.len() == 1 {
+                let path = &self.log_buffer.file_paths[0];
+                if path.len() > max_width {
+                    let skip = path.len() - max_width;
+                    format!("...{}", &path[skip..])
+                } else {
+                    path.clone()
+                }
             } else {
-                abs_path
+                let formatted_paths: Vec<String> = self
+                    .log_buffer
+                    .file_paths
+                    .iter()
+                    .enumerate()
+                    .map(|(file_id, path)| {
+                        let path_str = path.as_str();
+                        let max_path_len = (60 - 9 * self.log_buffer.file_paths.len())
+                            / self.log_buffer.file_paths.len();
+                        let truncated = if path_str.len() > max_path_len {
+                            format!("...{}", &path_str[path_str.len() - max_path_len..])
+                        } else {
+                            format!(" {}", path_str)
+                        };
+                        format!("[{}]{}", file_id + 1, truncated)
+                    })
+                    .collect();
+
+                let combined = formatted_paths.join(", ");
+                if combined.len() > max_width {
+                    let skip = combined.len() - max_width;
+                    format!("...{}", &combined[skip..])
+                } else {
+                    combined
+                }
             }
         } else {
             "".to_string()
