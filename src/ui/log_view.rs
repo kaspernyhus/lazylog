@@ -1,22 +1,16 @@
 use super::colors::{
     FILE_ID_COLORS, MARK_INDICATOR, MARK_INDICATOR_COLOR, RIGHT_ARROW, SCROLLBAR_FG, SELECTION_BG,
 };
-use crate::app::App;
 use crate::highlighter::HighlightedLine;
 use crate::log::Interval;
+use crate::{app::App, log::LogLine};
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
-    style::{Modifier, Style, Stylize},
+    style::{Color, Modifier, Style, Stylize},
     text::{Line, Span},
     widgets::{List, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget},
 };
-
-struct ViewportLine<'a> {
-    pub index: usize,
-    pub content: &'a str,
-    pub file_id: Option<usize>,
-}
 
 impl App {
     /// Renders the vertical scrollbar.
@@ -39,39 +33,34 @@ impl App {
         let (start, end) = self.viewport.visible();
         let selection_range = self.get_selection_range();
 
-        let viewport_lines: Vec<ViewportLine> = self
+        let viewport_lines: Vec<&LogLine> = self
             .log_buffer
             .get_lines_iter(Interval::Range(start, end))
-            .map(|log_line| ViewportLine {
-                index: log_line.index,
-                content: self.options.apply_to_line(log_line.content()),
-                file_id: log_line.log_file_id,
-            })
             .collect();
 
         let items: Vec<Line> = viewport_lines
             .iter()
             .enumerate()
-            .map(|(viewport_idx, viewport_line)| {
-                let text = if self.viewport.horizontal_offset >= viewport_line.content.len() {
+            .map(|(log_index, log_line)| {
+                let viewport_line = self.options.apply_to_line(log_line.content());
+                let text = if self.viewport.horizontal_offset >= viewport_line.len() {
                     ""
                 } else {
-                    &viewport_line.content[self.viewport.horizontal_offset..]
+                    &viewport_line[self.viewport.horizontal_offset..]
                 };
-                let is_marked = self.marking.is_marked(viewport_line.index);
-                let viewport_line_idx = start + viewport_idx;
+                let is_marked = self.marking.is_marked(log_line.index);
+                let viewport_line_index = start + log_index;
                 let is_selected = if let Some((sel_start, sel_end)) = selection_range {
-                    viewport_line_idx >= sel_start && viewport_line_idx <= sel_end
+                    viewport_line_index >= sel_start && viewport_line_index <= sel_end
                 } else {
                     false
                 };
                 self.process_line(
-                    viewport_line.content,
+                    log_line,
                     text,
                     self.viewport.horizontal_offset,
                     is_marked,
                     is_selected,
-                    viewport_line.file_id,
                 )
             })
             .collect();
@@ -91,18 +80,17 @@ impl App {
     /// Applies syntax highlighting to a single line.
     fn process_line<'a>(
         &self,
-        full_line: &'a str,
+        log_line: &LogLine,
         visible_text: &'a str,
         line_offset: usize,
         is_marked: bool,
         is_selected: bool,
-        file_id: Option<usize>,
     ) -> Line<'a> {
         let enable_colors = !self.options.is_enabled("Disable Colors");
 
-        let highlighted = self
-            .highlighter
-            .highlight_line(full_line, line_offset, enable_colors);
+        let highlighted =
+            self.highlighter
+                .highlight_line(log_line.content.as_str(), line_offset, enable_colors);
 
         let mark_indicator = if is_marked {
             Span::styled(MARK_INDICATOR, Style::default().fg(MARK_INDICATOR_COLOR))
@@ -110,9 +98,13 @@ impl App {
             Span::raw(" ")
         };
 
-        let file_id_indicator = if let Some(id) = file_id {
+        let file_id_indicator = if let Some(id) = log_line.log_file_id {
             let indicator = format!("[{}] ", id + 1);
-            let color = FILE_ID_COLORS[id % FILE_ID_COLORS.len()];
+            let color = if log_line.timestamp.is_some() {
+                FILE_ID_COLORS[id % FILE_ID_COLORS.len()]
+            } else {
+                Color::Red
+            };
             Span::styled(indicator, Style::default().fg(color)).add_modifier(Modifier::BOLD)
         } else {
             Span::raw("")
