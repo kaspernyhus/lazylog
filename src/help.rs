@@ -224,17 +224,15 @@ impl Help {
     /// Jumps to the section header for the given AppState.
     fn jump_to_state(&mut self, target_state: &AppState) {
         for (index, item) in self.help_items.iter().enumerate() {
-            if item.item_type == HelpItemType::Header {
-                if let Some(ref item_state) = item.state {
-                    if item_state.matches(target_state) {
+            if item.item_type == HelpItemType::Header
+                && let Some(ref item_state) = item.state
+                    && item_state.matches(target_state) {
                         self.selected_index = index;
                         let viewport_height = self.viewport_height.get();
                         let max_offset = self.help_items.len().saturating_sub(viewport_height);
                         self.viewport_offset = index.min(max_offset);
                         return;
                     }
-                }
-            }
         }
         // if not found
         self.reset();

@@ -45,13 +45,13 @@ pub fn scan_for_events(
         .filter_map(|log_line| {
             for event in event_patterns.iter() {
                 if event.matcher.matches(log_line.content()) {
-                    if let Some(name) = &event.name {
-                        if *active_filters.get(name).unwrap_or(&true) {
-                            return Some(LogEvent {
-                                event_name: name.clone(),
-                                line_index: log_line.index,
-                            });
-                        }
+                    if let Some(name) = &event.name
+                        && *active_filters.get(name).unwrap_or(&true)
+                    {
+                        return Some(LogEvent {
+                            event_name: name.clone(),
+                            line_index: log_line.index,
+                        });
                     }
                     break;
                 }

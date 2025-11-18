@@ -234,11 +234,7 @@ impl LogBuffer {
 
         for (active_lines_index, &lines_index) in self.active_lines.iter().enumerate() {
             let log_line_index = self.lines[lines_index].index;
-            let distance = if log_line_index >= target_log_line_index {
-                log_line_index - target_log_line_index
-            } else {
-                target_log_line_index - log_line_index
-            };
+            let distance = log_line_index.abs_diff(target_log_line_index);
 
             if distance < min_distance {
                 min_distance = distance;

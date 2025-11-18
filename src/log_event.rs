@@ -30,7 +30,7 @@ pub enum EventOrMark<'a> {
     Mark(&'a Mark),
 }
 
-impl EventOrMark<'_> {
+impl<'a> EventOrMark<'a> {
     pub fn line_index(&self) -> usize {
         match self {
             EventOrMark::Event(e) => e.line_index,
@@ -149,7 +149,7 @@ impl LogEventTracker {
     }
 
     /// Returns a vector of combined events and marks in sorted order by line_index.
-    fn get_combined_items(&self) -> Vec<EventOrMark> {
+    fn get_combined_items(&self) -> Vec<EventOrMark<'_>> {
         let mut result = Vec::new();
 
         if self.show_marks {
@@ -187,7 +187,7 @@ impl LogEventTracker {
     }
 
     /// Returns an iterator over events and marks combined in sorted order by line_index.
-    pub fn iter_items(&self) -> impl Iterator<Item = EventOrMark> {
+    pub fn iter_items(&self) -> impl Iterator<Item = EventOrMark<'_>> {
         self.get_combined_items().into_iter()
     }
 
@@ -400,11 +400,10 @@ impl LogEventTracker {
 
     /// Toggles the selected event filter.
     pub fn toggle_selected_filter(&mut self) {
-        if let Some(event_name) = self.event_order.get(self.filter_selected_index) {
-            if let Some(enabled) = self.event_filters.get_mut(event_name) {
+        if let Some(event_name) = self.event_order.get(self.filter_selected_index)
+            && let Some(enabled) = self.event_filters.get_mut(event_name) {
                 *enabled = !*enabled;
             }
-        }
     }
 
     /// Toggles all event filters on or off.

@@ -109,14 +109,14 @@ impl Options {
         // Find the maximum offset to skip (longest prefix match)
         let mut offset = 0;
         for option in &self.options {
-            if option.enabled {
-                if let DisplayOptionType::HidePattern(pattern) = &option.option_type {
-                    // Only process patterns that match from the start
-                    if let Some(m) = pattern.find(line) {
-                        if m.start() == 0 {
-                            offset = offset.max(m.end());
-                        }
-                    }
+            if option.enabled
+                && let DisplayOptionType::HidePattern(pattern) = &option.option_type
+            {
+                // Only process patterns that match from the start
+                if let Some(m) = pattern.find(line)
+                    && m.start() == 0
+                {
+                    offset = offset.max(m.end());
                 }
             }
         }

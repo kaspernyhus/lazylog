@@ -186,11 +186,10 @@ impl App {
                     app.update_view();
                     app.update_completion_words();
 
-                    if app.persist_enabled {
-                        if let Some(state) = load_state(&file_path) {
+                    if app.persist_enabled
+                        && let Some(state) = load_state(&file_path) {
                             app.restore_state(state);
                         }
-                    }
 
                     app.event_tracker
                         .scan(&app.log_buffer, app.highlighter.events());
@@ -360,15 +359,14 @@ impl App {
         }
 
         // Add active search highlight
-        if let Some(pattern) = self.search.get_active_pattern() {
-            if !pattern.is_empty() && self.app_state != AppState::SearchMode {
+        if let Some(pattern) = self.search.get_active_pattern()
+            && !pattern.is_empty() && self.app_state != AppState::SearchMode {
                 self.highlighter.add_temporary_highlight(
                     pattern.to_string(),
                     PatternStyle::new(Some(SEARCH_MODE_FG), Some(SEARCH_MODE_BG), false),
                     self.search.is_case_sensitive(),
                 );
             }
-        }
     }
 
     /// Run the application's main loop.
@@ -444,23 +442,21 @@ impl App {
     /// The tick event is where you can update the state of your application with any logic that
     /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
     pub fn tick(&mut self) {
-        if let Some(timestamp) = self.message_timestamp {
-            if timestamp.elapsed().as_secs() >= 3 && matches!(self.app_state, AppState::Message(_))
+        if let Some(timestamp) = self.message_timestamp
+            && timestamp.elapsed().as_secs() >= 3 && matches!(self.app_state, AppState::Message(_))
             {
                 self.next_state(AppState::LogView);
             }
-        }
     }
 
     /// Set running to false to quit the application.
     ///
     /// If not in streaming mode, persist current state to disk.
     pub fn quit(&mut self) {
-        if self.persist_enabled && !self.log_buffer.streaming {
-            if let Some(ref file_path) = self.log_buffer.file_path {
+        if self.persist_enabled && !self.log_buffer.streaming
+            && let Some(ref file_path) = self.log_buffer.file_path {
                 save_state(file_path, self);
             }
-        }
 
         self.running = false;
     }
@@ -627,15 +623,14 @@ impl App {
                         .get_lines_iter(Interval::All)
                         .map(|log_line| log_line.content());
 
-                    if let Some(matches) = self.search.apply_pattern(self.input.value(), lines) {
-                        if matches == 0 {
+                    if let Some(matches) = self.search.apply_pattern(self.input.value(), lines)
+                        && matches == 0 {
                             self.next_state(AppState::Message(format!(
                                 "0 hits for '{}'",
                                 self.input.value()
                             )));
                             return;
                         }
-                    }
 
                     if !self.options.is_enabled("Search: Disable jumping to match") {
                         if let Some(line) =
@@ -657,13 +652,12 @@ impl App {
                 self.next_state(AppState::LogView);
             }
             AppState::EventsView => {
-                if let Some(target_line) = self.event_tracker.get_selected_line_index() {
-                    if let Some(active_line) =
+                if let Some(target_line) = self.event_tracker.get_selected_line_index()
+                    && let Some(active_line) =
                         self.log_buffer.find_closest_line_by_index(target_line)
                     {
                         self.viewport.goto_line(active_line, true);
                     }
-                }
                 self.next_state(AppState::LogView);
             }
             AppState::OptionsView => {
@@ -1096,26 +1090,22 @@ impl App {
         if let Some(line_index) = self
             .log_buffer
             .viewport_to_log_index(self.viewport.selected_line)
-        {
-            if let Some(next_mark) = self.get_next_visible_mark(line_index) {
+            && let Some(next_mark) = self.get_next_visible_mark(line_index) {
                 let next_line = next_mark.line_index;
                 self.viewport.push_history(next_line);
                 self.goto_line(next_line);
             }
-        }
     }
 
     pub fn mark_previous(&mut self) {
         if let Some(line_index) = self
             .log_buffer
             .viewport_to_log_index(self.viewport.selected_line)
-        {
-            if let Some(prev_mark) = self.get_previous_visible_mark(line_index) {
+            && let Some(prev_mark) = self.get_previous_visible_mark(line_index) {
                 let prev_line = prev_mark.line_index;
                 self.viewport.push_history(prev_line);
                 self.goto_line(prev_line);
             }
-        }
     }
 
     /// Helper to go to a log line by its log line index. If the line is not visible, it does nothing.

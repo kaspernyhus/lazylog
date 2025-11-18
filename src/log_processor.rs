@@ -62,13 +62,11 @@ impl LogProcessor {
                 }
 
                 _ = interval.tick() => {
-                    if !batched_lines.is_empty() {
-                        if let Some(processed) = self.process(&mut batched_lines) {
-                            if self.output_tx.send(processed).is_err() {
+                    if !batched_lines.is_empty()
+                        && let Some(processed) = self.process(&mut batched_lines)
+                            && self.output_tx.send(processed).is_err() {
                                 break;
                             }
-                        }
-                    }
                 }
 
                 result = self.input_rx.recv() => {
@@ -76,20 +74,17 @@ impl LogProcessor {
                         Some(line) => {
                             batched_lines.push(line);
 
-                            if batched_lines.len() >= BATCH_SIZE {
-                                if let Some(processed) = self.process(&mut batched_lines) {
-                                    if self.output_tx.send(processed).is_err() {
+                            if batched_lines.len() >= BATCH_SIZE
+                                && let Some(processed) = self.process(&mut batched_lines)
+                                    && self.output_tx.send(processed).is_err() {
                                         break;
                                     }
-                                }
-                            }
                         }
                         None => { // processor is being shut down, process remaining lines
-                            if !batched_lines.is_empty() {
-                                if let Some(processed) = self.process(&mut batched_lines) {
+                            if !batched_lines.is_empty()
+                                && let Some(processed) = self.process(&mut batched_lines) {
                                     let _ = self.output_tx.send(processed);
                                 }
-                            }
                             break;
                         }
                     }
