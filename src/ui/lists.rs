@@ -260,7 +260,7 @@ impl App {
             return;
         }
 
-        let items: Vec<Line> = event_filters
+        let list_items: Vec<Line> = event_filters
             .iter()
             .map(|filter| {
                 let checkbox = if filter.enabled { "[x]" } else { "[ ]" };
@@ -280,7 +280,7 @@ impl App {
             list_state.select(Some(self.event_tracker.filter_selected_index()));
         }
 
-        let event_filter_list = List::new(items)
+        let event_filter_list = List::new(list_items)
             .block(block)
             .highlight_symbol(RIGHT_ARROW)
             .highlight_style(Style::default().add_modifier(Modifier::BOLD));
