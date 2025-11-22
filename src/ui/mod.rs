@@ -2,6 +2,7 @@ mod footer;
 mod lists;
 mod logview;
 mod popups;
+mod scrollable_list;
 
 use crate::app::{App, AppState};
 use crate::colors::{GRAY_COLOR, WHITE_COLOR};

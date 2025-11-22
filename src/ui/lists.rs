@@ -6,14 +6,14 @@ use crate::colors::{
     RIGHT_ARROW, WHITE_COLOR,
 };
 use crate::filter::FilterMode;
+use crate::ui::scrollable_list::ScrollableList;
 use ratatui::{
     buffer::Buffer,
-    layout::{Alignment, Constraint, Layout, Rect},
+    layout::{Alignment, Rect},
     style::{Modifier, Style, Stylize},
     text::{Line, Span},
     widgets::{
-        Block, BorderType, Borders, Clear, List, ListState, Paragraph, Scrollbar,
-        ScrollbarOrientation, ScrollbarState, StatefulWidget, Widget,
+        Block, BorderType, Borders, Clear, List, ListState, Paragraph, StatefulWidget, Widget,
     },
 };
 
@@ -152,11 +152,6 @@ impl App {
             return;
         }
 
-        let inner_area = block.inner(area);
-
-        let [list_area, scrollbar_area] =
-            Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(inner_area);
-
         let event_items: Vec<_> = self.event_tracker.iter_items().collect();
 
         let max_name_length = event_items
@@ -165,8 +160,10 @@ impl App {
             .max()
             .unwrap_or(0);
 
-        let available_width = list_area
-            .width
+        let inner_area = block.inner(area);
+        let list_area_width = inner_area.width.saturating_sub(1);
+
+        let available_width = list_area_width
             .saturating_sub(max_name_length as u16)
             .saturating_sub(4)
             .max(20) as usize; // Minimum 20 characters
@@ -206,37 +203,22 @@ impl App {
             }
         }
 
-        self.event_tracker
-            .set_viewport_height(list_area.height as usize);
-
-        block.render(area, buf);
-
-        let events_list = List::new(items)
+        let (list_area, _) = ScrollableList::new(items)
+            .selection(
+                self.event_tracker.selected_index(),
+                self.event_tracker.viewport_offset(),
+            )
+            .total_count(self.event_tracker.count())
             .highlight_symbol(RIGHT_ARROW)
             .highlight_style(
                 Style::default()
                     .bg(EVENT_LIST_HIGHLIGHT_BG)
                     .add_modifier(Modifier::BOLD),
-            );
+            )
+            .render(area, buf, block);
 
-        let mut list_state = ListState::default();
-        if !self.event_tracker.is_empty() {
-            list_state.select(Some(self.event_tracker.selected_index()));
-            *list_state.offset_mut() = self.event_tracker.viewport_offset();
-        }
-
-        StatefulWidget::render(events_list, list_area, buf, &mut list_state);
-
-        let mut scrollbar_state = ScrollbarState::new(self.event_tracker.count())
-            .position(self.event_tracker.selected_index())
-            .viewport_content_length(0);
-
-        let scrollbar = Scrollbar::default()
-            .orientation(ScrollbarOrientation::VerticalRight)
-            .begin_symbol(None)
-            .end_symbol(None);
-
-        StatefulWidget::render(scrollbar, scrollbar_area, buf, &mut scrollbar_state);
+        self.event_tracker
+            .set_viewport_height(list_area.height as usize);
     }
 
     pub(super) fn render_event_filter_popup(&self, area: Rect, buf: &mut Buffer) {
@@ -260,11 +242,6 @@ impl App {
             return;
         }
 
-        let inner_area = block.inner(area);
-
-        let [list_area, scrollbar_area] =
-            Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(inner_area);
-
         let list_items: Vec<Line> = event_filters
             .iter()
             .map(|filter| {
@@ -280,33 +257,18 @@ impl App {
             })
             .collect();
 
+        let (list_area, _) = ScrollableList::new(list_items)
+            .selection(
+                self.event_tracker.filter_selected_index(),
+                self.event_tracker.filter_viewport_offset(),
+            )
+            .total_count(self.event_tracker.filter_count())
+            .highlight_symbol(RIGHT_ARROW)
+            .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+            .render(area, buf, block);
+
         self.event_tracker
             .set_filter_viewport_height(list_area.height as usize);
-
-        block.render(area, buf);
-
-        let event_filter_list = List::new(list_items)
-            .highlight_symbol(RIGHT_ARROW)
-            .highlight_style(Style::default().add_modifier(Modifier::BOLD));
-
-        let mut list_state = ListState::default();
-        if !event_filters.is_empty() {
-            list_state.select(Some(self.event_tracker.filter_selected_index()));
-            *list_state.offset_mut() = self.event_tracker.filter_viewport_offset();
-        }
-
-        StatefulWidget::render(event_filter_list, list_area, buf, &mut list_state);
-
-        let mut scrollbar_state = ScrollbarState::new(self.event_tracker.filter_count())
-            .position(self.event_tracker.filter_selected_index())
-            .viewport_content_length(0);
-
-        let scrollbar = Scrollbar::default()
-            .orientation(ScrollbarOrientation::VerticalRight)
-            .begin_symbol(None)
-            .end_symbol(None);
-
-        StatefulWidget::render(scrollbar, scrollbar_area, buf, &mut scrollbar_state);
     }
 
     pub(super) fn render_marks_list(&self, area: Rect, buf: &mut Buffer) {
@@ -337,12 +299,9 @@ impl App {
             .unwrap_or(0);
 
         let inner_area = block.inner(area);
+        let list_area_width = inner_area.width.saturating_sub(1);
 
-        let [list_area, scrollbar_area] =
-            Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(inner_area);
-
-        let available_width = list_area
-            .width
+        let available_width = list_area_width
             .saturating_sub(max_name_length as u16)
             .saturating_sub(4)
             .max(20) as usize; // Minimum 20 characters
@@ -392,36 +351,18 @@ impl App {
             })
             .collect();
 
-        self.marking.set_viewport_height(list_area.height as usize);
-
-        block.render(area, buf);
-
-        let marks_list = List::new(items)
+        let (list_area, _) = ScrollableList::new(items)
+            .selection(self.marking.selected_index(), self.marking.viewport_offset())
+            .total_count(filtered_marks.len())
             .highlight_symbol(RIGHT_ARROW)
             .highlight_style(
                 Style::default()
                     .bg(MARK_LIST_HIGHLIGHT_BG)
                     .add_modifier(Modifier::BOLD),
-            );
+            )
+            .render(area, buf, block);
 
-        let mut list_state = ListState::default();
-        if !filtered_marks.is_empty() {
-            list_state.select(Some(self.marking.selected_index()));
-            *list_state.offset_mut() = self.marking.viewport_offset();
-        }
-
-        StatefulWidget::render(marks_list, list_area, buf, &mut list_state);
-
-        let mut scrollbar_state = ScrollbarState::new(filtered_marks.len())
-            .position(self.marking.selected_index())
-            .viewport_content_length(0);
-
-        let scrollbar = Scrollbar::default()
-            .orientation(ScrollbarOrientation::VerticalRight)
-            .begin_symbol(None)
-            .end_symbol(None);
-
-        StatefulWidget::render(scrollbar, scrollbar_area, buf, &mut scrollbar_state);
+        self.marking.set_viewport_height(list_area.height as usize);
     }
 
     pub(super) fn render_mark_name_input_popup(&self, area: Rect, buf: &mut Buffer) {
