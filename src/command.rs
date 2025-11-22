@@ -62,6 +62,8 @@ pub enum Command {
     ToggleEventFilter,
     ToggleAllEventFilters,
     ToggleShowMarksInEvents,
+    EventNext,
+    EventPrevious,
 
     // Marks
     ToggleMark,
@@ -148,6 +150,8 @@ impl Command {
             Command::ToggleEventFilter => "Toggle event filter",
             Command::ToggleAllEventFilters => "Toggle all event filters",
             Command::ToggleShowMarksInEvents => "Include marks in events view",
+            Command::EventNext => "Go to next event",
+            Command::EventPrevious => "Go to previous event",
 
             // Marks
             Command::ToggleMark => "Toggle mark on line",
@@ -234,6 +238,8 @@ impl Command {
             Command::ToggleEventFilter => app.toggle_event_filter(),
             Command::ToggleAllEventFilters => app.toggle_all_event_filters(),
             Command::ToggleShowMarksInEvents => app.toggle_show_marks_in_events(),
+            Command::EventNext => app.event_next(),
+            Command::EventPrevious => app.event_previous(),
 
             // Marks
             Command::ToggleMark => app.toggle_mark(),

@@ -247,6 +247,25 @@ impl LogEventTracker {
         items.get(self.selected_index).map(|item| item.line_index())
     }
 
+    /// Gets the next event/mark after the given line index that passes the event filters.
+    pub fn get_next_event(&self, current_line_index: usize) -> Option<usize> {
+        let items = self.get_combined_items();
+        items
+            .iter()
+            .find(|item| item.line_index() > current_line_index)
+            .map(|item| item.line_index())
+    }
+
+    /// Gets the previous event/mark before the given line index that passes the event filters.
+    pub fn get_previous_event(&self, current_line_index: usize) -> Option<usize> {
+        let items = self.get_combined_items();
+        items
+            .iter()
+            .rev()
+            .find(|item| item.line_index() < current_line_index)
+            .map(|item| item.line_index())
+    }
+
     /// Gets the currently selected index.
     pub fn selected_index(&self) -> usize {
         self.selected_index

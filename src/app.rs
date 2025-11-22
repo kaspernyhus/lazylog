@@ -1117,6 +1117,28 @@ impl App {
         }
     }
 
+    pub fn event_next(&mut self) {
+        if let Some(line_index) = self
+            .log_buffer
+            .viewport_to_log_index(self.viewport.selected_line)
+            && let Some(next_event_line) = self.event_tracker.get_next_event(line_index)
+            && let Some(active_line) = self.log_buffer.find_line(next_event_line) {
+                self.viewport.push_history(active_line);
+                self.viewport.goto_line(active_line, false);
+            }
+    }
+
+    pub fn event_previous(&mut self) {
+        if let Some(line_index) = self
+            .log_buffer
+            .viewport_to_log_index(self.viewport.selected_line)
+            && let Some(prev_event_line) = self.event_tracker.get_previous_event(line_index)
+            && let Some(active_line) = self.log_buffer.find_line(prev_event_line) {
+                self.viewport.push_history(active_line);
+                self.viewport.goto_line(active_line, false);
+            }
+    }
+
     /// Helper to go to a log line by its log line index. If the line is not visible, it does nothing.
     pub fn goto_line(&mut self, log_index: usize) {
         if let Some(active_line) = self.log_buffer.find_line(log_index) {

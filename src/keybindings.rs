@@ -201,6 +201,8 @@ impl KeybindingRegistry {
         );
         self.bind_simple(state.clone(), KeyCode::Char(']'), Command::MarkNext);
         self.bind_simple(state.clone(), KeyCode::Char('['), Command::MarkPrevious);
+        self.bind_simple(state.clone(), KeyCode::Char('}'), Command::EventNext);
+        self.bind_simple(state.clone(), KeyCode::Char('{'), Command::EventPrevious);
         self.bind_simple(
             state.clone(),
             KeyCode::Char('c'),
