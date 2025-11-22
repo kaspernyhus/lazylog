@@ -260,6 +260,11 @@ impl App {
             return;
         }
 
+        let inner_area = block.inner(area);
+
+        let [list_area, scrollbar_area] =
+            Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(inner_area);
+
         let list_items: Vec<Line> = event_filters
             .iter()
             .map(|filter| {
@@ -275,17 +280,33 @@ impl App {
             })
             .collect();
 
-        let mut list_state = ListState::default();
-        if !event_filters.is_empty() {
-            list_state.select(Some(self.event_tracker.filter_selected_index()));
-        }
+        self.event_tracker
+            .set_filter_viewport_height(list_area.height as usize);
+
+        block.render(area, buf);
 
         let event_filter_list = List::new(list_items)
-            .block(block)
             .highlight_symbol(RIGHT_ARROW)
             .highlight_style(Style::default().add_modifier(Modifier::BOLD));
 
-        StatefulWidget::render(event_filter_list, area, buf, &mut list_state);
+        let mut list_state = ListState::default();
+        if !event_filters.is_empty() {
+            list_state.select(Some(self.event_tracker.filter_selected_index()));
+            *list_state.offset_mut() = self.event_tracker.filter_viewport_offset();
+        }
+
+        StatefulWidget::render(event_filter_list, list_area, buf, &mut list_state);
+
+        let mut scrollbar_state = ScrollbarState::new(self.event_tracker.filter_count())
+            .position(self.event_tracker.filter_selected_index())
+            .viewport_content_length(0);
+
+        let scrollbar = Scrollbar::default()
+            .orientation(ScrollbarOrientation::VerticalRight)
+            .begin_symbol(None)
+            .end_symbol(None);
+
+        StatefulWidget::render(scrollbar, scrollbar_area, buf, &mut scrollbar_state);
     }
 
     pub(super) fn render_marks_list(&self, area: Rect, buf: &mut Buffer) {

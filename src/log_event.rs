@@ -69,6 +69,10 @@ pub struct LogEventTracker {
     event_counts: HashMap<String, usize>,
     /// Selected index in the filter list
     filter_selected_index: usize,
+    /// Viewport offset for scrolling the filter list
+    filter_viewport_offset: usize,
+    /// Last rendered viewport height for the filter list. Set in ui rendering, therefor need interior mutability.
+    filter_viewport_height: Cell<usize>,
     /// Tracks whether the event list needs rescanning
     needs_rescan: bool,
     /// Whether to show marks in the events view
@@ -380,6 +384,46 @@ impl LogEventTracker {
         self.filter_selected_index
     }
 
+    /// Gets the current filter viewport offset.
+    pub fn filter_viewport_offset(&self) -> usize {
+        self.filter_viewport_offset
+    }
+
+    /// Gets the total number of filters.
+    pub fn filter_count(&self) -> usize {
+        self.event_filters.len()
+    }
+
+    /// Sets the filter viewport height.
+    pub fn set_filter_viewport_height(&self, height: usize) {
+        self.filter_viewport_height.set(height);
+    }
+
+    /// Adjusts the filter viewport offset to keep the selected item visible.
+    fn adjust_filter_viewport(&mut self) {
+        let filter_count = self.get_event_filters().len();
+        if filter_count == 0 {
+            self.filter_viewport_offset = 0;
+            return;
+        }
+
+        let viewport_height = self.filter_viewport_height.get();
+
+        if viewport_height == 0 {
+            return;
+        }
+
+        // scroll up
+        if self.filter_selected_index < self.filter_viewport_offset {
+            self.filter_viewport_offset = self.filter_selected_index;
+        }
+
+        // scroll down
+        if self.filter_selected_index >= self.filter_viewport_offset + viewport_height {
+            self.filter_viewport_offset = self.filter_selected_index - viewport_height + 1;
+        }
+    }
+
     /// Moves filter selection up (wraps to bottom).
     pub fn move_filter_selection_up(&mut self) {
         let filters = self.get_event_filters();
@@ -390,6 +434,7 @@ impl LogEventTracker {
             } else {
                 self.filter_selected_index - 1
             };
+            self.adjust_filter_viewport();
         }
     }
 
@@ -399,6 +444,7 @@ impl LogEventTracker {
         let filter_count = filters.len();
         if filter_count > 0 {
             self.filter_selected_index = (self.filter_selected_index + 1) % filter_count;
+            self.adjust_filter_viewport();
         }
     }
 
