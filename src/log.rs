@@ -82,7 +82,7 @@ impl LogBuffer {
         self.active_lines.push(index);
     }
 
-    /// Applies the given filter to all lines in the buffer.
+    /// Applies the filters to all lines in the buffer.
     ///
     /// Rebuilds the active_lines list based on the filter criteria.
     pub fn apply_filters(&mut self, filter: &Filter, marked_indices: &[usize]) {
@@ -96,11 +96,8 @@ impl LogBuffer {
                 .par_iter()
                 .enumerate()
                 .filter_map(|(index, log_line)| {
-                    let passes_text_filter = if filter_patterns.is_empty() {
-                        true
-                    } else {
-                        processing::apply_filters(&log_line.content, filter_patterns)
-                    };
+                    let passes_text_filter =
+                        processing::apply_filters(&log_line.content, filter_patterns);
 
                     let passes_marked_filter = if show_marked_only {
                         marked_indices.binary_search(&index).is_ok()

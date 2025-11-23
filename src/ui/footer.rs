@@ -109,12 +109,8 @@ impl App {
     }
 
     pub(super) fn render_search_footer(&self, area: Rect, buf: &mut Buffer) {
-        let search_prompt = Line::from(format!(
-            "{}{}",
-            self.get_input_prefix(),
-            self.input.value()
-        ))
-        .left_aligned();
+        let search_prompt =
+            Line::from(format!("{}{}", self.get_input_prefix(), self.input.value())).left_aligned();
         let progression_text = self.format_progression_text();
         let progression = Line::from(progression_text + " ").right_aligned();
 
@@ -132,12 +128,8 @@ impl App {
     }
 
     pub(super) fn render_filter_footer(&self, area: Rect, buf: &mut Buffer) {
-        let filter_prompt = Line::from(format!(
-            "{}{}",
-            self.get_input_prefix(),
-            self.input.value()
-        ))
-        .left_aligned();
+        let filter_prompt =
+            Line::from(format!("{}{}", self.get_input_prefix(), self.input.value())).left_aligned();
         let progression_text = self.format_progression_text();
         let progression = Line::from(progression_text + " ").right_aligned();
 
@@ -155,12 +147,8 @@ impl App {
     }
 
     pub(super) fn render_mark_footer(&self, area: Rect, buf: &mut Buffer) {
-        let mark_prompt = Line::from(format!(
-            "{}{}",
-            self.get_input_prefix(),
-            self.input.value()
-        ))
-        .left_aligned();
+        let mark_prompt =
+            Line::from(format!("{}{}", self.get_input_prefix(), self.input.value())).left_aligned();
         let progression_text = self.format_progression_text();
         let progression = Line::from(progression_text + " ").right_aligned();
 

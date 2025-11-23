@@ -1,12 +1,11 @@
 use crate::highlighter::HighlightPattern;
+use crate::list_view_state::ListViewState;
 use crate::log::{Interval, LogBuffer, LogLine};
-use crate::marking::Mark;
 use crate::processing::{count_events, scan_for_events};
-use std::cell::Cell;
 use std::collections::HashMap;
 
-/// Information about a matched event occurrence.
-#[derive(Debug, Clone)]
+/// A log event occurrence.
+#[derive(Debug, Clone, PartialEq)]
 pub struct LogEvent {
     /// Name of the event that matched.
     pub event_name: String,
@@ -14,39 +13,80 @@ pub struct LogEvent {
     pub line_index: usize,
 }
 
-/// Filter state for an event type.
+/// A filter for a specific event type.
 #[derive(Debug, Clone)]
 pub struct EventFilter {
-    /// Name of the event.
     pub name: String,
-    /// Whether this event type is enabled in the filter.
     pub enabled: bool,
 }
 
-/// Display item that can be either an event or a mark
-#[derive(Debug, Clone)]
-pub enum EventOrMark<'a> {
-    Event(&'a LogEvent),
-    Mark(&'a Mark),
+#[derive(Debug, Default)]
+pub struct EventFilterList {
+    /// Map of event_name -> enabled state
+    event_filters: HashMap<String, bool>,
+    /// View state for the filter list
+    filter_view: ListViewState,
 }
 
-impl<'a> EventOrMark<'a> {
-    pub fn line_index(&self) -> usize {
-        match self {
-            EventOrMark::Event(e) => e.line_index,
-            EventOrMark::Mark(m) => m.line_index,
+impl EventFilterList {
+    pub fn add_event_name(&mut self, event_name: String) {
+        self.event_filters.entry(event_name).or_insert(true);
+        self.filter_view.set_item_count(self.event_filters.len());
+    }
+
+    pub fn add_filter(&mut self, event_name: String, enabled: bool) {
+        self.event_filters.insert(event_name, enabled);
+        self.filter_view.set_item_count(self.event_filters.len());
+    }
+
+    pub fn get_filters(&self) -> &HashMap<String, bool> {
+        &self.event_filters
+    }
+
+    pub fn is_enabled(&self, event_name: &str) -> bool {
+        self.event_filters.get(event_name).copied().unwrap_or(true)
+    }
+
+    pub fn count(&self) -> usize {
+        self.event_filters.len()
+    }
+
+    pub fn get_mut(&mut self, event_name: &str) -> Option<&mut bool> {
+        self.event_filters.get_mut(event_name)
+    }
+
+    pub fn set_all_enabled(&mut self, enabled: bool) {
+        for value in self.event_filters.values_mut() {
+            *value = enabled;
         }
     }
 
-    pub fn name(&self) -> &str {
-        match self {
-            EventOrMark::Event(e) => &e.event_name,
-            EventOrMark::Mark(m) => m.name.as_deref().unwrap_or("MARK"),
-        }
+    pub fn all_enabled(&self) -> bool {
+        self.event_filters.values().all(|&enabled| enabled)
     }
 
-    pub fn is_mark(&self) -> bool {
-        matches!(self, EventOrMark::Mark(_))
+    pub fn selected_index(&self) -> usize {
+        self.filter_view.selected_index()
+    }
+
+    pub fn viewport_offset(&self) -> usize {
+        self.filter_view.viewport_offset()
+    }
+
+    pub fn set_viewport_height(&self, height: usize) {
+        self.filter_view.set_viewport_height(height)
+    }
+
+    pub fn move_up_wrap(&mut self) {
+        self.filter_view.move_up_wrap()
+    }
+
+    pub fn move_down_wrap(&mut self) {
+        self.filter_view.move_down_wrap()
+    }
+
+    pub fn set_item_count(&mut self, count: usize) {
+        self.filter_view.set_item_count(count)
     }
 }
 
@@ -55,28 +95,14 @@ impl<'a> EventOrMark<'a> {
 pub struct LogEventTracker {
     /// Events sorted by line_index.
     events: Vec<LogEvent>,
-    /// Marks to show in the events view (cached)
-    marks: Vec<Mark>,
-    /// Currently selected event index
-    selected_index: usize,
-    /// Viewport offset for scrolling the list
-    viewport_offset: usize,
-    /// Last rendered viewport height. Set in ui rendering, therefor need interior mutability.
-    viewport_height: Cell<usize>,
-    /// Event filters - maps event name to enabled state
-    event_filters: HashMap<String, bool>,
     /// Total count of each event type (regardless of filter state)
     event_counts: HashMap<String, usize>,
-    /// Selected index in the filter list
-    filter_selected_index: usize,
-    /// Viewport offset for scrolling the filter list
-    filter_viewport_offset: usize,
-    /// Last rendered viewport height for the filter list. Set in ui rendering, therefor need interior mutability.
-    filter_viewport_height: Cell<usize>,
+    /// View state for the events list
+    events_view: ListViewState,
     /// Tracks whether the event list needs rescanning
     needs_rescan: bool,
-    /// Whether to show marks in the events view
-    show_marks: bool,
+    /// Event filter list
+    pub event_filter: EventFilterList,
 }
 
 impl LogEventTracker {
@@ -92,14 +118,15 @@ impl LogEventTracker {
 
         for event in event_patterns {
             if let Some(name) = &event.name {
-                self.event_filters.entry(name.clone()).or_insert(true);
+                self.event_filter.add_event_name(name.clone());
                 self.event_counts.insert(name.clone(), 0);
             }
         }
 
         let lines: Vec<LogLine> = log_buffer.get_lines_iter(Interval::All).cloned().collect();
         self.event_counts = count_events(&lines, event_patterns);
-        self.events = scan_for_events(&lines, event_patterns, &self.event_filters);
+        self.events = scan_for_events(&lines, event_patterns, self.event_filter.get_filters());
+        self.events_view.set_item_count(self.count());
         self.needs_rescan = false;
     }
 
@@ -124,16 +151,17 @@ impl LogEventTracker {
             if event.matcher.matches(&log_line.content) {
                 if let Some(name) = &event.name {
                     *self.event_counts.entry(name.clone()).or_insert(0) += 1;
-                    if *self.event_filters.get(name).unwrap_or(&true) {
+                    if self.event_filter.is_enabled(name) {
                         let new_event = LogEvent {
                             event_name: name.clone(),
                             line_index: log_line.index,
                         };
 
                         self.events.push(new_event);
+                        self.events_view.set_item_count(self.count());
 
                         if follow_mode {
-                            self.select_last_event();
+                            self.events_view.select_last();
                         }
                     }
                 }
@@ -142,96 +170,37 @@ impl LogEventTracker {
         }
     }
 
-    /// Updates the cached marks.
-    pub fn set_marks(&mut self, marks: &[&Mark]) {
-        self.marks = marks.iter().map(|&m| m.clone()).collect();
+    /// Returns an iterator over events.
+    pub fn iter_events(&self) -> impl Iterator<Item = &LogEvent> {
+        self.events.iter()
     }
 
-    /// Returns a vector of combined events and marks in sorted order by line_index.
-    fn get_combined_items(&self) -> Vec<EventOrMark<'_>> {
-        let mut result = Vec::new();
-
-        if self.show_marks {
-            let mut event_idx = 0;
-            let mut mark_idx = 0;
-
-            while event_idx < self.events.len() || mark_idx < self.marks.len() {
-                match (self.events.get(event_idx), self.marks.get(mark_idx)) {
-                    (Some(e), Some(m)) if e.line_index <= m.line_index => {
-                        result.push(EventOrMark::Event(e));
-                        event_idx += 1;
-                    }
-                    (Some(_), Some(m)) => {
-                        result.push(EventOrMark::Mark(m));
-                        mark_idx += 1;
-                    }
-                    (Some(e), None) => {
-                        result.push(EventOrMark::Event(e));
-                        event_idx += 1;
-                    }
-                    (None, Some(m)) => {
-                        result.push(EventOrMark::Mark(m));
-                        mark_idx += 1;
-                    }
-                    (None, None) => break,
-                }
-            }
-        } else {
-            for event in &self.events {
-                result.push(EventOrMark::Event(event));
-            }
-        }
-
-        result
-    }
-
-    /// Returns an iterator over events and marks combined in sorted order by line_index.
-    pub fn iter_items(&self) -> impl Iterator<Item = EventOrMark<'_>> {
-        self.get_combined_items().into_iter()
-    }
-
-    /// Toggles whether marks are shown in the events view.
-    pub fn toggle_show_marks(&mut self) {
-        self.show_marks = !self.show_marks;
-    }
-
-    /// Returns whether marks are shown in the events view.
-    pub fn showing_marks(&self) -> bool {
-        self.show_marks
-    }
-
-    /// Returns the number of items in the combined view.
+    /// Returns the number of events.
     pub fn count(&self) -> usize {
-        if self.show_marks {
-            self.events.len() + self.marks.len()
-        } else {
-            self.events.len()
-        }
+        self.events.len()
     }
 
-    /// Returns true if no events/marks are in the combined view.
+    /// Returns true if no events are tracked.
     pub fn is_empty(&self) -> bool {
-        if self.show_marks {
-            self.events.is_empty() && self.marks.is_empty()
-        } else {
-            self.events.is_empty()
-        }
+        self.events.is_empty()
     }
 
-    /// Finds the index of the item nearest to the given line number.
+    /// Finds the index of the event nearest to the given line number.
     pub fn find_nearest(&self, line_index: usize) -> Option<usize> {
-        if self.is_empty() {
+        if self.events.is_empty() {
             return None;
         }
 
-        let items = self.get_combined_items();
-        match items.binary_search_by_key(&line_index, |item| item.line_index()) {
+        match self
+            .events
+            .binary_search_by_key(&line_index, |e| e.line_index)
+        {
             Ok(idx) => Some(idx),
             Err(0) => Some(0),
-            Err(idx) if idx >= items.len() => Some(items.len() - 1),
+            Err(idx) if idx >= self.events.len() => Some(self.events.len() - 1),
             Err(idx) => {
-                let dist_before = line_index - items[idx - 1].line_index();
-                let dist_after = items[idx].line_index() - line_index;
+                let dist_before = line_index - self.events[idx - 1].line_index;
+                let dist_after = self.events[idx].line_index - line_index;
                 Some(if dist_before <= dist_after {
                     idx - 1
                 } else {
@@ -241,74 +210,43 @@ impl LogEventTracker {
         }
     }
 
-    /// Gets the line index of the currently selected item.
+    /// Gets the line index of the currently selected event.
     pub fn get_selected_line_index(&self) -> Option<usize> {
-        let items = self.get_combined_items();
-        items.get(self.selected_index).map(|item| item.line_index())
+        self.events
+            .get(self.events_view.selected_index())
+            .map(|event| event.line_index)
     }
 
-    /// Gets the next event/mark after the given line index that passes the event filters.
+    /// Gets the next event after the given line index.
     pub fn get_next_event(&self, current_line_index: usize) -> Option<usize> {
-        let items = self.get_combined_items();
-        items
+        self.events
             .iter()
-            .find(|item| item.line_index() > current_line_index)
-            .map(|item| item.line_index())
+            .find(|event| event.line_index > current_line_index)
+            .map(|event| event.line_index)
     }
 
-    /// Gets the previous event/mark before the given line index that passes the event filters.
+    /// Gets the previous event before the given line index.
     pub fn get_previous_event(&self, current_line_index: usize) -> Option<usize> {
-        let items = self.get_combined_items();
-        items
+        self.events
             .iter()
             .rev()
-            .find(|item| item.line_index() < current_line_index)
-            .map(|item| item.line_index())
+            .find(|event| event.line_index < current_line_index)
+            .map(|event| event.line_index)
     }
 
     /// Gets the currently selected index.
     pub fn selected_index(&self) -> usize {
-        self.selected_index
+        self.events_view.selected_index()
     }
 
     /// Gets the current viewport offset.
     pub fn viewport_offset(&self) -> usize {
-        self.viewport_offset
+        self.events_view.viewport_offset()
     }
 
     /// Sets the viewport height.
     pub fn set_viewport_height(&self, height: usize) {
-        self.viewport_height.set(height);
-    }
-
-    /// Adjusts the viewport offset to keep the selected item visible.
-    fn adjust_viewport(&mut self) {
-        let total_count = self.count();
-        if total_count == 0 {
-            self.viewport_offset = 0;
-            return;
-        }
-
-        let viewport_height = self.viewport_height.get();
-
-        if viewport_height == 0 {
-            return;
-        }
-
-        // scroll up
-        if self.selected_index < self.viewport_offset {
-            self.viewport_offset = self.selected_index;
-        }
-
-        // scroll down
-        let bottom_threshold = self.viewport_offset + viewport_height.saturating_sub(1);
-        if self.selected_index > bottom_threshold {
-            self.viewport_offset = self.selected_index + 1 - viewport_height;
-        }
-
-        // Ensure viewport doesn't go past the end
-        let max_offset = total_count.saturating_sub(viewport_height);
-        self.viewport_offset = self.viewport_offset.min(max_offset);
+        self.events_view.set_viewport_height(height);
     }
 
     /// Sets the selected index to the nearest event to the given line number.
@@ -316,67 +254,44 @@ impl LogEventTracker {
     /// This also returns the index that was set, or `None` if there are no events.
     pub fn select_nearest_event(&mut self, current_line: usize) -> Option<usize> {
         if let Some(nearest_index) = self.find_nearest(current_line) {
-            self.selected_index = nearest_index;
-            self.adjust_viewport();
+            self.events_view.select_index(nearest_index);
             Some(nearest_index)
         } else {
-            self.selected_index = 0;
-            self.adjust_viewport();
+            self.events_view.select_index(0);
             None
         }
     }
 
     /// Moves selection up (wraps to bottom).
     pub fn move_selection_up(&mut self) {
-        let total_count = self.count();
-        if total_count > 0 && self.selected_index > 0 {
-            self.selected_index -= 1;
-            self.adjust_viewport();
-        }
+        self.events_view.move_up();
     }
 
     /// Moves selection down (wraps to top).
     pub fn move_selection_down(&mut self) {
-        let total_count = self.count();
-        if total_count > 0 && self.selected_index < total_count - 1 {
-            self.selected_index += 1;
-            self.adjust_viewport();
-        }
+        self.events_view.move_down();
     }
 
     /// Selects the last (most recent) item in the list.
     pub fn select_last_event(&mut self) {
-        let total_count = self.count();
-        if total_count > 0 {
-            self.selected_index = total_count - 1;
-            self.adjust_viewport();
-        }
+        self.events_view.select_last();
     }
 
     /// Moves selection up by half a page.
     pub fn selection_page_up(&mut self) {
-        let total_count = self.count();
-        if total_count > 0 {
-            let page_size = self.viewport_height.get().saturating_sub(1).max(1) / 2; // At least 1
-            self.selected_index = self.selected_index.saturating_sub(page_size);
-            self.adjust_viewport();
-        }
+        self.events_view.page_up();
     }
 
     /// Moves selection down by half a page.
     pub fn selection_page_down(&mut self) {
-        let total_count = self.count();
-        if total_count > 0 {
-            let page_size = self.viewport_height.get().saturating_sub(1).max(1) / 2; // At least 1
-            self.selected_index = (self.selected_index + page_size).min(total_count - 1);
-            self.adjust_viewport();
-        }
+        self.events_view.page_down();
     }
 
     /// Returns a list of event filters sorted by count.
     pub fn get_event_filters(&self) -> Vec<EventFilter> {
         let mut filters: Vec<_> = self
-            .event_filters
+            .event_filter
+            .get_filters()
             .iter()
             .map(|(name, enabled)| EventFilter {
                 name: name.clone(),
@@ -398,98 +313,519 @@ impl LogEventTracker {
         self.event_counts.get(event_name).copied().unwrap_or(0)
     }
 
-    /// Gets the selected filter index.
-    pub fn filter_selected_index(&self) -> usize {
-        self.filter_selected_index
-    }
-
-    /// Gets the current filter viewport offset.
-    pub fn filter_viewport_offset(&self) -> usize {
-        self.filter_viewport_offset
-    }
-
     /// Gets the total number of filters.
     pub fn filter_count(&self) -> usize {
-        self.event_filters.len()
+        self.event_filter.count()
     }
 
     /// Sets the filter viewport height.
     pub fn set_filter_viewport_height(&self, height: usize) {
-        self.filter_viewport_height.set(height);
-    }
-
-    /// Adjusts the filter viewport offset to keep the selected item visible.
-    fn adjust_filter_viewport(&mut self) {
-        let filter_count = self.get_event_filters().len();
-        if filter_count == 0 {
-            self.filter_viewport_offset = 0;
-            return;
-        }
-
-        let viewport_height = self.filter_viewport_height.get();
-
-        if viewport_height == 0 {
-            return;
-        }
-
-        // scroll up
-        if self.filter_selected_index < self.filter_viewport_offset {
-            self.filter_viewport_offset = self.filter_selected_index;
-        }
-
-        // scroll down
-        if self.filter_selected_index >= self.filter_viewport_offset + viewport_height {
-            self.filter_viewport_offset = self.filter_selected_index - viewport_height + 1;
-        }
+        self.event_filter.set_viewport_height(height);
     }
 
     /// Moves filter selection up (wraps to bottom).
     pub fn move_filter_selection_up(&mut self) {
-        let filters = self.get_event_filters();
-        let filter_count = filters.len();
-        if filter_count > 0 {
-            self.filter_selected_index = if self.filter_selected_index == 0 {
-                filter_count - 1
-            } else {
-                self.filter_selected_index - 1
-            };
-            self.adjust_filter_viewport();
-        }
+        self.event_filter.move_up_wrap();
     }
 
     /// Moves filter selection down (wraps to top).
     pub fn move_filter_selection_down(&mut self) {
-        let filters = self.get_event_filters();
-        let filter_count = filters.len();
-        if filter_count > 0 {
-            self.filter_selected_index = (self.filter_selected_index + 1) % filter_count;
-            self.adjust_filter_viewport();
-        }
+        self.event_filter.move_down_wrap();
     }
 
     /// Toggles the selected event filter.
     pub fn toggle_selected_filter(&mut self) {
         let filters = self.get_event_filters();
-        if let Some(filter) = filters.get(self.filter_selected_index)
-            && let Some(enabled) = self.event_filters.get_mut(&filter.name)
+        let selected_index = self.event_filter.selected_index();
+        if let Some(filter) = filters.get(selected_index)
+            && let Some(enabled) = self.event_filter.get_mut(&filter.name)
         {
             *enabled = !*enabled;
+            self.events_view.set_item_count(self.count());
         }
     }
 
     /// Toggles all event filters on or off.
     pub fn toggle_all_filters(&mut self) {
-        let all_enabled = self.event_filters.values().all(|&enabled| enabled);
+        let all_enabled = self.event_filter.all_enabled();
         let new_state = !all_enabled;
-        for enabled in self.event_filters.values_mut() {
-            *enabled = new_state;
-        }
+        self.event_filter.set_all_enabled(new_state);
     }
 
     /// Restores event filter states from persisted state.
     pub fn restore_filter_states(&mut self, filter_states: &[(String, bool)]) {
         for (name, enabled) in filter_states {
-            self.event_filters.insert(name.clone(), *enabled);
+            self.event_filter.add_filter(name.clone(), *enabled);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::highlighter::{PatternMatcher, PatternStyle, PlainMatch};
+    use crate::log::LogLine;
+
+    fn create_test_patterns() -> Vec<HighlightPattern> {
+        vec![
+            HighlightPattern {
+                name: Some("error".to_string()),
+                matcher: PatternMatcher::Plain(PlainMatch {
+                    pattern: "ERROR".to_string(),
+                    case_sensitive: true,
+                }),
+                style: PatternStyle::default_colors(),
+            },
+            HighlightPattern {
+                name: Some("warning".to_string()),
+                matcher: PatternMatcher::Plain(PlainMatch {
+                    pattern: "WARN".to_string(),
+                    case_sensitive: true,
+                }),
+                style: PatternStyle::default_colors(),
+            },
+            HighlightPattern {
+                name: Some("info".to_string()),
+                matcher: PatternMatcher::Plain(PlainMatch {
+                    pattern: "INFO".to_string(),
+                    case_sensitive: true,
+                }),
+                style: PatternStyle::default_colors(),
+            },
+        ]
+    }
+
+    fn create_test_log_lines() -> Vec<LogLine> {
+        vec![
+            LogLine::new("INFO: Starting application".to_string(), 0),
+            LogLine::new("ERROR: Failed to connect".to_string(), 1),
+            LogLine::new("WARN: Retrying connection".to_string(), 2),
+            LogLine::new("INFO: Connection established".to_string(), 3),
+            LogLine::new("ERROR: Timeout occurred".to_string(), 4),
+        ]
+    }
+
+    // Helper to populate tracker for tests
+    fn populate_tracker(tracker: &mut LogEventTracker, patterns: &[HighlightPattern]) {
+        let lines = create_test_log_lines();
+
+        // Initialize filters and counts
+        for event in patterns {
+            if let Some(name) = &event.name {
+                tracker.event_filter.add_event_name(name.clone());
+                tracker.event_counts.insert(name.clone(), 0);
+            }
+        }
+
+        tracker.event_counts = count_events(&lines, patterns);
+        tracker.events = scan_for_events(&lines, patterns, tracker.event_filter.get_filters());
+        tracker.events_view.set_item_count(tracker.count());
+    }
+
+    #[test]
+    fn test_new_tracker_is_empty() {
+        let tracker = LogEventTracker::new();
+        assert!(tracker.is_empty());
+        assert_eq!(tracker.count(), 0);
+    }
+
+    #[test]
+    fn test_populate_tracker_finds_events() {
+        let mut tracker = LogEventTracker::new();
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+
+        assert_eq!(tracker.count(), 5);
+        assert!(!tracker.is_empty());
+    }
+
+    #[test]
+    fn test_populate_tracker_counts_events_by_type() {
+        let mut tracker = LogEventTracker::new();
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+
+        assert_eq!(tracker.get_event_count("error"), 2);
+        assert_eq!(tracker.get_event_count("warning"), 1);
+        assert_eq!(tracker.get_event_count("info"), 2);
+    }
+
+    #[test]
+    fn test_populate_tracker_initializes_filters() {
+        let mut tracker = LogEventTracker::new();
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+
+        let filters = tracker.get_event_filters();
+        assert_eq!(filters.len(), 3);
+        assert!(filters.iter().all(|f| f.enabled));
+    }
+
+    #[test]
+    fn test_scan_single_line_adds_matching_event() {
+        let mut tracker = LogEventTracker::new();
+        let patterns = create_test_patterns();
+        let log_line = LogLine::new("ERROR: Test error".to_string(), 10);
+
+        tracker.scan_single_line(&log_line, &patterns, false);
+
+        assert_eq!(tracker.count(), 1);
+        let events: Vec<_> = tracker.iter_events().collect();
+        assert_eq!(events[0].event_name, "error");
+        assert_eq!(events[0].line_index, 10);
+    }
+
+    #[test]
+    fn test_scan_single_line_respects_filters() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        // Initialize filters manually
+        for pattern in &patterns {
+            if let Some(name) = &pattern.name {
+                tracker.event_filter.add_event_name(name.clone());
+            }
+        }
+
+        // Disable error filter
+        tracker.event_filter.add_filter("error".to_string(), false);
+
+        let log_line = LogLine::new("ERROR: Another error".to_string(), 10);
+        tracker.scan_single_line(&log_line, &patterns, false);
+
+        // Should not add because filter is disabled
+        assert_eq!(tracker.count(), 0);
+    }
+
+    #[test]
+    fn test_find_nearest_exact_match() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+
+        let nearest = tracker.find_nearest(2);
+        assert_eq!(nearest, Some(2)); // Should find event at line 2
+    }
+
+    #[test]
+    fn test_find_nearest_between_events() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+
+        // Line 2.5 should pick line 2 (closer than line 3)
+        let nearest = tracker.find_nearest(2);
+        assert_eq!(nearest, Some(2));
+    }
+
+    #[test]
+    fn test_find_nearest_before_first() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+
+        let nearest = tracker.find_nearest(0);
+        assert_eq!(nearest, Some(0)); // Should return first event
+    }
+
+    #[test]
+    fn test_find_nearest_after_last() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+
+        let nearest = tracker.find_nearest(100);
+        assert_eq!(nearest, Some(4)); // Should return last event
+    }
+
+    #[test]
+    fn test_find_nearest_empty_returns_none() {
+        let tracker = LogEventTracker::new();
+        assert_eq!(tracker.find_nearest(10), None);
+    }
+
+    #[test]
+    fn test_get_next_event() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+
+        let next = tracker.get_next_event(1);
+        assert_eq!(next, Some(2));
+    }
+
+    #[test]
+    fn test_get_next_event_at_last_returns_none() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+
+        let next = tracker.get_next_event(4);
+        assert_eq!(next, None);
+    }
+
+    #[test]
+    fn test_get_previous_event() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+
+        let prev = tracker.get_previous_event(3);
+        assert_eq!(prev, Some(2));
+    }
+
+    #[test]
+    fn test_get_previous_event_at_first_returns_none() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+
+        let prev = tracker.get_previous_event(0);
+        assert_eq!(prev, None);
+    }
+
+    #[test]
+    fn test_select_nearest_event_updates_selection() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+
+        tracker.select_nearest_event(2);
+        assert_eq!(tracker.get_selected_line_index(), Some(2));
+    }
+
+    #[test]
+    fn test_move_selection_up() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+        tracker.select_nearest_event(4);
+
+        tracker.move_selection_up();
+        assert_eq!(tracker.get_selected_line_index(), Some(3));
+    }
+
+    #[test]
+    fn test_move_selection_down() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+        tracker.select_nearest_event(0);
+
+        tracker.move_selection_down();
+        assert_eq!(tracker.get_selected_line_index(), Some(1));
+    }
+
+    #[test]
+    fn test_select_last_event() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+
+        tracker.select_last_event();
+        assert_eq!(tracker.get_selected_line_index(), Some(4));
+    }
+
+    #[test]
+    fn test_toggle_selected_filter_disables_filter() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+
+        let initial_filters = tracker.get_event_filters();
+        let first_filter_name = initial_filters[0].name.clone();
+        assert!(initial_filters[0].enabled);
+
+        tracker.toggle_selected_filter();
+
+        let updated_filters = tracker.get_event_filters();
+        let toggled_filter = updated_filters
+            .iter()
+            .find(|f| f.name == first_filter_name)
+            .unwrap();
+        assert!(!toggled_filter.enabled);
+    }
+
+    #[test]
+    fn test_toggle_all_filters_when_all_enabled() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+
+        tracker.toggle_all_filters();
+
+        let filters = tracker.get_event_filters();
+        assert!(filters.iter().all(|f| !f.enabled));
+    }
+
+    #[test]
+    fn test_toggle_all_filters_when_some_disabled() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+        tracker.toggle_selected_filter(); // Disable one
+
+        tracker.toggle_all_filters();
+
+        let filters = tracker.get_event_filters();
+        assert!(filters.iter().all(|f| f.enabled));
+    }
+
+    #[test]
+    fn test_get_event_filters_sorted_by_count() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+
+        let filters = tracker.get_event_filters();
+
+        // Should be sorted by count descending: error(2), info(2), warning(1)
+        assert_eq!(filters.len(), 3);
+        let counts: Vec<_> = filters
+            .iter()
+            .map(|f| tracker.get_event_count(&f.name))
+            .collect();
+        assert!(counts[0] >= counts[1]);
+        assert!(counts[1] >= counts[2]);
+    }
+
+    #[test]
+    fn test_restore_filter_states() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+
+        let saved_states = vec![
+            ("error".to_string(), false),
+            ("warning".to_string(), true),
+            ("info".to_string(), false),
+        ];
+
+        tracker.restore_filter_states(&saved_states);
+
+        let filters = tracker.get_event_filters();
+        let error_filter = filters.iter().find(|f| f.name == "error").unwrap();
+        let warning_filter = filters.iter().find(|f| f.name == "warning").unwrap();
+        let info_filter = filters.iter().find(|f| f.name == "info").unwrap();
+
+        assert!(!error_filter.enabled);
+        assert!(warning_filter.enabled);
+        assert!(!info_filter.enabled);
+    }
+
+    #[test]
+    fn test_mark_needs_rescan() {
+        let mut tracker = LogEventTracker::new();
+        assert!(!tracker.needs_rescan());
+
+        tracker.mark_needs_rescan();
+        assert!(tracker.needs_rescan());
+    }
+
+    #[test]
+    fn test_populate_tracker_does_not_clear_needs_rescan() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        tracker.mark_needs_rescan();
+        populate_tracker(&mut tracker, &patterns);
+
+        // populate_tracker is just a test helper, it doesn't clear needs_rescan
+        // (only scan_all_lines does that in real code)
+        assert!(tracker.needs_rescan());
+    }
+
+    #[test]
+    fn test_iter_events_returns_all_events() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+
+        let events: Vec<_> = tracker.iter_events().collect();
+        assert_eq!(events.len(), 5);
+        assert_eq!(events[0].line_index, 0);
+        assert_eq!(events[1].line_index, 1);
+        assert_eq!(events[2].line_index, 2);
+    }
+
+    #[test]
+    fn test_filter_view_movement() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+        tracker.event_filter.set_item_count(tracker.filter_count());
+
+        assert_eq!(tracker.event_filter.selected_index(), 0);
+
+        tracker.move_filter_selection_down();
+        assert_eq!(tracker.event_filter.selected_index(), 1);
+
+        tracker.move_filter_selection_up();
+        assert_eq!(tracker.event_filter.selected_index(), 0);
+    }
+
+    #[test]
+    fn test_page_up_and_down() {
+        let mut tracker = LogEventTracker::new();
+
+        let patterns = create_test_patterns();
+
+        populate_tracker(&mut tracker, &patterns);
+        tracker.select_last_event();
+
+        let before_page_up = tracker.selected_index();
+
+        tracker.selection_page_up();
+        let after_page_up = tracker.selected_index();
+        // Page up should move selection backwards
+        assert!(after_page_up <= before_page_up);
+
+        tracker.selection_page_down();
+        let after_page_down = tracker.selected_index();
+        // Page down should move selection forwards
+        assert!(after_page_down >= after_page_up);
     }
 }

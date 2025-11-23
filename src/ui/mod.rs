@@ -76,7 +76,7 @@ impl Widget for &App {
         }
         if self.app_state == AppState::EventsFilterView {
             let events_area = popup_area(area, 118, 35);
-            let event_filter_area = popup_area(area, 40, 15);
+            let event_filter_area = popup_area(area, 50, 25);
             self.render_events_list(events_area, buf);
             self.render_event_filter_popup(event_filter_area, buf);
         }

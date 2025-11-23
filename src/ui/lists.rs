@@ -39,7 +39,7 @@ impl App {
 
         let mut list_state = ListState::default();
         if !self.options.options.is_empty() {
-            list_state.select(Some(self.options.selected_index));
+            list_state.select(Some(self.options.selected_index()));
         }
 
         let options_list = List::new(items)
@@ -152,11 +152,10 @@ impl App {
             return;
         }
 
-        let event_items: Vec<_> = self.event_tracker.iter_items().collect();
-
-        let max_name_length = event_items
-            .iter()
-            .map(|item| item.name().len())
+        let max_name_length = self
+            .event_tracker
+            .iter_events()
+            .map(|e| e.event_name.len())
             .max()
             .unwrap_or(0);
 
@@ -169,8 +168,8 @@ impl App {
             .max(20) as usize; // Minimum 20 characters
 
         let mut items: Vec<Line> = Vec::new();
-        for item in &event_items {
-            let log_line = self.log_buffer.get_line(item.line_index());
+        for event in self.event_tracker.iter_events() {
+            let log_line = self.log_buffer.get_line(event.line_index);
 
             if let Some(log_line) = log_line {
                 let content = log_line.content();
@@ -180,23 +179,19 @@ impl App {
                     content.to_string()
                 };
 
-                let padding = " ".repeat(max_name_length - item.name().len());
-
-                let (name_color, preview_color) = if item.is_mark() {
-                    (MARK_MODE_BG, MARK_LINE_PREVIEW)
-                } else {
-                    (EVENT_NAME_FG, EVENT_LINE_PREVIEW)
-                };
+                let padding = " ".repeat(max_name_length - event.event_name.len());
 
                 let spans = vec![
                     Span::raw(" "),
                     Span::raw(padding),
                     Span::styled(
-                        item.name().to_string(),
-                        Style::default().fg(name_color).add_modifier(Modifier::BOLD),
+                        &event.event_name,
+                        Style::default()
+                            .fg(EVENT_NAME_FG)
+                            .add_modifier(Modifier::BOLD),
                     ),
                     Span::raw(" "),
-                    Span::styled(preview, Style::default().fg(preview_color)),
+                    Span::styled(preview, Style::default().fg(EVENT_LINE_PREVIEW)),
                 ];
 
                 items.push(Line::from(spans));
@@ -259,8 +254,8 @@ impl App {
 
         let (list_area, _) = ScrollableList::new(list_items)
             .selection(
-                self.event_tracker.filter_selected_index(),
-                self.event_tracker.filter_viewport_offset(),
+                self.event_tracker.event_filter.selected_index(),
+                self.event_tracker.event_filter.viewport_offset(),
             )
             .total_count(self.event_tracker.filter_count())
             .highlight_symbol(RIGHT_ARROW)
@@ -274,7 +269,7 @@ impl App {
     pub(super) fn render_marks_list(&self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
 
-        let filtered_marks = self.get_filtered_marks();
+        let filtered_marks = self.marking.get_filtered_marks();
 
         let block = Block::default()
             .title(" Marked Lines ")
@@ -352,7 +347,10 @@ impl App {
             .collect();
 
         let (list_area, _) = ScrollableList::new(items)
-            .selection(self.marking.selected_index(), self.marking.viewport_offset())
+            .selection(
+                self.marking.selected_index(),
+                self.marking.viewport_offset(),
+            )
             .total_count(filtered_marks.len())
             .highlight_symbol(RIGHT_ARROW)
             .highlight_style(

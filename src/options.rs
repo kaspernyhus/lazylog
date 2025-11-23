@@ -1,3 +1,4 @@
+use crate::list_view_state::ListViewState;
 use regex::Regex;
 
 /// Type of display option.
@@ -46,13 +47,13 @@ impl DisplayOption {
 pub struct Options {
     /// All available display options.
     pub options: Vec<DisplayOption>,
-    /// Index of the currently selected option.
-    pub selected_index: usize,
+    /// View state for the options list
+    view_state: ListViewState,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Self {
+        let mut options = Self {
             options: vec![
                 DisplayOption::new_hide_pattern(
                     "Hide Timestamp & Hostname",
@@ -61,41 +62,49 @@ impl Default for Options {
                 DisplayOption::new_toggle("Disable Colors"),
                 DisplayOption::new_toggle("Search: Disable jumping to match"),
             ],
-            selected_index: 0,
-        }
+            view_state: ListViewState::new(),
+        };
+
+        options.view_state.set_item_count(options.count());
+
+        options
     }
 }
 
 impl Options {
+    /// Number of options
+    pub fn count(&self) -> usize {
+        self.options.len()
+    }
+
+    /// Gets the currently selected index.
+    pub fn selected_index(&self) -> usize {
+        self.view_state.selected_index()
+    }
+
     /// Moves the selection to the previous option, wrapping to the end.
     pub fn move_selection_up(&mut self) {
-        if !self.options.is_empty() {
-            self.selected_index = if self.selected_index == 0 {
-                self.options.len() - 1
-            } else {
-                self.selected_index - 1
-            };
-        }
+        self.view_state.move_up_wrap();
     }
 
     /// Moves the selection to the next option, wrapping to the beginning.
     pub fn move_selection_down(&mut self) {
-        if !self.options.is_empty() {
-            self.selected_index = (self.selected_index + 1) % self.options.len();
-        }
+        self.view_state.move_down_wrap();
     }
 
     /// Toggles the enabled state of the currently selected option.
     pub fn toggle_selected_option(&mut self) {
-        if self.selected_index < self.options.len() {
-            self.options[self.selected_index].enabled = !self.options[self.selected_index].enabled;
+        let selected = self.view_state.selected_index();
+        if selected < self.options.len() {
+            self.options[selected].enabled = !self.options[selected].enabled;
         }
     }
 
     /// Enables the currently selected option (sets it to true).
     pub fn enable_selected_option(&mut self) {
-        if self.selected_index < self.options.len() {
-            self.options[self.selected_index].enabled = true;
+        let selected = self.view_state.selected_index();
+        if selected < self.options.len() {
+            self.options[selected].enabled = true;
         }
     }
 

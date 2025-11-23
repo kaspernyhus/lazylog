@@ -1,7 +1,7 @@
+use crate::list_view_state::ListViewState;
 use crate::log::LogLine;
 use crate::utils::contains_ignore_case;
 use rayon::prelude::*;
-use std::cell::Cell;
 use std::collections::HashSet;
 
 /// A mark with an optional name/tag.
@@ -37,41 +37,51 @@ impl Mark {
 /// Manages marked log lines.
 #[derive(Debug, Default)]
 pub struct Marking {
-    /// Vector of marks (original line indices, not filtered).
-    marked_lines: Vec<Mark>,
-    /// Currently selected index in the marks view.
-    selected_index: usize,
-    /// Viewport offset for scrolling the list
-    viewport_offset: usize,
-    /// Last rendered viewport height, set in ui rendering, therefor need interior mutability.
-    viewport_height: Cell<usize>,
+    /// All marks sorted by absolute line index.
+    marks: Vec<Mark>,
+    /// Cached active lines indices from LogBuffer (lines that pass filters).
+    active_lines: HashSet<usize>,
+    /// View state for the marks list.
+    view_state: ListViewState,
 }
 
 impl Marking {
-    /// Toggles the mark status of a log line (creates mark without name).
+    /// Set the active lines
+    pub fn update_active_lines(&mut self, active_lines: &[usize]) {
+        self.active_lines = active_lines.iter().copied().collect();
+        let count = self.get_filtered_marks().len();
+        self.view_state.set_item_count(count);
+    }
+
+    /// Returns filtered marks.
+    pub fn get_filtered_marks(&self) -> Vec<&Mark> {
+        self.marks
+            .iter()
+            .filter(|mark| self.active_lines.contains(&mark.line_index))
+            .collect()
+    }
+
+    /// Toggles the mark status of a log line.
     pub fn toggle_mark(&mut self, line_index: usize) {
         match self
-            .marked_lines
+            .marks
             .binary_search_by_key(&line_index, |mark| mark.line_index)
         {
             Ok(pos) => {
-                self.marked_lines.remove(pos);
-                if !self.marked_lines.is_empty() {
-                    self.selected_index = self.selected_index.min(self.marked_lines.len() - 1);
-                } else {
-                    self.selected_index = 0;
-                }
+                self.marks.remove(pos);
             }
             Err(pos) => {
-                self.marked_lines.insert(pos, Mark::new(line_index));
+                self.marks.insert(pos, Mark::new(line_index));
             }
         }
+        let count = self.get_filtered_marks().len();
+        self.view_state.set_item_count(count);
     }
 
     /// Sets or updates the name of an existing mark.
     pub fn set_mark_name(&mut self, line_index: usize, name: String) {
         if let Some(mark) = self
-            .marked_lines
+            .marks
             .iter_mut()
             .find(|mark| mark.line_index == line_index)
         {
@@ -82,15 +92,12 @@ impl Marking {
     /// Unmarks a log line.
     pub fn unmark(&mut self, line_index: usize) {
         if let Ok(pos) = self
-            .marked_lines
+            .marks
             .binary_search_by_key(&line_index, |mark| mark.line_index)
         {
-            self.marked_lines.remove(pos);
-            if !self.marked_lines.is_empty() {
-                self.selected_index = self.selected_index.min(self.marked_lines.len() - 1);
-            } else {
-                self.selected_index = 0;
-            }
+            self.marks.remove(pos);
+            let count = self.get_filtered_marks().len();
+            self.view_state.set_item_count(count);
         }
     }
 
@@ -104,7 +111,7 @@ impl Marking {
             return;
         }
 
-        let marked_set: HashSet<usize> = self.marked_lines.iter().map(|m| m.line_index).collect();
+        let marked_set: HashSet<usize> = self.marks.iter().map(|m| m.line_index).collect();
 
         let lines_vec: Vec<_> = lines.collect();
         let pattern_str = pattern.to_string();
@@ -122,141 +129,69 @@ impl Marking {
             })
             .collect();
 
-        self.marked_lines.extend(new_marks);
-        self.marked_lines.sort_by_key(|mark| mark.line_index);
+        self.marks.extend(new_marks);
+        self.marks.sort_by_key(|mark| mark.line_index);
+        let count = self.get_filtered_marks().len();
+        self.view_state.set_item_count(count);
     }
 
     /// Returns whether a log line is marked.
     pub fn is_marked(&self, line_index: usize) -> bool {
-        self.marked_lines
+        self.marks
             .binary_search_by_key(&line_index, |mark| mark.line_index)
             .is_ok()
     }
 
-    /// Returns a slice of all marked line indices (sorted).
+    /// Returns a vector of all marked line indices.
     pub fn get_marked_indices(&self) -> Vec<usize> {
-        self.marked_lines.iter().map(|m| m.line_index).collect()
+        self.marks.iter().map(|m| m.line_index).collect()
     }
 
     /// Returns the number of marked lines.
     pub fn count(&self) -> usize {
-        self.marked_lines.len()
+        self.marks.len()
     }
 
     /// Returns whether there are any marked lines.
     pub fn is_empty(&self) -> bool {
-        self.marked_lines.is_empty()
+        self.marks.is_empty()
     }
 
     /// Returns all marks.
-    pub fn get_marks(&self) -> Vec<&Mark> {
-        self.marked_lines.iter().collect()
+    pub fn get_all_marks(&self) -> &[Mark] {
+        &self.marks
     }
 
     /// Clears all marks.
     pub fn clear_all(&mut self) {
-        self.marked_lines.clear();
-        self.selected_index = 0;
+        self.marks.clear();
+        self.view_state.reset();
     }
 
     /// Get next mark after the given line index.
-    pub fn get_next_mark(&self, line_index: usize) -> Option<&Mark> {
-        self.marked_lines
+    pub fn get_next_mark(&self, line_index: usize) -> Option<usize> {
+        let active_marks = self.get_filtered_marks();
+        active_marks
             .iter()
-            .filter(|m| m.line_index > line_index)
-            .min_by_key(|m| m.line_index)
+            .find(|m| m.line_index > line_index)
+            .map(|m| m.line_index)
     }
 
     /// Get previous mark before the given line index.
-    pub fn get_previous_mark(&self, line_index: usize) -> Option<&Mark> {
-        self.marked_lines
+    pub fn get_previous_mark(&self, line_index: usize) -> Option<usize> {
+        let active_marks = self.get_filtered_marks();
+        active_marks
             .iter()
-            .filter(|m| m.line_index < line_index)
-            .max_by_key(|m| m.line_index)
+            .rev()
+            .find(|m| m.line_index < line_index)
+            .map(|m| m.line_index)
     }
 
-    /// Gets the currently selected index in the marks view.
-    pub fn selected_index(&self) -> usize {
-        self.selected_index
-    }
-
-    /// Gets the current viewport offset.
-    pub fn viewport_offset(&self) -> usize {
-        self.viewport_offset
-    }
-
-    /// Sets the viewport height (should be called when rendering the popup).
-    pub fn set_viewport_height(&self, height: usize) {
-        self.viewport_height.set(height);
-    }
-
-    /// Adjusts the viewport offset to keep the selected item visible.
-    fn adjust_viewport(&mut self) {
-        if self.count() == 0 {
-            self.viewport_offset = 0;
-            return;
-        }
-
-        let viewport_height = self.viewport_height.get();
-
-        // scroll up
-        if self.selected_index < self.viewport_offset {
-            self.viewport_offset = self.selected_index;
-        }
-
-        // scroll down
-        let bottom_threshold = self.viewport_offset + viewport_height.saturating_sub(1);
-        if self.selected_index > bottom_threshold {
-            self.viewport_offset = self.selected_index + 1 - viewport_height;
-        }
-
-        // Ensure viewport doesn't go past the end
-        let max_offset = self.count().saturating_sub(viewport_height);
-        self.viewport_offset = self.viewport_offset.min(max_offset);
-    }
-
-    /// Moves selection up in the marks view (filtered count).
-    pub fn move_selection_up(&mut self, _count: usize) {
-        if self.selected_index > 0 {
-            self.selected_index -= 1;
-            self.adjust_viewport();
-        }
-    }
-
-    /// Moves selection down in the marks view (filtered count).
-    pub fn move_selection_down(&mut self, count: usize) {
-        if count > 0 && self.selected_index < count.saturating_sub(1) {
-            self.selected_index += 1;
-            self.adjust_viewport();
-        }
-    }
-
-    /// Moves selection up by half a page.
-    pub fn selection_page_up(&mut self, count: usize) {
-        if count > 0 {
-            let page_size = self.viewport_height.get().saturating_sub(1).max(1) / 2; // at least 1 line
-            self.selected_index = self.selected_index.saturating_sub(page_size);
-            self.adjust_viewport();
-        }
-    }
-
-    /// Moves selection down by half a page.
-    pub fn selection_page_down(&mut self, count: usize) {
-        if count > 0 {
-            let page_size = self.viewport_height.get().saturating_sub(1).max(1) / 2; // at least 1 line
-            self.selected_index = (self.selected_index + page_size).min(count - 1);
-            self.adjust_viewport();
-        }
-    }
-
-    /// Gets the mark at the given index in the marks list.
-    pub fn get_mark_at(&self, index: usize) -> Option<&Mark> {
-        self.marked_lines.get(index)
-    }
-
-    /// Gets the currently selected mark.
+    /// Gets the mark at the given index.
     pub fn get_selected_mark(&self) -> Option<&Mark> {
-        self.get_mark_at(self.selected_index)
+        let active_marks = self.get_filtered_marks();
+        let index = self.view_state.selected_index();
+        active_marks.get(index).copied()
     }
 
     /// Gets the currently selected marked line index.
@@ -264,27 +199,20 @@ impl Marking {
         self.get_selected_mark().map(|m| m.line_index)
     }
 
-    /// Resets the selected index to 0.
-    pub fn reset_selection(&mut self) {
-        self.selected_index = 0;
-    }
-
-    /// Selects the mark closest to the given line index.
+    /// Selects the mark closest to the given line index (in filtered marks).
     pub fn select_nearest_mark(&mut self, line_index: usize) {
-        if self.marked_lines.is_empty() {
+        let active_marks = self.get_filtered_marks();
+        if active_marks.is_empty() {
             return;
         }
 
-        let closest_index = match self
-            .marked_lines
-            .binary_search_by_key(&line_index, |m| m.line_index)
-        {
+        let closest_index = match active_marks.binary_search_by_key(&line_index, |m| m.line_index) {
             Ok(idx) => idx,
             Err(0) => 0,
-            Err(idx) if idx >= self.marked_lines.len() => self.marked_lines.len() - 1,
+            Err(idx) if idx >= active_marks.len() => active_marks.len() - 1,
             Err(idx) => {
-                let dist_before = line_index - self.marked_lines[idx - 1].line_index;
-                let dist_after = self.marked_lines[idx].line_index - line_index;
+                let dist_before = line_index - active_marks[idx - 1].line_index;
+                let dist_after = active_marks[idx].line_index - line_index;
                 if dist_before <= dist_after {
                     idx - 1
                 } else {
@@ -293,7 +221,47 @@ impl Marking {
             }
         };
 
-        self.selected_index = closest_index;
+        self.view_state.select_index(closest_index);
+    }
+
+    /// Gets the currently selected index in the filtered marks view.
+    pub fn selected_index(&self) -> usize {
+        self.view_state.selected_index()
+    }
+
+    /// Gets the viewport offset.
+    pub fn viewport_offset(&self) -> usize {
+        self.view_state.viewport_offset()
+    }
+
+    /// Sets the viewport height.
+    pub fn set_viewport_height(&self, height: usize) {
+        self.view_state.set_viewport_height(height);
+    }
+
+    /// Moves selection up in the filtered marks view.
+    pub fn move_selection_up(&mut self) {
+        self.view_state.move_up();
+    }
+
+    /// Moves selection down in the filtered marks view.
+    pub fn move_selection_down(&mut self) {
+        self.view_state.move_down();
+    }
+
+    /// Moves selection up by half a page in the filtered marks view.
+    pub fn page_up(&mut self) {
+        self.view_state.page_up();
+    }
+
+    /// Moves selection down by half a page in the filtered marks view.
+    pub fn page_down(&mut self) {
+        self.view_state.page_down();
+    }
+
+    /// Resets the view state.
+    pub fn reset_view(&mut self) {
+        self.view_state.reset();
     }
 }
 
@@ -348,18 +316,13 @@ mod tests {
     }
 
     #[test]
-    fn test_get_mark_at_returns_none_for_invalid_index() {
-        let mut marking = Marking::default();
-        marking.toggle_mark(10);
-        assert!(marking.get_mark_at(5).is_none());
-    }
-
-    #[test]
     fn test_get_selected_mark_returns_currently_selected() {
         let mut marking = Marking::default();
         marking.toggle_mark(10);
         marking.toggle_mark(20);
-        marking.move_selection_down(2);
+        // Need to set active_lines for filtered marks
+        marking.update_active_lines(&[10, 20]);
+        marking.move_selection_down();
         let mark = marking.get_selected_mark().unwrap();
         assert_eq!(mark.line_index, 20);
     }
@@ -374,6 +337,7 @@ mod tests {
     fn test_get_selected_marked_line_returns_line_index() {
         let mut marking = Marking::default();
         marking.toggle_mark(42);
+        marking.update_active_lines(&[42]);
         let line_index = marking.get_selected_marked_line().unwrap();
         assert_eq!(line_index, 42);
     }
@@ -384,6 +348,7 @@ mod tests {
         marking.toggle_mark(10);
         marking.toggle_mark(50);
         marking.toggle_mark(100);
+        marking.update_active_lines(&[10, 50, 100]);
         marking.select_nearest_mark(48);
         assert_eq!(marking.get_selected_mark().unwrap().line_index, 50);
     }
@@ -394,6 +359,7 @@ mod tests {
         marking.toggle_mark(10);
         marking.toggle_mark(50);
         marking.toggle_mark(100);
+        marking.update_active_lines(&[10, 50, 100]);
         marking.select_nearest_mark(50);
         assert_eq!(marking.get_selected_mark().unwrap().line_index, 50);
     }
@@ -403,6 +369,7 @@ mod tests {
         let mut marking = Marking::default();
         marking.toggle_mark(10);
         marking.toggle_mark(30);
+        marking.update_active_lines(&[10, 30]);
         marking.select_nearest_mark(20);
         assert_eq!(marking.get_selected_mark().unwrap().line_index, 10);
     }
@@ -415,6 +382,9 @@ mod tests {
         marking.toggle_mark(10);
         marking.toggle_mark(50);
 
+        // Set active_lines so marks are visible
+        marking.update_active_lines(&[10, 50, 100]);
+
         // Select nearest to 48 (should be line 50)
         marking.select_nearest_mark(48);
 
@@ -422,7 +392,7 @@ mod tests {
         assert_eq!(marking.get_selected_mark().unwrap().line_index, 50);
 
         // When sorted, line 50 should be at index 1: [10, 50, 100]
-        let sorted = marking.get_marks();
+        let sorted = marking.get_all_marks();
         assert_eq!(sorted[0].line_index, 10);
         assert_eq!(sorted[1].line_index, 50);
         assert_eq!(sorted[2].line_index, 100);
@@ -441,7 +411,7 @@ mod tests {
         marking.create_marks_from_pattern("ErRoR", log_lines.iter());
 
         assert_eq!(marking.count(), 3);
-        let marks = marking.get_marks();
+        let marks = marking.get_all_marks();
         assert_eq!(marks[0].line_index, 10);
         assert_eq!(marks[1].line_index, 20);
         assert_eq!(marks[2].line_index, 30);
@@ -461,7 +431,7 @@ mod tests {
         marking.create_marks_from_pattern("error", log_lines.iter());
 
         assert_eq!(marking.count(), 2);
-        let marks = marking.get_marks();
+        let marks = marking.get_all_marks();
         assert_eq!(marks[0].line_index, 5);
         assert_eq!(marks[1].line_index, 23);
         assert_eq!(marks[0].name, Some("error".to_string()));

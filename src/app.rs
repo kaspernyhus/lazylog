@@ -13,7 +13,7 @@ use crate::{
     log::{Interval, LogBuffer},
     log_event::LogEventTracker,
     log_processor::ProcessingContext,
-    marking::{Mark, Marking},
+    marking::Marking,
     options::Options,
     persistence::{PersistedState, clear_all_state, load_state, save_state},
     search::Search,
@@ -217,6 +217,9 @@ impl App {
         let num_lines = self.log_buffer.get_active_lines_count();
 
         self.viewport.set_total_lines(num_lines);
+
+        let active_lines = self.log_buffer.get_active_lines();
+        self.marking.update_active_lines(active_lines);
 
         self.event_tracker.mark_needs_rescan();
 
@@ -475,27 +478,14 @@ impl App {
         self.filter.history.restore(state.filter_history().to_vec());
 
         for filter_state in state.filters() {
-            if let Some(existing) =
-                self.filter.get_filter_patterns_mut().iter_mut().find(|fp| {
-                    fp.pattern == filter_state.pattern() && fp.mode == filter_state.mode()
-                })
-            {
-                existing.case_sensitive = filter_state.case_sensitive();
-                existing.enabled = filter_state.enabled();
-            } else {
-                let filter_pattern = FilterPattern::new(
-                    filter_state.pattern().to_string(),
-                    filter_state.mode(),
-                    filter_state.case_sensitive(),
-                );
-                let mut pattern = filter_pattern;
-                pattern.enabled = filter_state.enabled();
-                self.filter.get_filter_patterns_mut().push(pattern);
-            }
-        }
+            let new_filter = FilterPattern::new(
+                filter_state.pattern().to_string(),
+                filter_state.mode(),
+                filter_state.case_sensitive(),
+                filter_state.enabled(),
+            );
 
-        if !state.filters().is_empty() {
-            self.update_view();
+            self.filter.add_filter(&new_filter);
         }
 
         for mark_state in state.marks() {
@@ -507,9 +497,6 @@ impl App {
                 }
             }
         }
-
-        let marks = self.marking.get_marks();
-        self.event_tracker.set_marks(&marks);
 
         let event_filter_states: Vec<(String, bool)> = state
             .event_filters()
@@ -532,6 +519,7 @@ impl App {
         self.viewport.center_cursor_mode = state.viewport_center_cursor_mode();
 
         self.update_temporary_highlights();
+        self.update_view();
     }
 
     /// Handles application events and updates the state of [`App`].
@@ -653,7 +641,8 @@ impl App {
             }
             AppState::FilterMode => {
                 if !self.input.value().is_empty() {
-                    self.filter.add_filter(self.input.value().to_string());
+                    self.filter
+                        .add_filter_from_pattern(self.input.value().to_string());
                     self.update_view();
                 }
                 self.next_state(AppState::LogView);
@@ -717,12 +706,10 @@ impl App {
                 self.next_state(AppState::FilterListView);
             }
             AppState::MarkNameInputMode => {
-                let filtered_marks = self.get_filtered_marks();
-                if let Some(mark) = filtered_marks.get(self.marking.selected_index()) {
+                if let Some(mark) = self.marking.get_selected_mark() {
+                    let line_index = mark.line_index;
                     self.marking
-                        .set_mark_name(mark.line_index, self.input.value().to_string());
-                    let marks = self.marking.get_marks();
-                    self.event_tracker.set_marks(&marks);
+                        .set_mark_name(line_index, self.input.value().to_string());
                 }
                 self.next_state(AppState::MarksView);
             }
@@ -820,8 +807,7 @@ impl App {
             }
             AppState::EventsFilterView => self.event_tracker.move_filter_selection_up(),
             AppState::MarksView => {
-                let filtered_count = self.get_filtered_marks().len();
-                self.marking.move_selection_up(filtered_count);
+                self.marking.move_selection_up();
             }
             AppState::SelectionMode => {
                 self.viewport.move_up();
@@ -844,11 +830,12 @@ impl App {
         match self.app_state {
             AppState::FilterListView => self.filter.move_selection_down(),
             AppState::OptionsView => self.options.move_selection_down(),
-            AppState::EventsView => self.event_tracker.move_selection_down(),
+            AppState::EventsView => {
+                self.event_tracker.move_selection_down();
+            }
             AppState::EventsFilterView => self.event_tracker.move_filter_selection_down(),
             AppState::MarksView => {
-                let filtered_count = self.get_filtered_marks().len();
-                self.marking.move_selection_down(filtered_count);
+                self.marking.move_selection_down();
             }
             AppState::SelectionMode => {
                 self.viewport.move_down();
@@ -867,8 +854,7 @@ impl App {
                 self.event_tracker.selection_page_up();
             }
             AppState::MarksView => {
-                let filtered_count = self.get_filtered_marks().len();
-                self.marking.selection_page_up(filtered_count);
+                self.marking.page_up();
             }
             AppState::SelectionMode => {
                 self.viewport.page_up();
@@ -888,8 +874,7 @@ impl App {
                 self.event_tracker.selection_page_down();
             }
             AppState::MarksView | AppState::MarkNameInputMode => {
-                let filtered_count = self.get_filtered_marks().len();
-                self.marking.selection_page_down(filtered_count);
+                self.marking.page_down();
             }
             AppState::SelectionMode => {
                 self.viewport.page_down();
@@ -965,14 +950,13 @@ impl App {
         {
             self.marking.select_nearest_mark(line_index);
         } else {
-            self.marking.reset_selection();
+            self.marking.reset_view();
         }
         self.next_state(AppState::MarksView);
     }
 
     pub fn activate_mark_name_input_mode(&mut self) {
-        let filtered_marks = self.get_filtered_marks();
-        if let Some(mark) = filtered_marks.get(self.marking.selected_index()) {
+        if let Some(mark) = self.marking.get_selected_mark() {
             if let Some(name) = &mark.name {
                 self.input = Input::new(name.clone());
             } else {
@@ -1028,9 +1012,6 @@ impl App {
         {
             self.marking.toggle_mark(line_index);
         }
-
-        let marks = self.marking.get_marks();
-        self.event_tracker.set_marks(&marks);
     }
 
     pub fn toggle_case_sensitive(&mut self) {
@@ -1062,44 +1043,12 @@ impl App {
         }
     }
 
-    /// Helper to get filtered marks (only marks on visible lines).
-    pub fn get_filtered_marks(&self) -> Vec<&Mark> {
-        let active_lines = self.log_buffer.get_active_lines();
-        self.marking
-            .get_marks()
-            .into_iter()
-            .filter(|m| active_lines.binary_search(&m.line_index).is_ok())
-            .collect()
-    }
-
-    /// Helper to get the next visible mark after the given line index.
-    fn get_next_visible_mark(&self, line_index: usize) -> Option<&Mark> {
-        let active_lines = self.log_buffer.get_active_lines();
-        self.marking
-            .get_marks()
-            .into_iter()
-            .filter(|m| m.line_index > line_index)
-            .find(|m| active_lines.binary_search(&m.line_index).is_ok())
-    }
-
-    /// Helper to get the previous visible mark before the given line index.
-    fn get_previous_visible_mark(&self, line_index: usize) -> Option<&Mark> {
-        let active_lines = self.log_buffer.get_active_lines();
-        self.marking
-            .get_marks()
-            .into_iter()
-            .rev()
-            .filter(|m| m.line_index < line_index)
-            .find(|m| active_lines.binary_search(&m.line_index).is_ok())
-    }
-
     pub fn mark_next(&mut self) {
         if let Some(line_index) = self
             .log_buffer
             .viewport_to_log_index(self.viewport.selected_line)
-            && let Some(next_mark) = self.get_next_visible_mark(line_index)
+            && let Some(next_line) = self.marking.get_next_mark(line_index)
         {
-            let next_line = next_mark.line_index;
             self.viewport.push_history(next_line);
             self.goto_line(next_line);
         }
@@ -1109,9 +1058,8 @@ impl App {
         if let Some(line_index) = self
             .log_buffer
             .viewport_to_log_index(self.viewport.selected_line)
-            && let Some(prev_mark) = self.get_previous_visible_mark(line_index)
+            && let Some(prev_line) = self.marking.get_previous_mark(line_index)
         {
-            let prev_line = prev_mark.line_index;
             self.viewport.push_history(prev_line);
             self.goto_line(prev_line);
         }
@@ -1122,10 +1070,11 @@ impl App {
             .log_buffer
             .viewport_to_log_index(self.viewport.selected_line)
             && let Some(next_event_line) = self.event_tracker.get_next_event(line_index)
-            && let Some(active_line) = self.log_buffer.find_line(next_event_line) {
-                self.viewport.push_history(active_line);
-                self.viewport.goto_line(active_line, false);
-            }
+            && let Some(active_line) = self.log_buffer.find_line(next_event_line)
+        {
+            self.viewport.push_history(active_line);
+            self.viewport.goto_line(active_line, false);
+        }
     }
 
     pub fn event_previous(&mut self) {
@@ -1133,10 +1082,11 @@ impl App {
             .log_buffer
             .viewport_to_log_index(self.viewport.selected_line)
             && let Some(prev_event_line) = self.event_tracker.get_previous_event(line_index)
-            && let Some(active_line) = self.log_buffer.find_line(prev_event_line) {
-                self.viewport.push_history(active_line);
-                self.viewport.goto_line(active_line, false);
-            }
+            && let Some(active_line) = self.log_buffer.find_line(prev_event_line)
+        {
+            self.viewport.push_history(active_line);
+            self.viewport.goto_line(active_line, false);
+        }
     }
 
     /// Helper to go to a log line by its log line index. If the line is not visible, it does nothing.
@@ -1261,20 +1211,16 @@ impl App {
         self.event_tracker.toggle_selected_filter();
         self.event_tracker
             .scan_all_lines(&self.log_buffer, self.highlighter.events());
+
         self.event_tracker
             .select_nearest_event(self.viewport.selected_line);
-    }
-
-    pub fn toggle_show_marks_in_events(&mut self) {
-        self.event_tracker.toggle_show_marks();
-        let marks = self.marking.get_marks();
-        self.event_tracker.set_marks(&marks);
     }
 
     pub fn toggle_all_event_filters(&mut self) {
         self.event_tracker.toggle_all_filters();
         self.event_tracker
             .scan_all_lines(&self.log_buffer, self.highlighter.events());
+
         self.event_tracker
             .select_nearest_event(self.viewport.selected_line);
     }
@@ -1320,11 +1266,9 @@ impl App {
     }
 
     pub fn unmark_selected(&mut self) {
-        let filtered_marks = self.get_filtered_marks();
-        if let Some(mark) = filtered_marks.get(self.marking.selected_index()) {
-            self.marking.unmark(mark.line_index);
-            let marks = self.marking.get_marks();
-            self.event_tracker.set_marks(&marks);
+        if let Some(mark) = self.marking.get_selected_mark() {
+            let line_index = mark.line_index;
+            self.marking.unmark(line_index);
         }
     }
 
@@ -1336,9 +1280,7 @@ impl App {
     }
 
     pub fn goto_selected_mark(&mut self) {
-        let filtered_marks = self.get_filtered_marks();
-        if let Some(mark) = filtered_marks.get(self.marking.selected_index()) {
-            let mark_line = mark.line_index;
+        if let Some(mark_line) = self.marking.get_selected_marked_line() {
             self.viewport.push_history(mark_line);
             self.goto_line(mark_line);
         }

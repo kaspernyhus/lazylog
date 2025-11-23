@@ -1,4 +1,5 @@
 use crate::history::History;
+use crate::list_view_state::ListViewState;
 use serde::{Deserialize, Serialize};
 
 /// Filter mode - include or exclude matching lines.
@@ -34,12 +35,12 @@ pub struct FilterPattern {
 
 impl FilterPattern {
     /// Creates a new filter pattern.
-    pub fn new(pattern: String, mode: FilterMode, case_sensitive: bool) -> Self {
+    pub fn new(pattern: String, mode: FilterMode, case_sensitive: bool, enabled: bool) -> Self {
         Self {
             pattern,
             mode,
             case_sensitive,
-            enabled: true,
+            enabled,
         }
     }
 }
@@ -48,8 +49,8 @@ impl FilterPattern {
 struct FilterList {
     /// All filter patterns.
     patterns: Vec<FilterPattern>,
-    /// Index of the currently selected pattern in the overview.
-    selected_index: usize,
+    /// View state for the filter list
+    view_state: ListViewState,
 }
 
 impl FilterList {
@@ -58,52 +59,44 @@ impl FilterList {
     }
 
     fn selected_index(&self) -> usize {
-        self.selected_index
+        self.view_state.selected_index()
     }
 
     fn move_up(&mut self) {
-        if !self.patterns.is_empty() {
-            self.selected_index = if self.selected_index == 0 {
-                self.patterns.len() - 1
-            } else {
-                self.selected_index - 1
-            };
-        }
+        self.view_state.move_up_wrap();
     }
 
     fn move_down(&mut self) {
-        if !self.patterns.is_empty() {
-            self.selected_index = (self.selected_index + 1) % self.patterns.len();
-        }
+        self.view_state.move_down_wrap();
     }
 
     fn toggle_selected(&mut self) {
-        if self.selected_index < self.patterns.len() {
-            self.patterns[self.selected_index].enabled =
-                !self.patterns[self.selected_index].enabled;
+        let selected = self.view_state.selected_index();
+        if selected < self.patterns.len() {
+            self.patterns[selected].enabled = !self.patterns[selected].enabled;
         }
     }
 
     fn remove_selected(&mut self) {
-        if self.selected_index < self.patterns.len() {
-            self.patterns.remove(self.selected_index);
-            if self.selected_index >= self.patterns.len() && !self.patterns.is_empty() {
-                self.selected_index = self.patterns.len() - 1;
-            }
+        let selected = self.view_state.selected_index();
+        if selected < self.patterns.len() {
+            self.patterns.remove(selected);
+            let count = self.patterns.len();
+            self.view_state.set_item_count(count);
         }
     }
 
     fn toggle_selected_case_sensitive(&mut self) {
-        if self.selected_index < self.patterns.len() {
-            self.patterns[self.selected_index].case_sensitive =
-                !self.patterns[self.selected_index].case_sensitive;
+        let selected = self.view_state.selected_index();
+        if selected < self.patterns.len() {
+            self.patterns[selected].case_sensitive = !self.patterns[selected].case_sensitive;
         }
     }
 
     fn toggle_selected_mode(&mut self) {
-        if self.selected_index < self.patterns.len() {
-            self.patterns[self.selected_index].mode = match self.patterns[self.selected_index].mode
-            {
+        let selected = self.view_state.selected_index();
+        if selected < self.patterns.len() {
+            self.patterns[selected].mode = match self.patterns[selected].mode {
                 FilterMode::Include => FilterMode::Exclude,
                 FilterMode::Exclude => FilterMode::Include,
             };
@@ -122,32 +115,36 @@ impl FilterList {
     }
 
     fn get_selected(&self) -> Option<&FilterPattern> {
-        if self.selected_index < self.patterns.len() {
-            Some(&self.patterns[self.selected_index])
+        let selected = self.view_state.selected_index();
+        if selected < self.patterns.len() {
+            Some(&self.patterns[selected])
         } else {
             None
         }
     }
 
     fn update_selected(&mut self, new_pattern: String) -> bool {
-        if self.selected_index < self.patterns.len() {
-            let selected_mode = self.patterns[self.selected_index].mode;
+        let selected = self.view_state.selected_index();
+        if selected < self.patterns.len() {
+            let selected_mode = self.patterns[selected].mode;
             let duplicate_exists = self.patterns.iter().enumerate().any(|(idx, fp)| {
-                idx != self.selected_index && fp.pattern == new_pattern && fp.mode == selected_mode
+                idx != selected && fp.pattern == new_pattern && fp.mode == selected_mode
             });
 
             if !duplicate_exists {
-                self.patterns[self.selected_index].pattern = new_pattern;
+                self.patterns[selected].pattern = new_pattern;
                 return true;
             }
         }
         false
     }
 
-    fn add_pattern(&mut self, pattern: FilterPattern) {
-        self.patterns.push(pattern);
+    fn add_pattern(&mut self, pattern: &FilterPattern) {
+        self.patterns.push(pattern.clone());
         // Select the newly added pattern
-        self.selected_index = self.patterns.len() - 1;
+        let count = self.patterns.len();
+        self.view_state.set_item_count(count);
+        self.view_state.select_last();
     }
 
     fn pattern_exists(&self, pattern: &str, mode: FilterMode) -> bool {
@@ -170,16 +167,23 @@ pub struct Filter {
 impl Filter {
     /// Creates a new Filter with preconfigured patterns.
     pub fn with_patterns(patterns: Vec<FilterPattern>) -> Self {
-        Self {
+        let mut filter = Self {
             filter_list: FilterList {
                 patterns,
-                selected_index: 0,
+                view_state: ListViewState::new(),
             },
             filter_mode: FilterMode::default(),
             case_sensitive: false,
             history: History::new(),
             show_marked_only: false,
-        }
+        };
+
+        filter
+            .filter_list
+            .view_state
+            .set_item_count(filter.filter_list.patterns.len());
+
+        filter
     }
 }
 
@@ -228,13 +232,12 @@ impl Filter {
     }
 
     /// Adds a new filter pattern if it doesn't already exist.
-    pub fn add_filter(&mut self, pattern: String) {
+    pub fn add_filter_from_pattern(&mut self, pattern: String) {
         if !pattern.is_empty() && !self.filter_list.pattern_exists(&pattern, self.filter_mode) {
-            self.filter_list.add_pattern(FilterPattern::new(
-                pattern.clone(),
-                self.filter_mode,
-                self.case_sensitive,
-            ));
+            let new_filter =
+                FilterPattern::new(pattern.clone(), self.filter_mode, self.case_sensitive, true);
+
+            self.filter_list.add_pattern(&new_filter);
 
             self.history.add(FilterHistoryEntry {
                 pattern,
@@ -244,14 +247,25 @@ impl Filter {
         }
     }
 
+    /// Add a FilterPattern
+    pub fn add_filter(&mut self, filter: &FilterPattern) {
+        if !self
+            .filter_list
+            .pattern_exists(&filter.pattern, filter.mode)
+        {
+            self.filter_list.add_pattern(filter);
+
+            self.history.add(FilterHistoryEntry {
+                pattern: filter.pattern.clone(),
+                mode: filter.mode,
+                case_sensitive: filter.case_sensitive,
+            });
+        }
+    }
+
     /// Returns all filter patterns.
     pub fn get_filter_patterns(&self) -> &[FilterPattern] {
         self.filter_list.patterns()
-    }
-
-    /// Returns mutable access to filter patterns for restoration.
-    pub fn get_filter_patterns_mut(&mut self) -> &mut Vec<FilterPattern> {
-        &mut self.filter_list.patterns
     }
 
     /// Returns the index of the currently selected pattern in the overview.
@@ -322,7 +336,7 @@ mod tests {
     #[test]
     fn test_add_filter_creates_new_pattern() {
         let mut filter = Filter::default();
-        filter.add_filter("ERROR".to_string());
+        filter.add_filter_from_pattern("ERROR".to_string());
         assert_eq!(filter.get_filter_patterns().len(), 1);
         assert_eq!(filter.get_filter_patterns()[0].pattern, "ERROR");
     }
@@ -330,17 +344,17 @@ mod tests {
     #[test]
     fn test_add_filter_prevents_duplicates() {
         let mut filter = Filter::default();
-        filter.add_filter("ERROR".to_string());
-        filter.add_filter("ERROR".to_string());
+        filter.add_filter_from_pattern("ERROR".to_string());
+        filter.add_filter_from_pattern("ERROR".to_string());
         assert_eq!(filter.get_filter_patterns().len(), 1);
     }
 
     #[test]
     fn test_add_filter_allows_same_pattern_different_mode() {
         let mut filter = Filter::default();
-        filter.add_filter("ERROR".to_string());
+        filter.add_filter_from_pattern("ERROR".to_string());
         filter.toggle_mode();
-        filter.add_filter("ERROR".to_string());
+        filter.add_filter_from_pattern("ERROR".to_string());
         assert_eq!(filter.get_filter_patterns().len(), 2);
     }
 
@@ -357,8 +371,8 @@ mod tests {
     #[test]
     fn test_remove_selected_pattern_deletes_pattern() {
         let mut filter = Filter::default();
-        filter.add_filter("ERROR".to_string());
-        filter.add_filter("WARNING".to_string());
+        filter.add_filter_from_pattern("ERROR".to_string());
+        filter.add_filter_from_pattern("WARNING".to_string());
         // WARNING is selected (newly added), remove it
         filter.remove_selected_pattern();
         assert_eq!(filter.get_filter_patterns().len(), 1);
@@ -368,8 +382,8 @@ mod tests {
     #[test]
     fn test_get_selected_pattern_returns_current_pattern() {
         let mut filter = Filter::default();
-        filter.add_filter("ERROR".to_string());
-        filter.add_filter("WARNING".to_string());
+        filter.add_filter_from_pattern("ERROR".to_string());
+        filter.add_filter_from_pattern("WARNING".to_string());
         // WARNING is selected (newly added)
         let selected = filter.get_selected_pattern().unwrap();
         assert_eq!(selected.pattern, "WARNING");
@@ -381,8 +395,8 @@ mod tests {
     #[test]
     fn test_update_selected_pattern_succeeds_with_unique_pattern() {
         let mut filter = Filter::default();
-        filter.add_filter("ERROR".to_string());
-        filter.add_filter("WARNING".to_string());
+        filter.add_filter_from_pattern("ERROR".to_string());
+        filter.add_filter_from_pattern("WARNING".to_string());
         // WARNING is selected (newly added), update it to INFO
         let success = filter.update_selected_pattern("INFO".to_string());
         assert!(success);
@@ -392,8 +406,8 @@ mod tests {
     #[test]
     fn test_update_selected_pattern_prevents_duplicates() {
         let mut filter = Filter::default();
-        filter.add_filter("ERROR".to_string());
-        filter.add_filter("WARNING".to_string());
+        filter.add_filter_from_pattern("ERROR".to_string());
+        filter.add_filter_from_pattern("WARNING".to_string());
         // WARNING is selected (newly added), try to update it to ERROR (duplicate)
         let success = filter.update_selected_pattern("ERROR".to_string());
         assert!(!success);
@@ -404,9 +418,9 @@ mod tests {
     #[test]
     fn test_update_selected_pattern_allows_same_pattern_different_mode() {
         let mut filter = Filter::default();
-        filter.add_filter("ERROR".to_string()); // Include mode
+        filter.add_filter_from_pattern("ERROR".to_string()); // Include mode
         filter.toggle_mode();
-        filter.add_filter("WARNING".to_string()); // Exclude mode
+        filter.add_filter_from_pattern("WARNING".to_string()); // Exclude mode
         // WARNING (Exclude) is already selected (newly added)
         let success = filter.update_selected_pattern("ERROR".to_string());
         assert!(success); // Should succeed because mode is different
@@ -417,15 +431,15 @@ mod tests {
     #[test]
     fn test_add_filter_selects_newly_added_pattern() {
         let mut filter = Filter::default();
-        filter.add_filter("ERROR".to_string());
+        filter.add_filter_from_pattern("ERROR".to_string());
         assert_eq!(filter.get_selected_pattern_index(), 0);
         assert_eq!(filter.get_selected_pattern().unwrap().pattern, "ERROR");
 
-        filter.add_filter("WARNING".to_string());
+        filter.add_filter_from_pattern("WARNING".to_string());
         assert_eq!(filter.get_selected_pattern_index(), 1);
         assert_eq!(filter.get_selected_pattern().unwrap().pattern, "WARNING");
 
-        filter.add_filter("INFO".to_string());
+        filter.add_filter_from_pattern("INFO".to_string());
         assert_eq!(filter.get_selected_pattern_index(), 2);
         assert_eq!(filter.get_selected_pattern().unwrap().pattern, "INFO");
     }

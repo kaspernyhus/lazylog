@@ -21,6 +21,7 @@ pub mod help;
 pub mod highlighter;
 pub mod history;
 pub mod keybindings;
+pub mod list_view_state;
 pub mod log;
 pub mod log_event;
 pub mod log_processor;
