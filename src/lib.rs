@@ -1,4 +1,5 @@
 pub mod colors;
+pub mod event_mark_view;
 pub mod filter;
 pub mod highlighter;
 pub mod history;

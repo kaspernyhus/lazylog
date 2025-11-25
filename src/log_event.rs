@@ -102,7 +102,9 @@ pub struct LogEventTracker {
     /// Tracks whether the event list needs rescanning
     needs_rescan: bool,
     /// Event filter list
-    pub event_filter: EventFilterList,
+    event_filter: EventFilterList,
+    /// Whether to show marks in the events view
+    pub show_marks: bool,
 }
 
 impl LogEventTracker {
@@ -170,9 +172,9 @@ impl LogEventTracker {
         }
     }
 
-    /// Returns an iterator over events.
-    pub fn iter_events(&self) -> impl Iterator<Item = &LogEvent> {
-        self.events.iter()
+    /// Returns log events
+    pub fn get_events(&self) -> Vec<&LogEvent> {
+        self.events.iter().collect()
     }
 
     /// Returns the number of events.
@@ -183,6 +185,22 @@ impl LogEventTracker {
     /// Returns true if no events are tracked.
     pub fn is_empty(&self) -> bool {
         self.events.is_empty()
+    }
+
+    /// Sets the total item count for the events view.
+    pub fn set_events_view_item_count(&mut self, count: usize) {
+        self.events_view.set_item_count(count);
+    }
+
+    /// Toggle whether to show marks in event view.
+    pub fn toggle_show_marks(&mut self) -> bool {
+        self.show_marks = !self.show_marks;
+        self.show_marks
+    }
+
+    /// Whether marks are being showed in events list.
+    pub fn showing_marks(&self) -> bool {
+        self.show_marks
     }
 
     /// Finds the index of the event nearest to the given line number.
@@ -250,15 +268,11 @@ impl LogEventTracker {
     }
 
     /// Sets the selected index to the nearest event to the given line number.
-    ///
-    /// This also returns the index that was set, or `None` if there are no events.
-    pub fn select_nearest_event(&mut self, current_line: usize) -> Option<usize> {
+    pub fn select_nearest_event(&mut self, current_line: usize) {
         if let Some(nearest_index) = self.find_nearest(current_line) {
             self.events_view.select_index(nearest_index);
-            Some(nearest_index)
         } else {
             self.events_view.select_index(0);
-            None
         }
     }
 
@@ -321,6 +335,14 @@ impl LogEventTracker {
     /// Sets the filter viewport height.
     pub fn set_filter_viewport_height(&self, height: usize) {
         self.event_filter.set_viewport_height(height);
+    }
+
+    pub fn get_filter_selected_index(&self) -> usize {
+        self.event_filter.filter_view.selected_index()
+    }
+
+    pub fn get_filter_viewport_offset(&self) -> usize {
+        self.event_filter.filter_view.viewport_offset()
     }
 
     /// Moves filter selection up (wraps to bottom).
@@ -473,7 +495,7 @@ mod tests {
         tracker.scan_single_line(&log_line, &patterns, false);
 
         assert_eq!(tracker.count(), 1);
-        let events: Vec<_> = tracker.iter_events().collect();
+        let events: Vec<_> = tracker.get_events();
         assert_eq!(events[0].event_name, "error");
         assert_eq!(events[0].line_index, 10);
     }
@@ -782,7 +804,7 @@ mod tests {
 
         populate_tracker(&mut tracker, &patterns);
 
-        let events: Vec<_> = tracker.iter_events().collect();
+        let events: Vec<_> = tracker.get_events();
         assert_eq!(events.len(), 5);
         assert_eq!(events[0].line_index, 0);
         assert_eq!(events[1].line_index, 1);

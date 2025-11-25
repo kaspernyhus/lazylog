@@ -350,6 +350,7 @@ impl KeybindingRegistry {
 
         self.bind_simple(state.clone(), KeyCode::Char('q'), Command::Quit);
         self.bind_shift(state.clone(), 'F', Command::ActivateEventFilterView);
+        self.bind_shift(state.clone(), 'M', Command::ToggleEventsShowMarks);
         self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
         self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
         self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);

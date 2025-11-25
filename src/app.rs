@@ -6,6 +6,7 @@ use crate::{
     completion::CompletionEngine,
     config::{Config, Filters},
     event::{AppEvent, Event, EventHandler},
+    event_mark_view::EventMarkView,
     filter::{Filter, FilterMode, FilterPattern},
     help::Help,
     highlighter::{Highlighter, PatternStyle},
@@ -1225,6 +1226,18 @@ impl App {
             .select_nearest_event(self.viewport.selected_line);
     }
 
+    pub fn toggle_events_show_marks(&mut self) {
+        let showing_marks = self.event_tracker.toggle_show_marks();
+
+        let count = if showing_marks {
+            self.event_tracker.count() + self.marking.get_filtered_marks().len()
+        } else {
+            self.event_tracker.count()
+        };
+
+        self.event_tracker.set_events_view_item_count(count);
+    }
+
     pub fn search_history_previous(&mut self) {
         if let Some(history_query) = self.search.history.previous_record().cloned() {
             self.input = Input::new(history_query);
@@ -1273,7 +1286,17 @@ impl App {
     }
 
     pub fn goto_selected_event(&mut self) {
-        if let Some(line_index) = self.event_tracker.get_selected_line_index() {
+        let line_index = if self.event_tracker.showing_marks() {
+            let events: Vec<_> = self.event_tracker.get_events();
+            let marks = self.marking.get_filtered_marks();
+            let merged = EventMarkView::merge(&events, &marks, true);
+            let selected_idx = self.event_tracker.selected_index();
+            merged.get(selected_idx).map(|item| item.line_index())
+        } else {
+            self.event_tracker.get_selected_line_index()
+        };
+
+        if let Some(line_index) = line_index {
             self.viewport.push_history(line_index);
             self.goto_line(line_index);
         }

@@ -61,6 +61,7 @@ pub enum Command {
     GotoSelectedEvent,
     ToggleEventFilter,
     ToggleAllEventFilters,
+    ToggleEventsShowMarks,
     EventNext,
     EventPrevious,
 
@@ -148,6 +149,7 @@ impl Command {
             Command::GotoSelectedEvent => "Go to selected event",
             Command::ToggleEventFilter => "Toggle event filter",
             Command::ToggleAllEventFilters => "Toggle all event filters",
+            Command::ToggleEventsShowMarks => "Toggle showing marks in events view",
             Command::EventNext => "Go to next event",
             Command::EventPrevious => "Go to previous event",
 
@@ -235,6 +237,7 @@ impl Command {
             Command::GotoSelectedEvent => app.goto_selected_event(),
             Command::ToggleEventFilter => app.toggle_event_filter(),
             Command::ToggleAllEventFilters => app.toggle_all_event_filters(),
+            Command::ToggleEventsShowMarks => app.toggle_events_show_marks(),
             Command::EventNext => app.event_next(),
             Command::EventPrevious => app.event_previous(),
 

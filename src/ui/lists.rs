@@ -1,10 +1,11 @@
 use crate::app::App;
 use crate::colors::{
     EVENT_LINE_PREVIEW, EVENT_LIST_BG, EVENT_LIST_HIGHLIGHT_BG, EVENT_NAME_FG, FILTER_DISABLED_FG,
-    FILTER_ENABLED_FG, FILTER_LIST_HIGHLIGHT_BG, FILTER_MODE_BG, MARK_LINE_PREVIEW,
-    MARK_LIST_HIGHLIGHT_BG, MARK_MODE_BG, MARK_NAME_FG, OPTION_DISABLED_FG, OPTION_ENABLED_FG,
-    RIGHT_ARROW, WHITE_COLOR,
+    FILTER_ENABLED_FG, FILTER_LIST_HIGHLIGHT_BG, FILTER_MODE_BG, MARK_INDICATOR_COLOR,
+    MARK_LINE_PREVIEW, MARK_LIST_HIGHLIGHT_BG, MARK_MODE_BG, MARK_NAME_FG, OPTION_DISABLED_FG,
+    OPTION_ENABLED_FG, RIGHT_ARROW, WHITE_COLOR,
 };
+use crate::event_mark_view::EventMarkView;
 use crate::filter::FilterMode;
 use crate::ui::scrollable_list::ScrollableList;
 use ratatui::{
@@ -136,15 +137,26 @@ impl App {
     pub(super) fn render_events_list(&self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
 
+        let title = if self.event_tracker.showing_marks() {
+            " Log Events & Marks "
+        } else {
+            " Log Events "
+        };
+
         let block = Block::default()
-            .title(" Log Events ")
+            .title(title)
             .title_alignment(Alignment::Center)
             .title_style(Style::default().bold())
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(EVENT_LIST_BG));
 
-        if self.event_tracker.is_empty() {
+        // Get merged items or just events
+        let events = self.event_tracker.get_events();
+        let marks = self.marking.get_filtered_marks();
+        let list_items = EventMarkView::merge(&events, &marks, self.event_tracker.showing_marks());
+
+        if list_items.is_empty() {
             let popup = Paragraph::new("No events found")
                 .block(block)
                 .alignment(Alignment::Center);
@@ -152,10 +164,10 @@ impl App {
             return;
         }
 
-        let max_name_length = self
-            .event_tracker
-            .iter_events()
-            .map(|e| e.event_name.len())
+        // Calculate max name length from merged items
+        let max_name_length = list_items
+            .iter()
+            .map(|item| item.name().len())
             .max()
             .unwrap_or(0);
 
@@ -168,8 +180,8 @@ impl App {
             .max(20) as usize; // Minimum 20 characters
 
         let mut items: Vec<Line> = Vec::new();
-        for event in self.event_tracker.iter_events() {
-            let log_line = self.log_buffer.get_line(event.line_index);
+        for item in &list_items {
+            let log_line = self.log_buffer.get_line(item.line_index());
 
             if let Some(log_line) = log_line {
                 let content = log_line.content();
@@ -179,19 +191,23 @@ impl App {
                     content.to_string()
                 };
 
-                let padding = " ".repeat(max_name_length - event.event_name.len());
+                let padding = " ".repeat(max_name_length - item.name().len());
+
+                let (name_color, line_color) = if item.is_mark() {
+                    (MARK_INDICATOR_COLOR, MARK_LINE_PREVIEW)
+                } else {
+                    (EVENT_NAME_FG, EVENT_LINE_PREVIEW)
+                };
 
                 let spans = vec![
                     Span::raw(" "),
                     Span::raw(padding),
                     Span::styled(
-                        &event.event_name,
-                        Style::default()
-                            .fg(EVENT_NAME_FG)
-                            .add_modifier(Modifier::BOLD),
+                        item.name(),
+                        Style::default().fg(name_color).add_modifier(Modifier::BOLD),
                     ),
                     Span::raw(" "),
-                    Span::styled(preview, Style::default().fg(EVENT_LINE_PREVIEW)),
+                    Span::styled(preview, Style::default().fg(line_color)),
                 ];
 
                 items.push(Line::from(spans));
@@ -203,7 +219,7 @@ impl App {
                 self.event_tracker.selected_index(),
                 self.event_tracker.viewport_offset(),
             )
-            .total_count(self.event_tracker.count())
+            .total_count(list_items.len())
             .highlight_symbol(RIGHT_ARROW)
             .highlight_style(
                 Style::default()
@@ -254,8 +270,8 @@ impl App {
 
         let (list_area, _) = ScrollableList::new(list_items)
             .selection(
-                self.event_tracker.event_filter.selected_index(),
-                self.event_tracker.event_filter.viewport_offset(),
+                self.event_tracker.get_filter_selected_index(),
+                self.event_tracker.get_filter_viewport_offset(),
             )
             .total_count(self.event_tracker.filter_count())
             .highlight_symbol(RIGHT_ARROW)
