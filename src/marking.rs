@@ -29,8 +29,8 @@ impl Mark {
     }
 
     /// Sets or updates the mark's name.
-    pub fn set_name(&mut self, name: String) {
-        self.name = Some(name);
+    pub fn set_name(&mut self, name: &str) {
+        self.name = Some(name.to_string());
     }
 }
 
@@ -79,7 +79,7 @@ impl Marking {
     }
 
     /// Sets or updates the name of an existing mark.
-    pub fn set_mark_name(&mut self, line_index: usize, name: String) {
+    pub fn set_mark_name(&mut self, line_index: usize, name: &str) {
         if let Some(mark) = self
             .marks
             .iter_mut()
@@ -279,7 +279,7 @@ mod tests {
     #[test]
     fn test_mark_set_name_updates_name() {
         let mut mark = Mark::new(42);
-        mark.set_name("important".to_string());
+        mark.set_name("important");
         assert_eq!(mark.name, Some("important".to_string()));
     }
 

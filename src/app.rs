@@ -58,7 +58,7 @@ pub enum Overlay {
     /// Filter selection for events view.
     EventsFilter,
     /// Active mode for entering a name/tag for a mark.
-    MarkNameInput,
+    MarkName,
     /// Active mode for entering a file name for saving the current log buffer to a file.
     SaveToFile,
     /// Display a message to the user.
@@ -129,7 +129,7 @@ impl App {
     fn has_input_overlay(&self) -> bool {
         matches!(
             self.overlay,
-            Some(Overlay::EditFilter) | Some(Overlay::MarkNameInput) | Some(Overlay::SaveToFile)
+            Some(Overlay::EditFilter) | Some(Overlay::MarkName) | Some(Overlay::SaveToFile)
         )
     }
 
@@ -434,7 +434,7 @@ impl App {
                     } else if matches!(
                         self.overlay,
                         Some(Overlay::EditFilter)
-                            | Some(Overlay::MarkNameInput)
+                            | Some(Overlay::MarkName)
                             | Some(Overlay::SaveToFile)
                     ) {
                         // Popup-based input modes (cursor at x=1+visual_cursor, y=1, accounting for border)
@@ -526,7 +526,7 @@ impl App {
             if line_index < self.log_buffer.get_total_lines_count() {
                 self.marking.toggle_mark(line_index);
                 if let Some(name) = mark_state.name() {
-                    self.marking.set_mark_name(line_index, name.clone());
+                    self.marking.set_mark_name(line_index, name);
                 }
             }
         }
@@ -645,7 +645,7 @@ impl App {
                             .update_selected_pattern(self.input.value().to_string());
                         self.update_view();
                     }
-                    self.set_view_state(ViewState::FilterView);
+                    self.close_overlay();
                     return;
                 }
                 Overlay::SaveToFile => {
@@ -662,21 +662,38 @@ impl App {
                             }
                         }
                     } else {
-                        self.set_view_state(ViewState::LogView);
+                        self.close_overlay();
                     }
                     return;
                 }
-                Overlay::MarkNameInput => {
-                    if let Some(mark) = self.marking.get_selected_mark() {
-                        let line_index = mark.line_index;
-                        self.marking
-                            .set_mark_name(line_index, self.input.value().to_string());
+                Overlay::MarkName => {
+                    if self.view_state == ViewState::EventsView
+                        && self.event_tracker.showing_marks()
+                    {
+                        let events = self.event_tracker.get_events();
+                        let marks = self.marking.get_filtered_marks();
+                        let merged_items = EventMarkView::merge(&events, &marks, true);
+
+                        if let Some(EventOrMark::Mark(mark)) =
+                            merged_items.get(self.event_tracker.selected_index())
+                        {
+                            self.marking
+                                .set_mark_name(mark.line_index, self.input.value());
+                        }
                     }
-                    self.set_view_state(ViewState::MarksView);
+
+                    if self.view_state == ViewState::MarksView
+                        && let Some(mark) = self.marking.get_selected_mark()
+                    {
+                        self.marking
+                            .set_mark_name(mark.line_index, self.input.value());
+                    }
+
+                    self.close_overlay();
                     return;
                 }
                 Overlay::Message(_) => {
-                    self.set_view_state(ViewState::LogView);
+                    self.close_overlay();
                     return;
                 }
                 _ => {}
@@ -763,7 +780,7 @@ impl App {
                 Overlay::EventsFilter => {
                     self.close_overlay();
                 }
-                Overlay::MarkNameInput => {
+                Overlay::MarkName => {
                     self.close_overlay();
                 }
                 Overlay::EditFilter => {
@@ -988,21 +1005,23 @@ impl App {
 
     pub fn activate_mark_name_input_mode(&mut self) {
         // Handle EventsView with merged marks
-        if self.view_state == ViewState::EventsView && self.event_tracker.showing_marks() {
-            let events = self.event_tracker.get_events();
-            let marks = self.marking.get_filtered_marks();
-            let merged_items = EventMarkView::merge(&events, &marks, true);
+        if self.view_state == ViewState::EventsView {
+            if self.event_tracker.showing_marks() {
+                let events = self.event_tracker.get_events();
+                let marks = self.marking.get_filtered_marks();
+                let merged_items = EventMarkView::merge(&events, &marks, true);
 
-            if let Some(EventOrMark::Mark(mark)) =
-                merged_items.get(self.event_tracker.selected_index())
-            {
-                if let Some(name) = &mark.name {
-                    self.input = Input::new(name.clone());
-                } else {
-                    self.input.reset();
+                if let Some(EventOrMark::Mark(mark)) =
+                    merged_items.get(self.event_tracker.selected_index())
+                {
+                    if let Some(name) = &mark.name {
+                        self.input = Input::new(name.clone());
+                    } else {
+                        self.input.reset();
+                    }
+                    // Show overlay on top of EventsView
+                    self.show_overlay(Overlay::MarkName);
                 }
-                // Show overlay on top of EventsView
-                self.show_overlay(Overlay::MarkNameInput);
             }
             return;
         }
@@ -1015,7 +1034,7 @@ impl App {
                 self.input.reset();
             }
             // Show overlay on top of MarksView
-            self.show_overlay(Overlay::MarkNameInput);
+            self.show_overlay(Overlay::MarkName);
         }
     }
 

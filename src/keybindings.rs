@@ -50,7 +50,7 @@ impl KeybindingRegistry {
         // Register global bindings for all overlay types
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::EditFilter));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::EventsFilter));
-        registry.register_global_bindings(KeybindingContext::Overlay(Overlay::MarkNameInput));
+        registry.register_global_bindings(KeybindingContext::Overlay(Overlay::MarkName));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::SaveToFile));
         registry
             .register_global_bindings(KeybindingContext::Overlay(Overlay::Message(String::new())));
@@ -419,6 +419,11 @@ impl KeybindingRegistry {
             KeyCode::Char(' '),
             Command::GotoSelectedEvent,
         );
+        self.bind_simple(
+            context.clone(),
+            KeyCode::Char('e'),
+            Command::ActivateMarkNameMode,
+        );
     }
 
     fn register_event_filter_view_bindings(&mut self) {
@@ -463,7 +468,7 @@ impl KeybindingRegistry {
         self.bind_simple(
             context.clone(),
             KeyCode::Char('e'),
-            Command::ActivateMarkNameInputMode,
+            Command::ActivateMarkNameMode,
         );
         self.bind_simple(context.clone(), KeyCode::Char('c'), Command::ClearAllMarks);
         self.bind_shift(context.clone(), 'F', Command::ToggleShowMarkedOnly)

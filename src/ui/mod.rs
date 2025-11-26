@@ -86,7 +86,7 @@ impl Widget for &App {
                     let event_filter_area = popup_area(area, 50, 25);
                     self.render_event_filter_popup(event_filter_area, buf);
                 }
-                Overlay::MarkNameInput => {
+                Overlay::MarkName => {
                     let name_input_area = popup_area(area, 60, 3);
                     self.render_mark_name_input_popup(name_input_area, buf);
                 }

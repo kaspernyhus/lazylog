@@ -264,7 +264,7 @@ impl Help {
             let target_context = match overlay_value {
                 Overlay::EditFilter => KeybindingContext::Overlay(Overlay::EditFilter),
                 Overlay::EventsFilter => KeybindingContext::Overlay(Overlay::EventsFilter),
-                Overlay::MarkNameInput => KeybindingContext::Overlay(Overlay::MarkNameInput),
+                Overlay::MarkName => KeybindingContext::Overlay(Overlay::MarkName),
                 Overlay::SaveToFile => KeybindingContext::Overlay(Overlay::SaveToFile),
                 Overlay::Message(_) => KeybindingContext::Overlay(Overlay::Message(String::new())),
                 Overlay::Error(_) => KeybindingContext::Overlay(Overlay::Error(String::new())),
