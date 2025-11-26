@@ -1,13 +1,11 @@
 use crate::{
     cli::Cli,
-    colors::{
-        FILTER_MODE_BG, FILTER_MODE_FG, MARK_MODE_BG, MARK_MODE_FG, SEARCH_MODE_BG, SEARCH_MODE_FG,
-    },
+    colors::{FILTER_MODE_BG, FILTER_MODE_FG, SEARCH_MODE_BG, SEARCH_MODE_FG},
     completion::CompletionEngine,
     config::{Config, Filters},
     event::{AppEvent, Event, EventHandler},
-    event_mark_view::EventMarkView,
-    filter::{Filter, FilterMode, FilterPattern},
+    event_mark_view::{EventMarkView, EventOrMark},
+    filter::{ActiveFilterMode, Filter, FilterPattern},
     help::Help,
     highlighter::{Highlighter, PatternStyle},
     keybindings::KeybindingRegistry,
@@ -29,50 +27,44 @@ use ratatui::{
 };
 use tui_input::{Input, InputRequest, backend::crossterm::EventHandler as TuiEventHandler};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum AppState {
+/// Represents the main views.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ViewState {
     /// Normal mode for viewing logs.
     LogView,
     /// Active search mode where a search query is highlighted and can be navigated.
-    SearchMode,
+    ActiveSearchMode,
     /// Active goto line mode where the user can input a line number to jump to.
     GotoLineMode,
     /// Active filter mode where the user can input a filter pattern to filter log lines.
-    FilterMode,
+    ActiveFilterMode,
     /// View for managing existing filter patterns.
-    FilterListView,
-    /// Edit an existing filter pattern.
-    EditFilterMode,
+    FilterView,
     /// View for adjusting display options.
     OptionsView,
     /// View for displaying all events found in the log.
     EventsView,
-    /// View for filtering events in EventsView.
-    EventsFilterView,
     /// View for displaying marked log lines.
     MarksView,
-    /// Active mode for entering a name/tag for a mark.
-    MarkNameInputMode,
-    /// Active mode for entering a pattern for auto creating marks.
-    MarkAddInputMode,
-    /// Active mode for entering a file name for saving the current log buffer to a file.
-    SaveToFileMode,
     /// Visual selection mode for selecting a range of lines.
     SelectionMode,
+}
+
+/// Represents an overlay/modal that appears on top of the current view.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Overlay {
+    /// Edit an existing filter pattern.
+    EditFilter,
+    /// Filter selection for events view.
+    EventsFilter,
+    /// Active mode for entering a name/tag for a mark.
+    MarkNameInput,
+    /// Active mode for entering a file name for saving the current log buffer to a file.
+    SaveToFile,
     /// Display a message to the user.
     Message(String),
     /// Display an error message to the user.
-    ErrorState(String),
-}
-
-impl AppState {
-    pub fn matches(&self, other: &AppState) -> bool {
-        match (self, other) {
-            (AppState::Message(_), AppState::Message(_)) => true,
-            (AppState::ErrorState(_), AppState::ErrorState(_)) => true,
-            _ => self == other,
-        }
-    }
+    Error(String),
 }
 
 /// Application.
@@ -82,8 +74,10 @@ pub struct App {
     pub running: bool,
     /// Application configuration.
     pub config: Config,
-    /// Current state of the application.
-    pub app_state: AppState,
+    /// Current view being displayed.
+    pub view_state: ViewState,
+    /// Optional overlay on top of the view.
+    pub overlay: Option<Overlay>,
     /// Event handler for managing app events such as user input.
     pub events: EventHandler,
     /// Log buffer containing the log lines.
@@ -123,15 +117,31 @@ pub struct App {
 }
 
 impl App {
+    /// Helper: Check if we're in a text input view mode
+    fn is_input_view(&self) -> bool {
+        matches!(
+            self.view_state,
+            ViewState::ActiveSearchMode | ViewState::ActiveFilterMode | ViewState::GotoLineMode
+        )
+    }
+
+    /// Helper: Check if we have an input overlay
+    fn has_input_overlay(&self) -> bool {
+        matches!(
+            self.overlay,
+            Some(Overlay::EditFilter) | Some(Overlay::MarkNameInput) | Some(Overlay::SaveToFile)
+        )
+    }
+
     /// Constructs a new instance of [`App`].
     pub fn new(args: Cli) -> Self {
-        let initial_state = if args.clear_state {
+        let initial_overlay = if args.clear_state {
             match clear_all_state() {
-                Ok(msg) => AppState::Message(msg),
-                Err(err) => AppState::ErrorState(err),
+                Ok(msg) => Some(Overlay::Message(msg)),
+                Err(err) => Some(Overlay::Error(err)),
             }
         } else {
-            AppState::LogView
+            None
         };
 
         let use_stdin = args.should_use_stdin();
@@ -154,7 +164,8 @@ impl App {
             running: true,
             config,
             help,
-            app_state: initial_state,
+            view_state: ViewState::LogView,
+            overlay: initial_overlay,
             events,
             log_buffer: LogBuffer::default(),
             viewport: Viewport::default(),
@@ -197,10 +208,7 @@ impl App {
                         .scan_all_lines(&app.log_buffer, app.highlighter.events());
                 }
                 Err(e) => {
-                    app.app_state = AppState::ErrorState(format!(
-                        "Failed to load file: {}\nError: {}",
-                        file_path, e
-                    ))
+                    app.show_error(format!("Failed to load file: {}\nError: {}", file_path, e))
                 }
             }
         }
@@ -233,7 +241,9 @@ impl App {
             self.search.update_matches(&pattern, lines);
         }
 
-        self.update_processor_context();
+        if self.log_buffer.streaming {
+            self.update_processor_context();
+        }
 
         if num_lines == 0 {
             self.viewport.selected_line = 0;
@@ -267,14 +277,35 @@ impl App {
         }
     }
 
-    fn next_state(&mut self, state: AppState) {
-        if matches!(state, AppState::Message(_)) {
-            self.message_timestamp = Some(std::time::Instant::now());
-        } else {
-            self.message_timestamp = None;
-        }
-        self.app_state = state;
+    /// Transitions to a new view state, clearing any overlay.
+    fn set_view_state(&mut self, view: ViewState) {
+        self.view_state = view;
+        self.overlay = None;
         self.update_temporary_highlights();
+        self.mark_dirty();
+    }
+
+    /// Shows a message overlay.
+    fn show_message(&mut self, message: String) {
+        self.show_overlay(Overlay::Message(message));
+    }
+
+    /// Shows an error overlay.
+    fn show_error(&mut self, error: String) {
+        self.show_overlay(Overlay::Error(error));
+    }
+
+    pub fn show_overlay(&mut self, overlay: Overlay) {
+        if matches!(overlay, Overlay::Message(_)) {
+            self.message_timestamp = Some(std::time::Instant::now());
+        }
+        self.overlay = Some(overlay);
+        self.mark_dirty();
+    }
+
+    pub fn close_overlay(&mut self) {
+        self.overlay = None;
+        self.message_timestamp = None;
         self.mark_dirty();
     }
 
@@ -289,7 +320,10 @@ impl App {
     }
 
     pub fn apply_tab_completion(&mut self) {
-        if !matches!(self.app_state, AppState::SearchMode | AppState::FilterMode) {
+        if !matches!(
+            self.view_state,
+            ViewState::ActiveSearchMode | ViewState::ActiveFilterMode
+        ) {
             return;
         }
 
@@ -303,8 +337,15 @@ impl App {
     /// Returns the input prefix for the current state.
     /// This is the single source of truth for input prefixes used in both rendering and cursor positioning.
     pub fn get_input_prefix(&self) -> String {
-        match self.app_state {
-            AppState::SearchMode => {
+        if let Some(ref overlay) = self.overlay
+            && overlay == &Overlay::SaveToFile
+        {
+            return "Save to file: ".to_string();
+        }
+
+        // Check view states
+        match self.view_state {
+            ViewState::ActiveSearchMode => {
                 let case_sensitive = if self.search.is_case_sensitive() {
                     "Aa"
                 } else {
@@ -312,10 +353,10 @@ impl App {
                 };
                 format!("Search: [{}] ", case_sensitive)
             }
-            AppState::FilterMode => {
+            ViewState::ActiveFilterMode => {
                 let filter_mode = match self.filter.get_mode() {
-                    FilterMode::Include => "IN",
-                    FilterMode::Exclude => "EX",
+                    ActiveFilterMode::Include => "IN",
+                    ActiveFilterMode::Exclude => "EX",
                 };
                 let case_sensitive = if self.filter.is_case_sensitive() {
                     "Aa"
@@ -324,9 +365,7 @@ impl App {
                 };
                 format!("Filter: [{}] [{}] ", case_sensitive, filter_mode)
             }
-            AppState::GotoLineMode => "Go to line: ".to_string(),
-            AppState::SaveToFileMode => "Save to file: ".to_string(),
-            AppState::MarkAddInputMode => "Add mark(s) from pattern: ".to_string(),
+            ViewState::GotoLineMode => "Go to line: ".to_string(),
             _ => String::new(),
         }
     }
@@ -335,7 +374,8 @@ impl App {
         self.highlighter.clear_temporary_highlights();
 
         // Add filter mode preview highlight
-        if (self.app_state == AppState::FilterMode || self.app_state == AppState::EditFilterMode)
+        if (self.view_state == ViewState::ActiveFilterMode
+            || matches!(self.overlay, Some(Overlay::EditFilter)))
             && self.input.value().chars().count() >= 2
         {
             self.highlighter.add_temporary_highlight(
@@ -346,7 +386,8 @@ impl App {
         }
 
         // Add search mode preview highlight
-        if self.app_state == AppState::SearchMode && self.input.value().chars().count() >= 2 {
+        if self.view_state == ViewState::ActiveSearchMode && self.input.value().chars().count() >= 2
+        {
             self.highlighter.add_temporary_highlight(
                 self.input.value().to_string(),
                 PatternStyle::new(Some(SEARCH_MODE_FG), Some(SEARCH_MODE_BG), true),
@@ -354,19 +395,10 @@ impl App {
             );
         }
 
-        // Add mark add mode preview highlight
-        if self.app_state == AppState::MarkAddInputMode && self.input.value().chars().count() >= 2 {
-            self.highlighter.add_temporary_highlight(
-                self.input.value().to_string(),
-                PatternStyle::new(Some(MARK_MODE_FG), Some(MARK_MODE_BG), false),
-                false,
-            );
-        }
-
         // Add active search highlight
         if let Some(pattern) = self.search.get_active_pattern()
             && !pattern.is_empty()
-            && self.app_state != AppState::SearchMode
+            && self.view_state != ViewState::ActiveSearchMode
         {
             self.highlighter.add_temporary_highlight(
                 pattern.to_string(),
@@ -391,27 +423,27 @@ impl App {
                     frame.render_widget(&self, frame.area());
 
                     // Set cursor position for text input modes
-                    let cursor_pos = match self.app_state {
-                        AppState::SearchMode
-                        | AppState::FilterMode
-                        | AppState::GotoLineMode
-                        | AppState::MarkAddInputMode => {
-                            // Footer-based input modes
-                            let footer_y = frame.area().height.saturating_sub(1);
-                            let prefix_width = self.get_input_prefix().len();
-                            let cursor_x = (prefix_width + self.input.visual_cursor()) as u16;
-                            Some((cursor_x, footer_y))
-                        }
-                        AppState::EditFilterMode
-                        | AppState::MarkNameInputMode
-                        | AppState::SaveToFileMode => {
-                            // Popup-based input modes (cursor at x=1+visual_cursor, y=1, accounting for border)
-                            let popup_rect = popup_area(frame.area(), 60, 3);
-                            let cursor_x = popup_rect.x + 1 + self.input.visual_cursor() as u16;
-                            let cursor_y = popup_rect.y + 1;
-                            Some((cursor_x, cursor_y))
-                        }
-                        _ => None,
+                    let cursor_pos = if self.help.is_visible() {
+                        None
+                    } else if self.is_input_view() {
+                        // Footer-based input modes
+                        let footer_y = frame.area().height.saturating_sub(1);
+                        let prefix_width = self.get_input_prefix().len();
+                        let cursor_x = (prefix_width + self.input.visual_cursor()) as u16;
+                        Some((cursor_x, footer_y))
+                    } else if matches!(
+                        self.overlay,
+                        Some(Overlay::EditFilter)
+                            | Some(Overlay::MarkNameInput)
+                            | Some(Overlay::SaveToFile)
+                    ) {
+                        // Popup-based input modes (cursor at x=1+visual_cursor, y=1, accounting for border)
+                        let popup_rect = popup_area(frame.area(), 60, 3);
+                        let cursor_x = popup_rect.x + 1 + self.input.visual_cursor() as u16;
+                        let cursor_y = popup_rect.y + 1;
+                        Some((cursor_x, cursor_y))
+                    } else {
+                        None
                     };
 
                     if let Some((x, y)) = cursor_pos {
@@ -451,9 +483,9 @@ impl App {
     pub fn tick(&mut self) {
         if let Some(timestamp) = self.message_timestamp
             && timestamp.elapsed().as_secs() >= 3
-            && matches!(self.app_state, AppState::Message(_))
+            && matches!(self.overlay, Some(Overlay::Message(_)))
         {
-            self.next_state(AppState::LogView);
+            self.set_view_state(ViewState::LogView);
         }
     }
 
@@ -566,7 +598,10 @@ impl App {
             self.update_temporary_highlights();
         }
 
-        if let Some(command) = self.keybindings.lookup(&self.app_state, key_event) {
+        if let Some(command) = self
+            .keybindings
+            .lookup(&self.view_state, &self.overlay, key_event)
+        {
             command.execute(self)?;
         }
 
@@ -575,21 +610,15 @@ impl App {
 
     /// Checks if the current state is a text input mode.
     fn is_text_input_mode(&self) -> bool {
-        matches!(
-            self.app_state,
-            AppState::SearchMode
-                | AppState::FilterMode
-                | AppState::GotoLineMode
-                | AppState::SaveToFileMode
-                | AppState::EditFilterMode
-                | AppState::MarkNameInputMode
-                | AppState::MarkAddInputMode
-        )
+        if self.help.is_visible() {
+            return false;
+        }
+        self.is_input_view() || self.has_input_overlay()
     }
 
     /// Handles text input for input modes.
     fn handle_text_input(&mut self, key_event: KeyEvent) {
-        if self.app_state == AppState::GotoLineMode {
+        if self.view_state == ViewState::GotoLineMode {
             match key_event.code {
                 KeyCode::Char(c) if c.is_ascii_digit() => {
                     self.input.handle(InputRequest::InsertChar(c));
@@ -608,8 +637,54 @@ impl App {
     }
 
     pub fn confirm(&mut self) {
-        match self.app_state {
-            AppState::SearchMode => {
+        if let Some(ref overlay) = self.overlay {
+            match overlay {
+                Overlay::EditFilter => {
+                    if !self.input.value().is_empty() {
+                        self.filter
+                            .update_selected_pattern(self.input.value().to_string());
+                        self.update_view();
+                    }
+                    self.set_view_state(ViewState::FilterView);
+                    return;
+                }
+                Overlay::SaveToFile => {
+                    if !self.input.value().is_empty() {
+                        match self.log_buffer.save_to_file(self.input.value()) {
+                            Ok(_) => {
+                                let abs_path = std::fs::canonicalize(self.input.value())
+                                    .map(|p| p.to_string_lossy().to_string())
+                                    .unwrap_or_else(|_| self.input.value().to_string());
+                                self.show_message(format!("Log saved to file:\n{}", abs_path));
+                            }
+                            Err(e) => {
+                                self.show_error(format!("Failed to save file:\n{}", e));
+                            }
+                        }
+                    } else {
+                        self.set_view_state(ViewState::LogView);
+                    }
+                    return;
+                }
+                Overlay::MarkNameInput => {
+                    if let Some(mark) = self.marking.get_selected_mark() {
+                        let line_index = mark.line_index;
+                        self.marking
+                            .set_mark_name(line_index, self.input.value().to_string());
+                    }
+                    self.set_view_state(ViewState::MarksView);
+                    return;
+                }
+                Overlay::Message(_) => {
+                    self.set_view_state(ViewState::LogView);
+                    return;
+                }
+                _ => {}
+            }
+        }
+
+        match self.view_state {
+            ViewState::ActiveSearchMode => {
                 if self.input.value().is_empty() {
                     self.search.clear_matches();
                 } else {
@@ -621,10 +696,7 @@ impl App {
                     if let Some(matches) = self.search.apply_pattern(self.input.value(), lines)
                         && matches == 0
                     {
-                        self.next_state(AppState::Message(format!(
-                            "0 hits for '{}'",
-                            self.input.value()
-                        )));
+                        self.show_message(format!("0 hits for '{}'", self.input.value()));
                         return;
                     }
 
@@ -638,34 +710,34 @@ impl App {
                         self.viewport.follow_mode = false;
                     }
                 }
-                self.next_state(AppState::LogView);
+                self.set_view_state(ViewState::LogView);
             }
-            AppState::FilterMode => {
+            ViewState::ActiveFilterMode => {
                 if !self.input.value().is_empty() {
                     self.filter
                         .add_filter_from_pattern(self.input.value().to_string());
                     self.update_view();
                 }
-                self.next_state(AppState::LogView);
+                self.set_view_state(ViewState::LogView);
             }
-            AppState::EventsView => {
+            ViewState::EventsView => {
                 if let Some(target_line) = self.event_tracker.get_selected_line_index()
                     && let Some(active_line) =
                         self.log_buffer.find_closest_line_by_index(target_line)
                 {
                     self.viewport.goto_line(active_line, true);
                 }
-                self.next_state(AppState::LogView);
+                self.set_view_state(ViewState::LogView);
             }
-            AppState::OptionsView => {
+            ViewState::OptionsView => {
                 self.options.enable_selected_option();
-                self.next_state(AppState::LogView);
+                self.set_view_state(ViewState::LogView);
             }
-            AppState::MarksView => {
+            ViewState::MarksView => {
                 self.goto_selected_mark();
-                self.next_state(AppState::LogView);
+                self.set_view_state(ViewState::LogView);
             }
-            AppState::GotoLineMode => {
+            ViewState::GotoLineMode => {
                 if let Ok(line_number) = self.input.value().parse::<usize>() {
                     let viewport_index = line_number.saturating_sub(1);
                     if line_number > 0 && viewport_index < self.viewport.total_lines {
@@ -673,69 +745,7 @@ impl App {
                         self.viewport.goto_line(viewport_index, true);
                     }
                 }
-                self.next_state(AppState::LogView);
-            }
-            AppState::SaveToFileMode => {
-                if !self.input.value().is_empty() {
-                    match self.log_buffer.save_to_file(self.input.value()) {
-                        Ok(_) => {
-                            let abs_path = std::fs::canonicalize(self.input.value())
-                                .map(|p| p.to_string_lossy().to_string())
-                                .unwrap_or_else(|_| self.input.value().to_string());
-                            self.next_state(AppState::Message(format!(
-                                "Log saved to file:\n{}",
-                                abs_path
-                            )));
-                        }
-                        Err(e) => {
-                            self.next_state(AppState::ErrorState(format!(
-                                "Failed to save file:\n{}",
-                                e
-                            )));
-                        }
-                    }
-                } else {
-                    self.next_state(AppState::LogView);
-                }
-            }
-            AppState::EditFilterMode => {
-                if !self.input.value().is_empty() {
-                    self.filter
-                        .update_selected_pattern(self.input.value().to_string());
-                    self.update_view();
-                }
-                self.next_state(AppState::FilterListView);
-            }
-            AppState::MarkNameInputMode => {
-                if let Some(mark) = self.marking.get_selected_mark() {
-                    let line_index = mark.line_index;
-                    self.marking
-                        .set_mark_name(line_index, self.input.value().to_string());
-                }
-                self.next_state(AppState::MarksView);
-            }
-            AppState::MarkAddInputMode => {
-                if self.input.value().is_empty() {
-                    self.next_state(AppState::MarksView);
-                    return;
-                }
-                let count_before = self.marking.count();
-                let lines = self.log_buffer.get_lines_iter(Interval::All);
-                self.marking
-                    .create_marks_from_pattern(self.input.value(), lines);
-                let count_after = self.marking.count();
-                let new_marks = count_after - count_before;
-                if new_marks > 0 {
-                    self.next_state(AppState::MarksView);
-                } else {
-                    self.next_state(AppState::Message(format!(
-                        "No matches found for pattern '{}'",
-                        self.input.value()
-                    )));
-                }
-            }
-            AppState::Message(_) => {
-                self.next_state(AppState::LogView);
+                self.set_view_state(ViewState::LogView);
             }
             _ => {}
         }
@@ -747,19 +757,43 @@ impl App {
             return;
         }
 
-        match self.app_state {
-            AppState::SearchMode => {
+        // Handle overlays first
+        if let Some(ref overlay) = self.overlay {
+            match overlay {
+                Overlay::EventsFilter => {
+                    self.close_overlay();
+                }
+                Overlay::MarkNameInput => {
+                    self.close_overlay();
+                }
+                Overlay::EditFilter => {
+                    self.set_view_state(ViewState::FilterView);
+                }
+                Overlay::SaveToFile => {
+                    self.set_view_state(ViewState::LogView);
+                }
+                Overlay::Message(_) => {
+                    self.set_view_state(ViewState::LogView);
+                }
+                Overlay::Error(_) => {}
+            }
+            return;
+        }
+
+        // Handle view states
+        match self.view_state {
+            ViewState::ActiveSearchMode => {
                 self.search.clear_matches();
-                self.next_state(AppState::LogView);
+                self.set_view_state(ViewState::LogView);
             }
-            AppState::GotoLineMode | AppState::FilterMode | AppState::SaveToFileMode => {
-                self.next_state(AppState::LogView);
+            ViewState::GotoLineMode | ViewState::ActiveFilterMode => {
+                self.set_view_state(ViewState::LogView);
             }
-            AppState::SelectionMode => {
+            ViewState::SelectionMode => {
                 self.cancel_selection();
-                self.next_state(AppState::LogView);
+                self.set_view_state(ViewState::LogView);
             }
-            AppState::LogView => {
+            ViewState::LogView => {
                 self.search.clear_matches();
                 self.update_temporary_highlights();
 
@@ -768,28 +802,12 @@ impl App {
                     self.update_view();
                 }
             }
-            AppState::FilterListView
-            | AppState::OptionsView
-            | AppState::EventsView
-            | AppState::MarksView => {
-                self.next_state(AppState::LogView);
+            ViewState::FilterView
+            | ViewState::OptionsView
+            | ViewState::EventsView
+            | ViewState::MarksView => {
+                self.set_view_state(ViewState::LogView);
             }
-            AppState::EventsFilterView => {
-                self.next_state(AppState::EventsView);
-            }
-            AppState::MarkNameInputMode => {
-                self.next_state(AppState::MarksView);
-            }
-            AppState::MarkAddInputMode => {
-                self.next_state(AppState::MarksView);
-            }
-            AppState::EditFilterMode => {
-                self.next_state(AppState::FilterListView);
-            }
-            AppState::Message(_) => {
-                self.next_state(AppState::LogView);
-            }
-            AppState::ErrorState(_) => {}
         }
     }
 
@@ -799,18 +817,24 @@ impl App {
             return;
         }
 
-        match self.app_state {
-            AppState::FilterListView => self.filter.move_selection_up(),
-            AppState::OptionsView => self.options.move_selection_up(),
-            AppState::EventsView => {
+        // Handle overlay-specific navigation
+        if let Some(Overlay::EventsFilter) = self.overlay {
+            self.event_tracker.move_filter_selection_up();
+            return;
+        }
+
+        // Handle view-specific navigation
+        match self.view_state {
+            ViewState::FilterView => self.filter.move_selection_up(),
+            ViewState::OptionsView => self.options.move_selection_up(),
+            ViewState::EventsView => {
                 self.event_tracker.move_selection_up();
                 self.viewport.follow_mode = false;
             }
-            AppState::EventsFilterView => self.event_tracker.move_filter_selection_up(),
-            AppState::MarksView => {
+            ViewState::MarksView => {
                 self.marking.move_selection_up();
             }
-            AppState::SelectionMode => {
+            ViewState::SelectionMode => {
                 self.viewport.move_up();
                 self.viewport.follow_mode = false;
                 self.update_selection_end();
@@ -828,17 +852,23 @@ impl App {
             return;
         }
 
-        match self.app_state {
-            AppState::FilterListView => self.filter.move_selection_down(),
-            AppState::OptionsView => self.options.move_selection_down(),
-            AppState::EventsView => {
+        // Handle overlay-specific navigation
+        if let Some(Overlay::EventsFilter) = self.overlay {
+            self.event_tracker.move_filter_selection_down();
+            return;
+        }
+
+        // Handle view-specific navigation
+        match self.view_state {
+            ViewState::FilterView => self.filter.move_selection_down(),
+            ViewState::OptionsView => self.options.move_selection_down(),
+            ViewState::EventsView => {
                 self.event_tracker.move_selection_down();
             }
-            AppState::EventsFilterView => self.event_tracker.move_filter_selection_down(),
-            AppState::MarksView => {
+            ViewState::MarksView => {
                 self.marking.move_selection_down();
             }
-            AppState::SelectionMode => {
+            ViewState::SelectionMode => {
                 self.viewport.move_down();
                 self.viewport.follow_mode = false;
                 self.update_selection_end();
@@ -850,14 +880,14 @@ impl App {
     }
 
     pub fn page_up(&mut self) {
-        match self.app_state {
-            AppState::EventsView => {
+        match self.view_state {
+            ViewState::EventsView => {
                 self.event_tracker.selection_page_up();
             }
-            AppState::MarksView => {
+            ViewState::MarksView => {
                 self.marking.page_up();
             }
-            AppState::SelectionMode => {
+            ViewState::SelectionMode => {
                 self.viewport.page_up();
                 self.viewport.follow_mode = false;
                 self.update_selection_end();
@@ -870,14 +900,14 @@ impl App {
     }
 
     pub fn page_down(&mut self) {
-        match self.app_state {
-            AppState::EventsView | AppState::EventsFilterView => {
+        match self.view_state {
+            ViewState::EventsView => {
                 self.event_tracker.selection_page_down();
             }
-            AppState::MarksView | AppState::MarkNameInputMode => {
+            ViewState::MarksView => {
                 self.marking.page_down();
             }
-            AppState::SelectionMode => {
+            ViewState::SelectionMode => {
                 self.viewport.page_down();
                 self.viewport.follow_mode = false;
                 self.update_selection_end();
@@ -893,12 +923,12 @@ impl App {
         self.search.clear_matches();
         self.search.reset_case_sensitive();
         self.search.history.reset();
-        self.next_state(AppState::SearchMode);
+        self.set_view_state(ViewState::ActiveSearchMode);
     }
 
     pub fn activate_goto_line_mode(&mut self) {
         self.input.reset();
-        self.next_state(AppState::GotoLineMode);
+        self.set_view_state(ViewState::GotoLineMode);
     }
 
     pub fn activate_filter_mode(&mut self) {
@@ -906,22 +936,22 @@ impl App {
         self.filter.reset_mode();
         self.filter.reset_case_sensitive();
         self.filter.history.reset();
-        self.next_state(AppState::FilterMode);
+        self.set_view_state(ViewState::ActiveFilterMode);
     }
 
     pub fn activate_filter_list_view(&mut self) {
-        self.next_state(AppState::FilterListView);
+        self.set_view_state(ViewState::FilterView);
     }
 
     pub fn activate_edit_filter_mode(&mut self) {
         if let Some(filter) = self.filter.get_selected_pattern() {
             self.input = Input::new(filter.pattern.clone());
-            self.next_state(AppState::EditFilterMode);
+            self.show_overlay(Overlay::EditFilter);
         }
     }
 
     pub fn activate_options_view(&mut self) {
-        self.next_state(AppState::OptionsView);
+        self.set_view_state(ViewState::OptionsView);
     }
 
     pub fn activate_events_view(&mut self) {
@@ -935,12 +965,12 @@ impl App {
         {
             self.event_tracker.select_nearest_event(line_index);
         }
-        self.next_state(AppState::EventsView);
+        self.set_view_state(ViewState::EventsView);
     }
 
     pub fn activate_event_filter_view(&mut self) {
-        if self.app_state == AppState::EventsView {
-            self.next_state(AppState::EventsFilterView);
+        if self.view_state == ViewState::EventsView {
+            self.show_overlay(Overlay::EventsFilter);
         }
     }
 
@@ -953,34 +983,51 @@ impl App {
         } else {
             self.marking.reset_view();
         }
-        self.next_state(AppState::MarksView);
+        self.set_view_state(ViewState::MarksView);
     }
 
     pub fn activate_mark_name_input_mode(&mut self) {
+        // Handle EventsView with merged marks
+        if self.view_state == ViewState::EventsView && self.event_tracker.showing_marks() {
+            let events = self.event_tracker.get_events();
+            let marks = self.marking.get_filtered_marks();
+            let merged_items = EventMarkView::merge(&events, &marks, true);
+
+            if let Some(EventOrMark::Mark(mark)) =
+                merged_items.get(self.event_tracker.selected_index())
+            {
+                if let Some(name) = &mark.name {
+                    self.input = Input::new(name.clone());
+                } else {
+                    self.input.reset();
+                }
+                // Show overlay on top of EventsView
+                self.show_overlay(Overlay::MarkNameInput);
+            }
+            return;
+        }
+
+        // Handle MarksView
         if let Some(mark) = self.marking.get_selected_mark() {
             if let Some(name) = &mark.name {
                 self.input = Input::new(name.clone());
             } else {
                 self.input.reset();
             }
-            self.next_state(AppState::MarkNameInputMode);
+            // Show overlay on top of MarksView
+            self.show_overlay(Overlay::MarkNameInput);
         }
-    }
-
-    pub fn activate_mark_add_input_mode(&mut self) {
-        self.input.reset();
-        self.next_state(AppState::MarkAddInputMode);
     }
 
     pub fn activate_save_to_file_mode(&mut self) {
         if self.log_buffer.streaming {
             self.input.reset();
-            self.next_state(AppState::SaveToFileMode);
+            self.show_overlay(Overlay::SaveToFile);
         }
     }
 
     pub fn toggle_mark(&mut self) {
-        if self.app_state == AppState::SelectionMode {
+        if self.view_state == ViewState::SelectionMode {
             if let Some((start, end)) = self.get_selection_range() {
                 let log_indices: Vec<usize> = (start..=end)
                     .filter_map(|viewport_line| {
@@ -1019,7 +1066,7 @@ impl App {
         self.search.toggle_case_sensitive();
         self.filter.toggle_case_sensitive();
 
-        if self.app_state == AppState::SearchMode {
+        if self.view_state == ViewState::ActiveSearchMode {
             let lines = self
                 .log_buffer
                 .get_lines_iter(Interval::All)
@@ -1148,7 +1195,7 @@ impl App {
         if self.help.is_visible() {
             self.help.toggle_visibility();
         } else {
-            self.help.show_for_state(&self.app_state);
+            self.help.show_for_context(&self.view_state, &self.overlay);
         }
     }
 
@@ -1313,7 +1360,7 @@ impl App {
     pub fn start_selection(&mut self) {
         let current_line = self.viewport.selected_line;
         self.selection_range = Some((current_line, current_line));
-        self.next_state(AppState::SelectionMode);
+        self.set_view_state(ViewState::SelectionMode);
     }
 
     /// Updates the end of the selection range as the cursor moves.
@@ -1358,26 +1405,20 @@ impl App {
                         Ok(_) => {
                             let num_lines = lines.len();
                             self.selection_range = None;
-                            self.next_state(AppState::Message(format!(
+                            self.show_message(format!(
                                 "Copied {} line{} to clipboard",
                                 num_lines,
                                 if num_lines == 1 { "" } else { "s" }
-                            )));
+                            ));
                         }
                         Err(e) => {
                             self.selection_range = None;
-                            self.next_state(AppState::ErrorState(format!(
-                                "Failed to copy to clipboard: {}",
-                                e
-                            )));
+                            self.show_error(format!("Failed to copy to clipboard: {}", e));
                         }
                     },
                     Err(e) => {
                         self.selection_range = None;
-                        self.next_state(AppState::ErrorState(format!(
-                            "Failed to access clipboard: {}",
-                            e
-                        )));
+                        self.show_error(format!("Failed to access clipboard: {}", e));
                     }
                 }
             }

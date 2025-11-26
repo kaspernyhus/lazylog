@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::filter::{FilterHistoryEntry, FilterMode};
+use crate::filter::{ActiveFilterMode, FilterHistoryEntry};
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
@@ -37,7 +37,7 @@ struct ViewportState {
 #[derive(Serialize, Deserialize)]
 pub struct FilterPatternState {
     pattern: String,
-    mode: FilterMode,
+    mode: ActiveFilterMode,
     case_sensitive: bool,
     enabled: bool,
 }
@@ -270,7 +270,7 @@ impl FilterPatternState {
         &self.pattern
     }
 
-    pub fn mode(&self) -> FilterMode {
+    pub fn mode(&self) -> ActiveFilterMode {
         self.mode
     }
 

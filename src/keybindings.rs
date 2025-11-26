@@ -1,8 +1,15 @@
-use crate::app::AppState;
+use crate::app::{Overlay, ViewState};
 use crate::command::Command;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-type KeyBindingKey = (AppState, KeyCode, KeyModifiers);
+/// Represents the context for a keybinding.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum KeybindingContext {
+    View(ViewState),
+    Overlay(Overlay),
+}
+
+type KeyBindingKey = (KeybindingContext, KeyCode, KeyModifiers);
 
 /// Registry of all keybindings mapped to commands.
 #[derive(Debug, Default)]
@@ -29,43 +36,77 @@ impl KeybindingRegistry {
         registry.register_message_state_bindings();
         registry.register_error_state_bindings();
 
-        registry.register_global_bindings(AppState::LogView);
-        registry.register_global_bindings(AppState::SelectionMode);
-        registry.register_global_bindings(AppState::SearchMode);
-        registry.register_global_bindings(AppState::FilterMode);
-        registry.register_global_bindings(AppState::FilterListView);
-        registry.register_global_bindings(AppState::OptionsView);
-        registry.register_global_bindings(AppState::EventsView);
-        registry.register_global_bindings(AppState::EventsFilterView);
-        registry.register_global_bindings(AppState::MarksView);
-        registry.register_global_bindings(AppState::MarkNameInputMode);
-        registry.register_global_bindings(AppState::MarkAddInputMode);
-        registry.register_global_bindings(AppState::GotoLineMode);
-        registry.register_global_bindings(AppState::EditFilterMode);
-        registry.register_global_bindings(AppState::SaveToFileMode);
-        registry.register_global_bindings(AppState::Message(String::new()));
-        registry.register_global_bindings(AppState::ErrorState(String::new()));
+        // Register global bindings for all view states
+        registry.register_global_bindings(KeybindingContext::View(ViewState::LogView));
+        registry.register_global_bindings(KeybindingContext::View(ViewState::SelectionMode));
+        registry.register_global_bindings(KeybindingContext::View(ViewState::ActiveSearchMode));
+        registry.register_global_bindings(KeybindingContext::View(ViewState::ActiveFilterMode));
+        registry.register_global_bindings(KeybindingContext::View(ViewState::FilterView));
+        registry.register_global_bindings(KeybindingContext::View(ViewState::OptionsView));
+        registry.register_global_bindings(KeybindingContext::View(ViewState::EventsView));
+        registry.register_global_bindings(KeybindingContext::View(ViewState::MarksView));
+        registry.register_global_bindings(KeybindingContext::View(ViewState::GotoLineMode));
+
+        // Register global bindings for all overlay types
+        registry.register_global_bindings(KeybindingContext::Overlay(Overlay::EditFilter));
+        registry.register_global_bindings(KeybindingContext::Overlay(Overlay::EventsFilter));
+        registry.register_global_bindings(KeybindingContext::Overlay(Overlay::MarkNameInput));
+        registry.register_global_bindings(KeybindingContext::Overlay(Overlay::SaveToFile));
+        registry
+            .register_global_bindings(KeybindingContext::Overlay(Overlay::Message(String::new())));
+        registry
+            .register_global_bindings(KeybindingContext::Overlay(Overlay::Error(String::new())));
 
         registry
     }
 
-    /// Looks up a command for the given state and key event.
-    pub fn lookup(&self, app_state: &AppState, key_event: KeyEvent) -> Option<Command> {
-        if let Some((_, cmd)) = self.bindings.iter().find(|((state, kcode, kmod), _)| {
-            state.matches(app_state) && *kcode == key_event.code && *kmod == key_event.modifiers
-        }) {
-            return Some(*cmd);
-        }
-
-        None
+    fn find_cmd(
+        bindings: &[((KeybindingContext, KeyCode, KeyModifiers), Command)],
+        expected_context: &KeybindingContext,
+        key_event: KeyEvent,
+    ) -> Option<Command> {
+        bindings
+            .iter()
+            .find(|((context, kcode, kmod), _)| {
+                context == expected_context
+                    && *kcode == key_event.code
+                    && *kmod == key_event.modifiers
+            })
+            .map(|(_, cmd)| *cmd)
     }
 
-    /// Returns all keybindings for a specific state, grouped and sorted.
-    pub fn get_keybindings_for_state(&self, target_state: &AppState) -> Vec<(String, Command)> {
+    pub fn lookup(
+        &self,
+        view_state: &ViewState,
+        overlay: &Option<Overlay>,
+        key_event: KeyEvent,
+    ) -> Option<Command> {
+        // Check for overlay specific bindings if an overlay is active
+        if let Some(ov) = overlay {
+            return Self::find_cmd(
+                &self.bindings,
+                &KeybindingContext::Overlay(ov.clone()),
+                key_event,
+            );
+        }
+
+        // Check for bindings relating to views
+        Self::find_cmd(
+            &self.bindings,
+            &KeybindingContext::View(view_state.clone()),
+            key_event,
+        )
+    }
+
+    /// Returns all keybindings for a specific context, grouped and sorted.
+    pub fn get_keybindings_for_context(
+        &self,
+        target_context: &KeybindingContext,
+    ) -> Vec<(String, Command)> {
         let bindings: Vec<(String, Command)> = self
             .bindings
             .iter()
-            .filter(|((state, _, _), _)| state.matches(target_state))
+            .filter(|((context, _, _), _)| context == target_context)
             .map(|((_, keycode, modifiers), cmd)| (Self::format_key(*keycode, *modifiers), *cmd))
             .collect();
         bindings
@@ -110,220 +151,236 @@ impl KeybindingRegistry {
     /// Helper to register a single keybinding.
     fn bind(
         &mut self,
-        state: AppState,
+        context: KeybindingContext,
         keycode: KeyCode,
         modifiers: KeyModifiers,
         command: Command,
     ) {
-        self.bindings.push(((state, keycode, modifiers), command));
+        self.bindings.push(((context, keycode, modifiers), command));
     }
 
     /// Helper to register a keybinding without modifiers.
-    fn bind_simple(&mut self, state: AppState, keycode: KeyCode, command: Command) {
-        self.bind(state, keycode, KeyModifiers::empty(), command);
+    fn bind_simple(&mut self, context: KeybindingContext, keycode: KeyCode, command: Command) {
+        self.bind(context, keycode, KeyModifiers::empty(), command);
     }
 
     /// Helper to register a keybinding with SHIFT modifier.
-    fn bind_shift(&mut self, state: AppState, c: char, command: Command) {
-        self.bind(state, KeyCode::Char(c), KeyModifiers::SHIFT, command);
+    fn bind_shift(&mut self, context: KeybindingContext, c: char, command: Command) {
+        self.bind(context, KeyCode::Char(c), KeyModifiers::SHIFT, command);
     }
 
     /// Registers global keybindings that work in all states.
-    fn register_global_bindings(&mut self, state: AppState) {
+    fn register_global_bindings(&mut self, context: KeybindingContext) {
         self.bind(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('c'),
             KeyModifiers::CONTROL,
             Command::Quit,
         );
-        self.bind_simple(state.clone(), KeyCode::Esc, Command::Cancel);
-        self.bind_simple(state.clone(), KeyCode::Enter, Command::Confirm);
-        self.bind_simple(state.clone(), KeyCode::F(1), Command::ToggleHelp);
+        self.bind_simple(context.clone(), KeyCode::Esc, Command::Cancel);
+        self.bind_simple(context.clone(), KeyCode::Enter, Command::Confirm);
+        self.bind_simple(context.clone(), KeyCode::F(1), Command::ToggleHelp);
     }
 
     fn register_log_view_bindings(&mut self) {
-        let state = AppState::LogView;
+        let context = KeybindingContext::View(ViewState::LogView);
 
-        self.bind_simple(state.clone(), KeyCode::Char('q'), Command::Quit);
-        self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
-        self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
-        self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
-        self.bind_simple(state.clone(), KeyCode::Char('j'), Command::MoveDown);
-        self.bind_simple(state.clone(), KeyCode::PageUp, Command::PageUp);
-        self.bind_simple(state.clone(), KeyCode::PageDown, Command::PageDown);
-        self.bind_simple(state.clone(), KeyCode::Char('g'), Command::GotoTop);
-        self.bind_shift(state.clone(), 'G', Command::GotoBottom);
-        self.bind_simple(state.clone(), KeyCode::Char('z'), Command::CenterSelected);
-        self.bind_simple(state.clone(), KeyCode::Left, Command::ScrollLeft);
-        self.bind_simple(state.clone(), KeyCode::Right, Command::ScrollRight);
-        self.bind_simple(state.clone(), KeyCode::Char('h'), Command::ScrollLeft);
-        self.bind_simple(state.clone(), KeyCode::Char('l'), Command::ScrollRight);
-        self.bind_simple(state.clone(), KeyCode::Char('0'), Command::ResetHorizontal);
+        self.bind_simple(context.clone(), KeyCode::Char('q'), Command::Quit);
+        self.bind_simple(context.clone(), KeyCode::Up, Command::MoveUp);
+        self.bind_simple(context.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(context.clone(), KeyCode::Char('k'), Command::MoveUp);
+        self.bind_simple(context.clone(), KeyCode::Char('j'), Command::MoveDown);
+        self.bind_simple(context.clone(), KeyCode::PageUp, Command::PageUp);
+        self.bind_simple(context.clone(), KeyCode::PageDown, Command::PageDown);
+        self.bind_simple(context.clone(), KeyCode::Char('g'), Command::GotoTop);
+        self.bind_shift(context.clone(), 'G', Command::GotoBottom);
+        self.bind_simple(context.clone(), KeyCode::Char('z'), Command::CenterSelected);
+        self.bind_simple(context.clone(), KeyCode::Left, Command::ScrollLeft);
+        self.bind_simple(context.clone(), KeyCode::Right, Command::ScrollRight);
+        self.bind_simple(context.clone(), KeyCode::Char('h'), Command::ScrollLeft);
+        self.bind_simple(context.clone(), KeyCode::Char('l'), Command::ScrollRight);
         self.bind_simple(
-            state.clone(),
+            context.clone(),
+            KeyCode::Char('0'),
+            Command::ResetHorizontal,
+        );
+        self.bind_simple(
+            context.clone(),
             KeyCode::Char('/'),
-            Command::ActivateSearchMode,
+            Command::ActivateActiveSearchMode,
         );
         self.bind(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('f'),
             KeyModifiers::CONTROL,
-            Command::ActivateSearchMode,
+            Command::ActivateActiveSearchMode,
         );
-        self.bind_simple(state.clone(), KeyCode::Char('n'), Command::SearchNext);
-        self.bind_shift(state.clone(), 'N', Command::SearchPrevious);
+        self.bind_simple(context.clone(), KeyCode::Char('n'), Command::SearchNext);
+        self.bind_shift(context.clone(), 'N', Command::SearchPrevious);
         self.bind_simple(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('f'),
-            Command::ActivateFilterMode,
+            Command::ActivateActiveFilterMode,
         );
-        self.bind_shift(state.clone(), 'F', Command::ActivateFilterListView);
+        self.bind_shift(context.clone(), 'F', Command::ActivateFilterView);
         self.bind_simple(
-            state.clone(),
+            context.clone(),
             KeyCode::Char(':'),
             Command::ActivateGotoLineMode,
         );
         self.bind_simple(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('o'),
             Command::ActivateOptionsView,
         );
         self.bind_simple(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('e'),
             Command::ActivateEventsView,
         );
-        self.bind_simple(state.clone(), KeyCode::Char(' '), Command::ToggleMark);
+        self.bind_simple(context.clone(), KeyCode::Char(' '), Command::ToggleMark);
         self.bind_simple(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('m'),
             Command::ActivateMarksView,
         );
-        self.bind_simple(state.clone(), KeyCode::Char(']'), Command::MarkNext);
-        self.bind_simple(state.clone(), KeyCode::Char('['), Command::MarkPrevious);
-        self.bind_simple(state.clone(), KeyCode::Char('}'), Command::EventNext);
-        self.bind_simple(state.clone(), KeyCode::Char('{'), Command::EventPrevious);
+        self.bind_simple(context.clone(), KeyCode::Char(']'), Command::MarkNext);
+        self.bind_simple(context.clone(), KeyCode::Char('['), Command::MarkPrevious);
+        self.bind_simple(context.clone(), KeyCode::Char('}'), Command::EventNext);
+        self.bind_simple(context.clone(), KeyCode::Char('{'), Command::EventPrevious);
         self.bind_simple(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('c'),
             Command::ToggleCenterCursorMode,
         );
-        self.bind_simple(state.clone(), KeyCode::Char('t'), Command::ToggleFollowMode);
-        self.bind_simple(state.clone(), KeyCode::Char('p'), Command::TogglePauseMode);
+        self.bind_simple(
+            context.clone(),
+            KeyCode::Char('t'),
+            Command::ToggleFollowMode,
+        );
+        self.bind_simple(
+            context.clone(),
+            KeyCode::Char('p'),
+            Command::TogglePauseMode,
+        );
         self.bind(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('l'),
             KeyModifiers::CONTROL,
             Command::ClearLogBuffer,
         );
         self.bind(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('s'),
             KeyModifiers::CONTROL,
             Command::ActivateSaveToFileMode,
         );
         self.bind(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('o'),
             KeyModifiers::CONTROL,
             Command::HistoryBack,
         );
-        self.bind_simple(state.clone(), KeyCode::Tab, Command::HistoryForward);
-        self.bind_shift(state.clone(), 'V', Command::StartSelection);
+        self.bind_simple(context.clone(), KeyCode::Tab, Command::HistoryForward);
+        self.bind_shift(context.clone(), 'V', Command::StartSelection);
     }
 
     fn register_selection_mode_bindings(&mut self) {
-        let state = AppState::SelectionMode;
+        let context = KeybindingContext::View(ViewState::SelectionMode);
 
-        self.bind_simple(state.clone(), KeyCode::Char('q'), Command::Quit);
-        self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
-        self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
-        self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
-        self.bind_simple(state.clone(), KeyCode::Char('j'), Command::MoveDown);
-        self.bind_simple(state.clone(), KeyCode::PageUp, Command::PageUp);
-        self.bind_simple(state.clone(), KeyCode::PageDown, Command::PageDown);
-        self.bind_simple(state.clone(), KeyCode::Char('g'), Command::GotoTop);
-        self.bind_shift(state.clone(), 'G', Command::GotoBottom);
-        self.bind_simple(state.clone(), KeyCode::Char('y'), Command::CopySelection);
-        self.bind_simple(state.clone(), KeyCode::Char(' '), Command::ToggleMark);
+        self.bind_simple(context.clone(), KeyCode::Char('q'), Command::Quit);
+        self.bind_simple(context.clone(), KeyCode::Up, Command::MoveUp);
+        self.bind_simple(context.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(context.clone(), KeyCode::Char('k'), Command::MoveUp);
+        self.bind_simple(context.clone(), KeyCode::Char('j'), Command::MoveDown);
+        self.bind_simple(context.clone(), KeyCode::PageUp, Command::PageUp);
+        self.bind_simple(context.clone(), KeyCode::PageDown, Command::PageDown);
+        self.bind_simple(context.clone(), KeyCode::Char('g'), Command::GotoTop);
+        self.bind_shift(context.clone(), 'G', Command::GotoBottom);
+        self.bind_simple(context.clone(), KeyCode::Char('y'), Command::CopySelection);
+        self.bind_simple(context.clone(), KeyCode::Char(' '), Command::ToggleMark);
     }
 
     fn register_search_mode_bindings(&mut self) {
-        let state = AppState::SearchMode;
+        let context = KeybindingContext::View(ViewState::ActiveSearchMode);
 
-        self.bind_simple(state.clone(), KeyCode::Tab, Command::TabCompletion);
+        self.bind_simple(context.clone(), KeyCode::Tab, Command::TabCompletion);
         self.bind(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('a'),
             KeyModifiers::ALT,
             Command::ToggleCaseSearch,
         );
-        self.bind_simple(state.clone(), KeyCode::Up, Command::SearchHistoryPrevious);
-        self.bind_simple(state.clone(), KeyCode::Down, Command::SearchHistoryNext);
+        self.bind_simple(context.clone(), KeyCode::Up, Command::SearchHistoryPrevious);
+        self.bind_simple(context.clone(), KeyCode::Down, Command::SearchHistoryNext);
     }
 
     fn register_filter_mode_bindings(&mut self) {
-        let state = AppState::FilterMode;
+        let context = KeybindingContext::View(ViewState::ActiveFilterMode);
 
-        self.bind_simple(state.clone(), KeyCode::Tab, Command::TabCompletion);
+        self.bind_simple(context.clone(), KeyCode::Tab, Command::TabCompletion);
         self.bind(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('a'),
             KeyModifiers::ALT,
             Command::ToggleCaseFilter,
         );
         self.bind(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('e'),
             KeyModifiers::ALT,
-            Command::ToggleFilterModeInOut,
+            Command::ToggleActiveFilterModeInOut,
         );
-        self.bind_simple(state.clone(), KeyCode::Up, Command::FilterHistoryPrevious);
-        self.bind_simple(state.clone(), KeyCode::Down, Command::FilterHistoryNext);
+        self.bind_simple(context.clone(), KeyCode::Up, Command::FilterHistoryPrevious);
+        self.bind_simple(context.clone(), KeyCode::Down, Command::FilterHistoryNext);
     }
 
     fn register_filter_list_bindings(&mut self) {
-        let state = AppState::FilterListView;
+        let context = KeybindingContext::View(ViewState::FilterView);
 
-        self.bind_simple(state.clone(), KeyCode::Char('q'), Command::Quit);
-        self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
-        self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
-        self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
-        self.bind_simple(state.clone(), KeyCode::Char('j'), Command::MoveDown);
+        self.bind_simple(context.clone(), KeyCode::Char('q'), Command::Quit);
+        self.bind_simple(context.clone(), KeyCode::Up, Command::MoveUp);
+        self.bind_simple(context.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(context.clone(), KeyCode::Char('k'), Command::MoveUp);
+        self.bind_simple(context.clone(), KeyCode::Char('j'), Command::MoveDown);
         self.bind_simple(
-            state.clone(),
+            context.clone(),
             KeyCode::Char(' '),
             Command::ToggleFilterPattern,
         );
-        self.bind_simple(state.clone(), KeyCode::Delete, Command::RemoveFilterPattern);
         self.bind_simple(
-            state.clone(),
+            context.clone(),
+            KeyCode::Delete,
+            Command::RemoveFilterPattern,
+        );
+        self.bind_simple(
+            context.clone(),
             KeyCode::Char('d'),
             Command::RemoveFilterPattern,
         );
         self.bind_simple(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('e'),
-            Command::ActivateEditFilterMode,
+            Command::ActivateEditActiveFilterMode,
         );
         self.bind_simple(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('f'),
-            Command::ActivateFilterMode,
+            Command::ActivateActiveFilterMode,
         );
         self.bind_simple(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('a'),
             Command::ToggleAllFilterPatterns,
         );
         self.bind(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('a'),
             KeyModifiers::ALT,
             Command::ToggleFilterPatternCaseSensitive,
         );
         self.bind(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('e'),
             KeyModifiers::ALT,
             Command::ToggleFilterPatternMode,
@@ -331,97 +388,96 @@ impl KeybindingRegistry {
     }
 
     fn register_options_view_bindings(&mut self) {
-        let state = AppState::OptionsView;
+        let context = KeybindingContext::View(ViewState::OptionsView);
 
-        self.bind_simple(state.clone(), KeyCode::Char('q'), Command::Quit);
-        self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
-        self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
-        self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
-        self.bind_simple(state.clone(), KeyCode::Char('j'), Command::MoveDown);
+        self.bind_simple(context.clone(), KeyCode::Char('q'), Command::Quit);
+        self.bind_simple(context.clone(), KeyCode::Up, Command::MoveUp);
+        self.bind_simple(context.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(context.clone(), KeyCode::Char('k'), Command::MoveUp);
+        self.bind_simple(context.clone(), KeyCode::Char('j'), Command::MoveDown);
         self.bind_simple(
-            state.clone(),
+            context.clone(),
             KeyCode::Char(' '),
             Command::ToggleDisplayOption,
         );
     }
 
     fn register_events_view_bindings(&mut self) {
-        let state = AppState::EventsView;
+        let context = KeybindingContext::View(ViewState::EventsView);
 
-        self.bind_simple(state.clone(), KeyCode::Char('q'), Command::Quit);
-        self.bind_shift(state.clone(), 'F', Command::ActivateEventFilterView);
-        self.bind_shift(state.clone(), 'M', Command::ToggleEventsShowMarks);
-        self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
-        self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
-        self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
-        self.bind_simple(state.clone(), KeyCode::Char('j'), Command::MoveDown);
-        self.bind_simple(state.clone(), KeyCode::PageUp, Command::PageUp);
-        self.bind_simple(state.clone(), KeyCode::PageDown, Command::PageDown);
+        self.bind_simple(context.clone(), KeyCode::Char('q'), Command::Quit);
+        self.bind_shift(context.clone(), 'F', Command::ActivateEventFilterView);
+        self.bind_shift(context.clone(), 'M', Command::ToggleEventsShowMarks);
+        self.bind_simple(context.clone(), KeyCode::Up, Command::MoveUp);
+        self.bind_simple(context.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(context.clone(), KeyCode::Char('k'), Command::MoveUp);
+        self.bind_simple(context.clone(), KeyCode::Char('j'), Command::MoveDown);
+        self.bind_simple(context.clone(), KeyCode::PageUp, Command::PageUp);
+        self.bind_simple(context.clone(), KeyCode::PageDown, Command::PageDown);
         self.bind_simple(
-            state.clone(),
+            context.clone(),
             KeyCode::Char(' '),
             Command::GotoSelectedEvent,
         );
     }
 
     fn register_event_filter_view_bindings(&mut self) {
-        let state = AppState::EventsFilterView;
+        let context = KeybindingContext::Overlay(Overlay::EventsFilter);
 
-        self.bind_simple(state.clone(), KeyCode::Char('q'), Command::Quit);
-        self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
-        self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
-        self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
-        self.bind_simple(state.clone(), KeyCode::Char('j'), Command::MoveDown);
-        self.bind_simple(state.clone(), KeyCode::PageUp, Command::PageUp);
-        self.bind_simple(state.clone(), KeyCode::PageDown, Command::PageDown);
+        self.bind_simple(context.clone(), KeyCode::Char('q'), Command::Quit);
+        self.bind_simple(context.clone(), KeyCode::Up, Command::MoveUp);
+        self.bind_simple(context.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(context.clone(), KeyCode::Char('k'), Command::MoveUp);
+        self.bind_simple(context.clone(), KeyCode::Char('j'), Command::MoveDown);
+        self.bind_simple(context.clone(), KeyCode::PageUp, Command::PageUp);
+        self.bind_simple(context.clone(), KeyCode::PageDown, Command::PageDown);
         self.bind_simple(
-            state.clone(),
+            context.clone(),
             KeyCode::Char(' '),
             Command::ToggleEventFilter,
         );
         self.bind_simple(
-            state.clone(),
+            context.clone(),
             KeyCode::Char('a'),
             Command::ToggleAllEventFilters,
         );
     }
 
     fn register_marks_view_bindings(&mut self) {
-        let state = AppState::MarksView;
+        let context = KeybindingContext::View(ViewState::MarksView);
 
-        self.bind_simple(state.clone(), KeyCode::Char('q'), Command::Quit);
-        self.bind_simple(state.clone(), KeyCode::Up, Command::MoveUp);
-        self.bind_simple(state.clone(), KeyCode::Down, Command::MoveDown);
-        self.bind_simple(state.clone(), KeyCode::Char('k'), Command::MoveUp);
-        self.bind_simple(state.clone(), KeyCode::Char('j'), Command::MoveDown);
-        self.bind_simple(state.clone(), KeyCode::PageUp, Command::PageUp);
-        self.bind_simple(state.clone(), KeyCode::PageDown, Command::PageDown);
-        self.bind_simple(state.clone(), KeyCode::Char(' '), Command::GotoSelectedMark);
-        self.bind_simple(state.clone(), KeyCode::Delete, Command::UnmarkSelected);
-        self.bind_simple(state.clone(), KeyCode::Char('d'), Command::UnmarkSelected);
+        self.bind_simple(context.clone(), KeyCode::Char('q'), Command::Quit);
+        self.bind_simple(context.clone(), KeyCode::Up, Command::MoveUp);
+        self.bind_simple(context.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(context.clone(), KeyCode::Char('k'), Command::MoveUp);
+        self.bind_simple(context.clone(), KeyCode::Char('j'), Command::MoveDown);
+        self.bind_simple(context.clone(), KeyCode::PageUp, Command::PageUp);
+        self.bind_simple(context.clone(), KeyCode::PageDown, Command::PageDown);
         self.bind_simple(
-            state.clone(),
+            context.clone(),
+            KeyCode::Char(' '),
+            Command::GotoSelectedMark,
+        );
+        self.bind_simple(context.clone(), KeyCode::Delete, Command::UnmarkSelected);
+        self.bind_simple(context.clone(), KeyCode::Char('d'), Command::UnmarkSelected);
+        self.bind_simple(
+            context.clone(),
             KeyCode::Char('e'),
             Command::ActivateMarkNameInputMode,
         );
-        self.bind_simple(state.clone(), KeyCode::Char('c'), Command::ClearAllMarks);
-        self.bind_simple(
-            state.clone(),
-            KeyCode::Char('n'),
-            Command::ActivateMarkAddInputMode,
-        );
-        self.bind_shift(state.clone(), 'F', Command::ToggleShowMarkedOnly)
+        self.bind_simple(context.clone(), KeyCode::Char('c'), Command::ClearAllMarks);
+        self.bind_shift(context.clone(), 'F', Command::ToggleShowMarkedOnly)
     }
 
     fn register_message_state_bindings(&mut self) {
-        let state = AppState::Message(String::new());
+        let context = KeybindingContext::Overlay(Overlay::Message(String::new()));
 
-        self.bind_simple(state, KeyCode::Char('q'), Command::Quit);
+        self.bind_simple(context, KeyCode::Char('q'), Command::Quit);
     }
 
     fn register_error_state_bindings(&mut self) {
-        let state = AppState::ErrorState(String::new());
+        let context = KeybindingContext::Overlay(Overlay::Error(String::new()));
 
-        self.bind_simple(state, KeyCode::Char('q'), Command::Quit);
+        self.bind_simple(context, KeyCode::Char('q'), Command::Quit);
     }
 }

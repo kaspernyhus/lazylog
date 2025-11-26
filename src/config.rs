@@ -1,4 +1,4 @@
-use crate::filter::{FilterMode, FilterPattern};
+use crate::filter::{ActiveFilterMode, FilterPattern};
 use crate::highlighter::{HighlightPattern, Highlighter, PatternMatchType, PatternStyle};
 use ratatui::style::Color;
 use serde::Deserialize;
@@ -108,8 +108,8 @@ impl Filters {
             .iter()
             .map(|filter_config| {
                 let mode = match filter_config.mode.to_lowercase().as_str() {
-                    "exclude" => FilterMode::Exclude,
-                    _ => FilterMode::Include,
+                    "exclude" => ActiveFilterMode::Exclude,
+                    _ => ActiveFilterMode::Include,
                 };
 
                 FilterPattern {
@@ -174,14 +174,14 @@ impl Config {
 
     /// Parses filter configurations and returns a list of FilterPatterns.
     pub fn parse_filter_patterns(&self) -> Vec<crate::filter::FilterPattern> {
-        use crate::filter::{FilterMode, FilterPattern};
+        use crate::filter::{ActiveFilterMode, FilterPattern};
 
         self.filters
             .iter()
             .map(|filter_config| {
                 let mode = match filter_config.mode.to_lowercase().as_str() {
-                    "exclude" => FilterMode::Exclude,
-                    _ => FilterMode::Include, // Default to Include
+                    "exclude" => ActiveFilterMode::Exclude,
+                    _ => ActiveFilterMode::Include, // Default to Include
                 };
 
                 FilterPattern {

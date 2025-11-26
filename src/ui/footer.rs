@@ -1,8 +1,5 @@
 use crate::app::App;
-use crate::colors::{
-    FILTER_MODE_BG, FILTER_MODE_FG, FOOTER_BG, MARK_MODE_BG, MARK_MODE_FG, SEARCH_MODE_BG,
-    SEARCH_MODE_FG,
-};
+use crate::colors::{FILTER_MODE_BG, FILTER_MODE_FG, FOOTER_BG, SEARCH_MODE_BG, SEARCH_MODE_FG};
 use crate::ui::MAX_PATH_LENGTH;
 use num_format::{Locale, ToFormattedString};
 use ratatui::{
@@ -144,20 +141,6 @@ impl App {
             );
 
         filter_bar.render(area, buf);
-    }
-
-    pub(super) fn render_mark_footer(&self, area: Rect, buf: &mut Buffer) {
-        let mark_prompt =
-            Line::from(format!("{}{}", self.get_input_prefix(), self.input.value())).left_aligned();
-        let progression_text = self.format_progression_text();
-        let progression = Line::from(progression_text + " ").right_aligned();
-
-        let mark_bar = Block::default()
-            .title_bottom(mark_prompt)
-            .title_bottom(progression)
-            .style(Style::default().fg(MARK_MODE_FG).bg(MARK_MODE_BG));
-
-        mark_bar.render(area, buf);
     }
 
     pub(super) fn render_goto_line_footer(&self, area: Rect, buf: &mut Buffer) {

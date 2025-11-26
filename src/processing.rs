@@ -1,4 +1,4 @@
-use crate::filter::FilterMode;
+use crate::filter::ActiveFilterMode;
 use crate::filter::FilterPattern;
 use crate::log_event::LogEvent;
 use crate::utils::contains_ignore_case;
@@ -82,12 +82,12 @@ pub fn apply_filters(content: &str, filter_patterns: &[FilterPattern]) -> bool {
         };
 
         match filter.mode {
-            FilterMode::Exclude => {
+            ActiveFilterMode::Exclude => {
                 if matches {
                     return false;
                 }
             }
-            FilterMode::Include => {
+            ActiveFilterMode::Include => {
                 has_include_filters = true;
                 if matches {
                     include_matched = true;

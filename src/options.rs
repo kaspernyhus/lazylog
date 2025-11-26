@@ -48,7 +48,7 @@ pub struct Options {
     /// All available display options.
     pub options: Vec<DisplayOption>,
     /// View state for the options list
-    view_state: ListViewState,
+    view: ListViewState,
 }
 
 impl Default for Options {
@@ -62,10 +62,10 @@ impl Default for Options {
                 DisplayOption::new_toggle("Disable Colors"),
                 DisplayOption::new_toggle("Search: Disable jumping to match"),
             ],
-            view_state: ListViewState::new(),
+            view: ListViewState::new(),
         };
 
-        options.view_state.set_item_count(options.count());
+        options.view.set_item_count(options.count());
 
         options
     }
@@ -79,22 +79,22 @@ impl Options {
 
     /// Gets the currently selected index.
     pub fn selected_index(&self) -> usize {
-        self.view_state.selected_index()
+        self.view.selected_index()
     }
 
     /// Moves the selection to the previous option, wrapping to the end.
     pub fn move_selection_up(&mut self) {
-        self.view_state.move_up_wrap();
+        self.view.move_up_wrap();
     }
 
     /// Moves the selection to the next option, wrapping to the beginning.
     pub fn move_selection_down(&mut self) {
-        self.view_state.move_down_wrap();
+        self.view.move_down_wrap();
     }
 
     /// Toggles the enabled state of the currently selected option.
     pub fn toggle_selected_option(&mut self) {
-        let selected = self.view_state.selected_index();
+        let selected = self.view.selected_index();
         if selected < self.options.len() {
             self.options[selected].enabled = !self.options[selected].enabled;
         }
@@ -102,7 +102,7 @@ impl Options {
 
     /// Enables the currently selected option (sets it to true).
     pub fn enable_selected_option(&mut self) {
-        let selected = self.view_state.selected_index();
+        let selected = self.view.selected_index();
         if selected < self.options.len() {
             self.options[selected].enabled = true;
         }

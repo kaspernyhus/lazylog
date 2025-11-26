@@ -26,7 +26,7 @@ pub enum Command {
     Confirm,
 
     // Search
-    ActivateSearchMode,
+    ActivateActiveSearchMode,
     SearchNext,
     SearchPrevious,
     ToggleCaseSearch,
@@ -35,16 +35,16 @@ pub enum Command {
     TabCompletion,
 
     // Filter
-    ActivateFilterMode,
-    ActivateFilterListView,
-    ActivateEditFilterMode,
+    ActivateActiveFilterMode,
+    ActivateFilterView,
+    ActivateEditActiveFilterMode,
     ToggleFilterPattern,
     RemoveFilterPattern,
     ToggleAllFilterPatterns,
     ToggleFilterPatternCaseSensitive,
     ToggleFilterPatternMode,
     ToggleCaseFilter,
-    ToggleFilterModeInOut,
+    ToggleActiveFilterModeInOut,
     FilterHistoryPrevious,
     FilterHistoryNext,
 
@@ -70,7 +70,6 @@ pub enum Command {
     ActivateMarksView,
     GotoSelectedMark,
     ActivateMarkNameInputMode,
-    ActivateMarkAddInputMode,
     UnmarkSelected,
     ClearAllMarks,
     MarkNext,
@@ -114,7 +113,7 @@ impl Command {
             Command::Confirm => "Confirm",
 
             // Search
-            Command::ActivateSearchMode => "Start search",
+            Command::ActivateActiveSearchMode => "Start search",
             Command::SearchNext => "Next match",
             Command::SearchPrevious => "Previous match",
             Command::ToggleCaseSearch => "Toggle case sensitivity",
@@ -123,16 +122,16 @@ impl Command {
             Command::TabCompletion => "Tab completion",
 
             // Filter
-            Command::ActivateFilterMode => "Start filter",
-            Command::ActivateFilterListView => "View filter list",
-            Command::ActivateEditFilterMode => "Edit selected filter",
+            Command::ActivateActiveFilterMode => "Start filter",
+            Command::ActivateFilterView => "View filter list",
+            Command::ActivateEditActiveFilterMode => "Edit selected filter",
             Command::ToggleFilterPattern => "Toggle filter on/off",
             Command::RemoveFilterPattern => "Remove selected filter",
             Command::ToggleAllFilterPatterns => "Toggle all filters",
             Command::ToggleFilterPatternCaseSensitive => "Toggle case sensitive",
             Command::ToggleFilterPatternMode => "Toggle include/exclude",
             Command::ToggleCaseFilter => "Toggle case sensitivity",
-            Command::ToggleFilterModeInOut => "Toggle include/exclude",
+            Command::ToggleActiveFilterModeInOut => "Toggle include/exclude",
             Command::FilterHistoryPrevious => "Previous filter from history",
             Command::FilterHistoryNext => "Next filter from history",
 
@@ -158,7 +157,6 @@ impl Command {
             Command::ActivateMarksView => "View marked lines",
             Command::GotoSelectedMark => "Go to selected mark",
             Command::ActivateMarkNameInputMode => "Name the mark",
-            Command::ActivateMarkAddInputMode => "Add mark(s) from a pattern",
             Command::UnmarkSelected => "Remove selected mark",
             Command::ClearAllMarks => "Clear all marks",
             Command::MarkNext => "Go to next mark",
@@ -202,7 +200,7 @@ impl Command {
             Command::Confirm => app.confirm(),
 
             // Search
-            Command::ActivateSearchMode => app.activate_search_mode(),
+            Command::ActivateActiveSearchMode => app.activate_search_mode(),
             Command::SearchNext => app.search_next(),
             Command::SearchPrevious => app.search_previous(),
             Command::ToggleCaseSearch => app.toggle_case_sensitive(),
@@ -211,16 +209,16 @@ impl Command {
             Command::TabCompletion => app.apply_tab_completion(),
 
             // Filter
-            Command::ActivateFilterMode => app.activate_filter_mode(),
-            Command::ActivateFilterListView => app.activate_filter_list_view(),
-            Command::ActivateEditFilterMode => app.activate_edit_filter_mode(),
+            Command::ActivateActiveFilterMode => app.activate_filter_mode(),
+            Command::ActivateFilterView => app.activate_filter_list_view(),
+            Command::ActivateEditActiveFilterMode => app.activate_edit_filter_mode(),
             Command::ToggleFilterPattern => app.toggle_filter_pattern_active(),
             Command::RemoveFilterPattern => app.remove_filter_pattern(),
             Command::ToggleAllFilterPatterns => app.toggle_all_filter_patterns(),
             Command::ToggleFilterPatternCaseSensitive => app.toggle_filter_pattern_case_sensitive(),
             Command::ToggleFilterPatternMode => app.toggle_filter_pattern_mode(),
             Command::ToggleCaseFilter => app.toggle_case_sensitive(),
-            Command::ToggleFilterModeInOut => app.filter.toggle_mode(),
+            Command::ToggleActiveFilterModeInOut => app.filter.toggle_mode(),
             Command::FilterHistoryPrevious => app.filter_history_previous(),
             Command::FilterHistoryNext => app.filter_history_next(),
 
@@ -246,7 +244,6 @@ impl Command {
             Command::ActivateMarksView => app.activate_marks_view(),
             Command::GotoSelectedMark => app.goto_selected_mark(),
             Command::ActivateMarkNameInputMode => app.activate_mark_name_input_mode(),
-            Command::ActivateMarkAddInputMode => app.activate_mark_add_input_mode(),
             Command::UnmarkSelected => app.unmark_selected(),
             Command::ClearAllMarks => app.marking.clear_all(),
             Command::MarkNext => app.mark_next(),

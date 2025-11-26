@@ -42,7 +42,7 @@ pub struct Marking {
     /// Cached active lines indices from LogBuffer (lines that pass filters).
     active_lines: HashSet<usize>,
     /// View state for the marks list.
-    view_state: ListViewState,
+    view: ListViewState,
 }
 
 impl Marking {
@@ -50,7 +50,7 @@ impl Marking {
     pub fn update_active_lines(&mut self, active_lines: &[usize]) {
         self.active_lines = active_lines.iter().copied().collect();
         let count = self.get_filtered_marks().len();
-        self.view_state.set_item_count(count);
+        self.view.set_item_count(count);
     }
 
     /// Returns filtered marks.
@@ -75,7 +75,7 @@ impl Marking {
             }
         }
         let count = self.get_filtered_marks().len();
-        self.view_state.set_item_count(count);
+        self.view.set_item_count(count);
     }
 
     /// Sets or updates the name of an existing mark.
@@ -97,7 +97,7 @@ impl Marking {
         {
             self.marks.remove(pos);
             let count = self.get_filtered_marks().len();
-            self.view_state.set_item_count(count);
+            self.view.set_item_count(count);
         }
     }
 
@@ -132,7 +132,7 @@ impl Marking {
         self.marks.extend(new_marks);
         self.marks.sort_by_key(|mark| mark.line_index);
         let count = self.get_filtered_marks().len();
-        self.view_state.set_item_count(count);
+        self.view.set_item_count(count);
     }
 
     /// Returns whether a log line is marked.
@@ -165,7 +165,7 @@ impl Marking {
     /// Clears all marks.
     pub fn clear_all(&mut self) {
         self.marks.clear();
-        self.view_state.reset();
+        self.view.reset();
     }
 
     /// Get next mark after the given line index.
@@ -190,7 +190,7 @@ impl Marking {
     /// Gets the mark at the given index.
     pub fn get_selected_mark(&self) -> Option<&Mark> {
         let active_marks = self.get_filtered_marks();
-        let index = self.view_state.selected_index();
+        let index = self.view.selected_index();
         active_marks.get(index).copied()
     }
 
@@ -221,47 +221,47 @@ impl Marking {
             }
         };
 
-        self.view_state.select_index(closest_index);
+        self.view.select_index(closest_index);
     }
 
     /// Gets the currently selected index in the filtered marks view.
     pub fn selected_index(&self) -> usize {
-        self.view_state.selected_index()
+        self.view.selected_index()
     }
 
     /// Gets the viewport offset.
     pub fn viewport_offset(&self) -> usize {
-        self.view_state.viewport_offset()
+        self.view.viewport_offset()
     }
 
     /// Sets the viewport height.
     pub fn set_viewport_height(&self, height: usize) {
-        self.view_state.set_viewport_height(height);
+        self.view.set_viewport_height(height);
     }
 
     /// Moves selection up in the filtered marks view.
     pub fn move_selection_up(&mut self) {
-        self.view_state.move_up();
+        self.view.move_up();
     }
 
     /// Moves selection down in the filtered marks view.
     pub fn move_selection_down(&mut self) {
-        self.view_state.move_down();
+        self.view.move_down();
     }
 
     /// Moves selection up by half a page in the filtered marks view.
     pub fn page_up(&mut self) {
-        self.view_state.page_up();
+        self.view.page_up();
     }
 
     /// Moves selection down by half a page in the filtered marks view.
     pub fn page_down(&mut self) {
-        self.view_state.page_down();
+        self.view.page_down();
     }
 
     /// Resets the view state.
     pub fn reset_view(&mut self) {
-        self.view_state.reset();
+        self.view.reset();
     }
 }
 

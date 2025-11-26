@@ -8,10 +8,10 @@ use ratatui::widgets::{
 };
 use std::cell::Cell;
 
-use crate::app::AppState;
+use crate::app::{Overlay, ViewState};
 use crate::colors::{HELP_BG, HELP_HEADER_FG, HELP_HIGHLIGHT_FG};
 use crate::command::Command;
-use crate::keybindings::KeybindingRegistry;
+use crate::keybindings::{KeybindingContext, KeybindingRegistry};
 
 /// Manages the help popup display with keybindings and navigation.
 #[derive(Debug, Default)]
@@ -46,8 +46,8 @@ pub struct HelpItem {
     pub description: String,
     /// Type of this help item.
     pub item_type: HelpItemType,
-    /// Optional AppState this header represents (only for headers)
-    pub state: Option<AppState>,
+    /// Optional keybinding context.
+    pub context: Option<KeybindingContext>,
 }
 
 impl HelpItem {
@@ -57,17 +57,17 @@ impl HelpItem {
             key: key.to_string(),
             description: description.to_string(),
             item_type,
-            state: None,
+            context: None,
         }
     }
 
     /// Creates a new header help item.
-    pub fn new_header(key: &str, state: Option<AppState>) -> Self {
+    pub fn new_header(key: &str, context: Option<KeybindingContext>) -> Self {
         Self {
             key: key.to_string(),
             description: String::new(),
             item_type: HelpItemType::Header,
-            state,
+            context,
         }
     }
 
@@ -77,7 +77,7 @@ impl HelpItem {
             key: String::new(),
             description: String::new(),
             item_type: HelpItemType::Empty,
-            state: None,
+            context: None,
         }
     }
 
@@ -100,8 +100,6 @@ impl Help {
 
     /// Builds the help items from the keybinding registry.
     pub fn build_from_registry(&mut self, registry: &KeybindingRegistry) {
-        use crate::app::AppState;
-
         let mut help_items = vec![
             // Global bindings section
             HelpItem::new_header("Global", None),
@@ -116,7 +114,11 @@ impl Help {
         // LogView section
         help_items.push(HelpItem::new_empty());
         help_items.push(HelpItem::new_header("LogView", None));
-        self.add_state_bindings(&mut help_items, registry, &AppState::LogView);
+        self.add_context_bindings(
+            &mut help_items,
+            registry,
+            &KeybindingContext::View(ViewState::LogView),
+        );
         help_items.push(HelpItem::new(
             "y",
             Command::CopySelection.description(),
@@ -125,66 +127,100 @@ impl Help {
 
         // Search Mode section
         help_items.push(HelpItem::new_empty());
-        help_items.push(HelpItem::new_header("Search", Some(AppState::SearchMode)));
-        self.add_state_bindings(&mut help_items, registry, &AppState::SearchMode);
+        help_items.push(HelpItem::new_header(
+            "Search",
+            Some(KeybindingContext::View(ViewState::ActiveSearchMode)),
+        ));
+        self.add_context_bindings(
+            &mut help_items,
+            registry,
+            &KeybindingContext::View(ViewState::ActiveSearchMode),
+        );
 
         // Filter Mode section
         help_items.push(HelpItem::new_empty());
-        help_items.push(HelpItem::new_header("Filter", Some(AppState::FilterMode)));
-        self.add_state_bindings(&mut help_items, registry, &AppState::FilterMode);
+        help_items.push(HelpItem::new_header(
+            "Filter",
+            Some(KeybindingContext::View(ViewState::ActiveFilterMode)),
+        ));
+        self.add_context_bindings(
+            &mut help_items,
+            registry,
+            &KeybindingContext::View(ViewState::ActiveFilterMode),
+        );
 
         // Filter List section
         help_items.push(HelpItem::new_empty());
         help_items.push(HelpItem::new_header(
             "Filter List",
-            Some(AppState::FilterListView),
+            Some(KeybindingContext::View(ViewState::FilterView)),
         ));
-        self.add_state_bindings(&mut help_items, registry, &AppState::FilterListView);
+        self.add_context_bindings(
+            &mut help_items,
+            registry,
+            &KeybindingContext::View(ViewState::FilterView),
+        );
 
         // Events View section
         help_items.push(HelpItem::new_empty());
         help_items.push(HelpItem::new_header(
             "Events View",
-            Some(AppState::EventsView),
+            Some(KeybindingContext::View(ViewState::EventsView)),
         ));
-        self.add_state_bindings(&mut help_items, registry, &AppState::EventsView);
+        self.add_context_bindings(
+            &mut help_items,
+            registry,
+            &KeybindingContext::View(ViewState::EventsView),
+        );
 
         // Event Filters section
         help_items.push(HelpItem::new_empty());
         help_items.push(HelpItem::new_header(
             "Event Filters",
-            Some(AppState::EventsFilterView),
+            Some(KeybindingContext::Overlay(Overlay::EventsFilter)),
         ));
-        self.add_state_bindings(&mut help_items, registry, &AppState::EventsFilterView);
+        self.add_context_bindings(
+            &mut help_items,
+            registry,
+            &KeybindingContext::Overlay(Overlay::EventsFilter),
+        );
 
         // Display Options section
         help_items.push(HelpItem::new_empty());
         help_items.push(HelpItem::new_header(
             "Display Options",
-            Some(AppState::OptionsView),
+            Some(KeybindingContext::View(ViewState::OptionsView)),
         ));
-        self.add_state_bindings(&mut help_items, registry, &AppState::OptionsView);
+        self.add_context_bindings(
+            &mut help_items,
+            registry,
+            &KeybindingContext::View(ViewState::OptionsView),
+        );
 
         // Marks View section
         help_items.push(HelpItem::new_empty());
         help_items.push(HelpItem::new_header(
             "Marks View",
-            Some(AppState::MarksView),
+            Some(KeybindingContext::View(ViewState::MarksView)),
         ));
-        self.add_state_bindings(&mut help_items, registry, &AppState::MarksView);
+        self.add_context_bindings(
+            &mut help_items,
+            registry,
+            &KeybindingContext::View(ViewState::MarksView),
+        );
 
         self.help_items = help_items;
         self.reset();
     }
 
-    /// Adds keybindings for a specific state to the help items.
-    fn add_state_bindings(
+    /// Adds keybindings for a specific context to the help items.
+    fn add_context_bindings(
         &self,
         help_items: &mut Vec<HelpItem>,
         registry: &KeybindingRegistry,
-        state: &AppState,
+        context: &KeybindingContext,
     ) {
-        let bindings = registry.get_keybindings_for_state(state);
+        let bindings = registry.get_keybindings_for_context(context);
         for (key, command) in bindings {
             // Skip commands that should not be shown in help
             if matches!(
@@ -215,25 +251,54 @@ impl Help {
         self.reset();
     }
 
-    /// Shows help and jumps to the section for the given AppState.
-    pub fn show_for_state(&mut self, state: &AppState) {
+    /// Shows help and jumps to the section for the given context.
+    pub fn show_for_context(&mut self, view_state: &ViewState, overlay: &Option<Overlay>) {
         self.visible = true;
-        self.jump_to_state(state);
+        self.jump_to_context(view_state, overlay);
     }
 
-    /// Jumps to the section header for the given AppState.
-    fn jump_to_state(&mut self, target_state: &AppState) {
+    /// Jumps to the section header for the given context.
+    fn jump_to_context(&mut self, view_state: &ViewState, overlay: &Option<Overlay>) {
+        // First check for overlay-specific help
+        if let Some(overlay_value) = overlay {
+            let target_context = match overlay_value {
+                Overlay::EditFilter => KeybindingContext::Overlay(Overlay::EditFilter),
+                Overlay::EventsFilter => KeybindingContext::Overlay(Overlay::EventsFilter),
+                Overlay::MarkNameInput => KeybindingContext::Overlay(Overlay::MarkNameInput),
+                Overlay::SaveToFile => KeybindingContext::Overlay(Overlay::SaveToFile),
+                Overlay::Message(_) => KeybindingContext::Overlay(Overlay::Message(String::new())),
+                Overlay::Error(_) => KeybindingContext::Overlay(Overlay::Error(String::new())),
+            };
+
+            for (index, item) in self.help_items.iter().enumerate() {
+                if item.item_type == HelpItemType::Header
+                    && let Some(ref item_context) = item.context
+                    && item_context == &target_context
+                {
+                    self.selected_index = index;
+                    let viewport_height = self.viewport_height.get();
+                    let max_offset = self.help_items.len().saturating_sub(viewport_height);
+                    self.viewport_offset = index.min(max_offset);
+                    return;
+                }
+            }
+        }
+
+        // Then check for view-specific help
+        let target_context = KeybindingContext::View(view_state.clone());
         for (index, item) in self.help_items.iter().enumerate() {
             if item.item_type == HelpItemType::Header
-                && let Some(ref item_state) = item.state
-                    && item_state.matches(target_state) {
-                        self.selected_index = index;
-                        let viewport_height = self.viewport_height.get();
-                        let max_offset = self.help_items.len().saturating_sub(viewport_height);
-                        self.viewport_offset = index.min(max_offset);
-                        return;
-                    }
+                && let Some(ref item_context) = item.context
+                && item_context == &target_context
+            {
+                self.selected_index = index;
+                let viewport_height = self.viewport_height.get();
+                let max_offset = self.help_items.len().saturating_sub(viewport_height);
+                self.viewport_offset = index.min(max_offset);
+                return;
+            }
         }
+
         // if not found
         self.reset();
     }
@@ -315,13 +380,7 @@ impl Help {
 
     /// Resets selection to the first selectable item.
     pub fn reset(&mut self) {
-        for i in 0..self.help_items.len() {
-            if self.help_items[i].is_selectable() {
-                self.selected_index = i;
-                return;
-            }
-        }
-        self.selected_index = 0;
+        self.selected_index = 1;
     }
 
     /// Returns formatted display lines for rendering.

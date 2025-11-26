@@ -6,7 +6,7 @@ use crate::colors::{
     OPTION_ENABLED_FG, RIGHT_ARROW, WHITE_COLOR,
 };
 use crate::event_mark_view::EventMarkView;
-use crate::filter::FilterMode;
+use crate::filter::ActiveFilterMode;
 use crate::ui::scrollable_list::ScrollableList;
 use ratatui::{
     buffer::Buffer,
@@ -83,8 +83,8 @@ impl App {
             .iter()
             .map(|pattern| {
                 let mode_str = match pattern.mode {
-                    FilterMode::Include => "IN",
-                    FilterMode::Exclude => "EX",
+                    ActiveFilterMode::Include => "IN",
+                    ActiveFilterMode::Exclude => "EX",
                 };
                 let case_str = if pattern.case_sensitive { "Aa" } else { "aa" };
 
