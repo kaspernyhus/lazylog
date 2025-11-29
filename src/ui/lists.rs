@@ -24,11 +24,11 @@ impl App {
 
         let items: Vec<Line> = self
             .options
-            .options
             .iter()
             .map(|option| {
                 let checkbox = if option.enabled { "[x]" } else { "[ ]" };
-                let content = format!("{} {}", checkbox, option.name);
+                let option_description = option.get_description();
+                let content = format!("{} {}", checkbox, option_description);
 
                 if option.enabled {
                     Line::from(content).style(Style::default().fg(OPTION_ENABLED_FG))
@@ -39,7 +39,7 @@ impl App {
             .collect();
 
         let mut list_state = ListState::default();
-        if !self.options.options.is_empty() {
+        if !self.options.is_empty() {
             list_state.select(Some(self.options.selected_index()));
         }
 

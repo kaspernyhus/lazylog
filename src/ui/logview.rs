@@ -4,6 +4,7 @@ use crate::colors::{
 };
 use crate::highlighter::HighlightedLine;
 use crate::log::Interval;
+use crate::options::AppOption;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -91,7 +92,7 @@ impl App {
         is_marked: bool,
         is_selected: bool,
     ) -> Line<'a> {
-        let enable_colors = !self.options.is_enabled("Disable Colors");
+        let enable_colors = !self.options.is_enabled(AppOption::DisableColors);
 
         let highlighted = self
             .highlighter

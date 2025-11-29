@@ -13,7 +13,7 @@ use crate::{
     log_event::LogEventTracker,
     log_processor::ProcessingContext,
     marking::Marking,
-    options::Options,
+    options::{AppOption, AppOptions},
     persistence::{PersistedState, clear_all_state, load_state, save_state},
     search::Search,
     ui::popup_area,
@@ -92,8 +92,8 @@ pub struct App {
     pub filter: Filter,
     /// Syntax highlighter.
     pub highlighter: Highlighter,
-    /// Display options state.
-    pub options: Options,
+    /// App options.
+    pub options: AppOptions,
     /// Text input widget.
     pub input: Input,
     /// Indicates whether streaming is paused (only relevant in stdin/streaming mode).
@@ -172,7 +172,7 @@ impl App {
             input: Input::default(),
             search: Search::default(),
             filter: Filter::with_patterns(filter_patterns),
-            options: Options::default(),
+            options: AppOptions::default(),
             highlighter,
             streaming_paused: false,
             event_tracker: LogEventTracker::default(),
@@ -221,6 +221,11 @@ impl App {
         let log_line_index = self
             .log_buffer
             .viewport_to_log_index(self.viewport.selected_line);
+
+        let should_show_marked = self.options.is_enabled(AppOption::AlwaysShowMarkedLines);
+        if should_show_marked != self.filter.is_show_marked_only() {
+            self.filter.toggle_show_marked_only();
+        }
 
         let marked_indices = self.marking.get_marked_indices();
         self.log_buffer.apply_filters(&self.filter, &marked_indices);
@@ -718,7 +723,7 @@ impl App {
                         return;
                     }
 
-                    if !self.options.is_enabled("Search: Disable jumping to match") {
+                    if !self.options.is_enabled(AppOption::SearchDisableJumping) {
                         if let Some(line) =
                             self.search.first_match_from(self.viewport.selected_line)
                         {

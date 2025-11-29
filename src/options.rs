@@ -1,95 +1,134 @@
 use crate::list_view_state::ListViewState;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 
-/// Type of display option.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum AppOption {
+    HideTimestamp,
+    DisableColors,
+    SearchDisableJumping,
+    AlwaysShowMarkedLines,
+}
+
 #[derive(Debug, Clone)]
-pub enum DisplayOptionType {
-    /// Hides text matching the regex pattern from display.
-    /// HidePattern only support hiding prefixes (patterns that match from the start)
-    HidePattern(Regex),
-    /// Simple toggle option (e.g., disable colors).
+pub enum OptionAction {
+    LineTransform(Regex),
     Toggle,
 }
 
-/// A single display option with its configuration.
 #[derive(Debug, Clone)]
-pub struct DisplayOption {
-    /// Display name of the option.
-    pub name: String,
-    /// Whether this option is currently enabled.
+pub struct AppOptionDef {
+    pub option: AppOption,
+    pub description: &'static str,
+    pub action: OptionAction,
     pub enabled: bool,
-    /// The type and behavior of this option.
-    pub option_type: DisplayOptionType,
 }
 
-impl DisplayOption {
-    /// Creates a new pattern-based display option that hides matching text.
-    pub fn new_hide_pattern(name: &str, pattern: &str) -> Self {
-        Self {
-            name: name.to_string(),
+impl AppOptionDef {
+    pub fn new(option: AppOption, description: &'static str, action: OptionAction) -> Self {
+        AppOptionDef {
+            option,
+            description,
+            action,
             enabled: false,
-            option_type: DisplayOptionType::HidePattern(Regex::new(pattern).unwrap()),
         }
     }
 
-    /// Creates a new toggle-based display option.
-    pub fn new_toggle(name: &str) -> Self {
-        Self {
-            name: name.to_string(),
+    pub fn new_toggle(option: AppOption, description: &'static str) -> Self {
+        AppOptionDef {
+            option,
+            description,
+            action: OptionAction::Toggle,
             enabled: false,
-            option_type: DisplayOptionType::Toggle,
         }
+    }
+
+    pub fn get_description(&self) -> &'static str {
+        self.description
     }
 }
 
-/// Manages display options for customizing log line rendering.
+/// Manages app options.
 #[derive(Debug)]
-pub struct Options {
-    /// All available display options.
-    pub options: Vec<DisplayOption>,
-    /// View state for the options list
+pub struct AppOptions {
+    /// Vector of option definitions.
+    options: Vec<AppOptionDef>,
+    /// View state for the options list.
     view: ListViewState,
 }
 
-impl Default for Options {
+impl Default for AppOptions {
     fn default() -> Self {
-        let mut options = Self {
-            options: vec![
-                DisplayOption::new_hide_pattern(
-                    "Hide Timestamp & Hostname",
-                    r"^(?:\w{3}\s+\d{2}\s+\d{2}:\d{2}:\d{2}\s+\S+\s+|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{4}\s+)",
-                ),
-                DisplayOption::new_toggle("Disable Colors"),
-                DisplayOption::new_toggle("Search: Disable jumping to match"),
-            ],
-            view: ListViewState::new(),
-        };
+        let options = vec![
+            AppOptionDef::new(AppOption::HideTimestamp, "Hide Timestamp & Hostname", OptionAction::LineTransform(
+                    Regex::new(r"^(?:\w{3}\s+\d{2}\s+\d{2}:\d{2}:\d{2}\s+\S+\s+|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{4}\s+)").unwrap()
+                )),
+            AppOptionDef::new_toggle(AppOption::DisableColors, "Disable Colors"),
+            AppOptionDef::new_toggle(AppOption::SearchDisableJumping, "Search: Disable jumping to match"),
+            AppOptionDef::new_toggle(AppOption::AlwaysShowMarkedLines, "Always show marked lines"),
 
-        options.view.set_item_count(options.count());
+        ];
 
-        options
+        let num_options = options.len();
+
+        AppOptions {
+            options,
+            view: ListViewState::new_with_count(num_options),
+        }
     }
 }
 
-impl Options {
-    /// Number of options
+impl AppOptions {
+    /// Number of options.
     pub fn count(&self) -> usize {
         self.options.len()
     }
 
-    /// Gets the currently selected index.
-    pub fn selected_index(&self) -> usize {
-        self.view.selected_index()
+    pub fn is_empty(&self) -> bool {
+        self.options.is_empty()
     }
 
-    /// Moves the selection to the previous option, wrapping to the end.
-    pub fn move_selection_up(&mut self) {
-        self.view.move_up_wrap();
+    pub fn iter(&self) -> impl Iterator<Item = &AppOptionDef> {
+        self.options.iter()
     }
 
-    /// Moves the selection to the next option, wrapping to the beginning.
-    pub fn move_selection_down(&mut self) {
-        self.view.move_down_wrap();
+    pub fn is_enabled(&self, option: AppOption) -> bool {
+        self.options
+            .iter()
+            .find(|opt| opt.option == option)
+            .map(|opt| opt.enabled)
+            .unwrap_or(false)
+    }
+
+    pub fn enable(&mut self, option: AppOption) {
+        if let Some(opt) = self.options.iter_mut().find(|opt| opt.option == option) {
+            opt.enabled = true;
+        }
+    }
+
+    /// Applies all enabled line transform options to a line.
+    pub fn apply_to_line<'a>(&self, line: &'a str) -> &'a str {
+        for opt in &self.options {
+            if !opt.enabled {
+                continue;
+            }
+
+            match &opt.action {
+                OptionAction::LineTransform(pattern) => {
+                    let mut offset = 0;
+                    // Find the maximum offset to skip, but only from the start of the line
+                    if let Some(m) = pattern.find(line)
+                        && m.start() == 0
+                    {
+                        offset = offset.max(m.end());
+                    }
+                    return &line[offset..];
+                }
+                OptionAction::Toggle => {}
+            }
+        }
+
+        line
     }
 
     /// Toggles the enabled state of the currently selected option.
@@ -108,45 +147,31 @@ impl Options {
         }
     }
 
-    /// Applies all options to a line.
-    pub fn apply_to_line<'a>(&self, line: &'a str) -> &'a str {
-        let has_enabled = self.options.iter().any(|option| option.enabled);
-        if !has_enabled {
-            return line;
-        }
-
-        // Find the maximum offset to skip (longest prefix match)
-        let mut offset = 0;
-        for option in &self.options {
-            if option.enabled
-                && let DisplayOptionType::HidePattern(pattern) = &option.option_type
-            {
-                // Only process patterns that match from the start
-                if let Some(m) = pattern.find(line)
-                    && m.start() == 0
-                {
-                    offset = offset.max(m.end());
-                }
-            }
-        }
-
-        &line[offset..]
+    /// Gets the currently selected index.
+    pub fn selected_index(&self) -> usize {
+        self.view.selected_index()
     }
 
-    /// Returns whether a named option is currently enabled.
-    pub fn is_enabled(&self, option_name: &str) -> bool {
-        self.options
-            .iter()
-            .find(|o| o.name == option_name)
-            .map(|o| o.enabled)
-            .unwrap_or(false)
+    /// Get the option at the selected index.
+    pub fn get_selected_option(&self) -> Option<&AppOptionDef> {
+        self.options.get(self.view.selected_index())
+    }
+
+    /// Moves the selection to the previous option, wrapping to the end.
+    pub fn move_selection_up(&mut self) {
+        self.view.move_up_wrap();
+    }
+
+    /// Moves the selection to the next option, wrapping to the beginning.
+    pub fn move_selection_down(&mut self) {
+        self.view.move_down_wrap();
     }
 
     /// Restore options from a saved state.
-    pub fn restore(&mut self, saved_options: &[(String, bool)]) {
-        for (name, enabled) in saved_options {
-            if let Some(option) = self.options.iter_mut().find(|o| o.name == *name) {
-                option.enabled = *enabled;
+    pub fn restore(&mut self, saved_options: &[(AppOption, bool)]) {
+        for (option, enabled) in saved_options {
+            if let Some(option_def) = self.options.iter_mut().find(|opt| opt.option == *option) {
+                option_def.enabled = *enabled;
             }
         }
     }

@@ -20,6 +20,13 @@ impl ListViewState {
         Self::default()
     }
 
+    /// Creates a new list view and sets the item count.
+    pub fn new_with_count(count: usize) -> Self {
+        let mut view = Self::default();
+        view.set_item_count(count);
+        view
+    }
+
     /// Gets the currently selected index.
     pub fn selected_index(&self) -> usize {
         self.selected_index

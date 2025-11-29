@@ -1,5 +1,6 @@
 use crate::app::App;
 use crate::filter::{ActiveFilterMode, FilterHistoryEntry};
+use crate::options::AppOption;
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
@@ -22,7 +23,7 @@ pub struct PersistedState {
 
 #[derive(Serialize, Deserialize)]
 struct OptionState {
-    name: String,
+    option: AppOption,
     enabled: bool,
 }
 
@@ -98,10 +99,9 @@ impl PersistedState {
                 .collect(),
             options: app
                 .options
-                .options
                 .iter()
                 .map(|opt| OptionState {
-                    name: opt.name.clone(),
+                    option: opt.option,
                     enabled: opt.enabled,
                 })
                 .collect(),
@@ -257,10 +257,10 @@ impl PersistedState {
         &self.event_filters
     }
 
-    pub fn options(&self) -> Vec<(String, bool)> {
+    pub fn options(&self) -> Vec<(AppOption, bool)> {
         self.options
             .iter()
-            .map(|opt| (opt.name.clone(), opt.enabled))
+            .map(|opt_state| (opt_state.option, opt_state.enabled))
             .collect()
     }
 }

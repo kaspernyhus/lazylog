@@ -1,7 +1,7 @@
 use lazylog::highlighter::{
     HighlightPattern, Highlighter, PatternMatchType, PatternStyle, PlainMatch,
 };
-use lazylog::options::Options;
+use lazylog::options::{AppOption, AppOptions};
 use ratatui::style::Color;
 use regex::Regex;
 use std::time::Instant;
@@ -23,7 +23,7 @@ const SAMPLE_LOG_LINE: &str = "okt 18 21:20:22 archlinux INFO [thread-pool-1] co
 
 #[test]
 fn perf_display_options_none_enabled() {
-    let options = Options::default();
+    let options = AppOptions::default();
 
     let iterations = 100000;
     let avg_time_max = 100;
@@ -42,13 +42,13 @@ fn perf_display_options_none_enabled() {
 
 #[test]
 fn perf_display_options_hide_pattern_enabled() {
-    let mut options = Options::default();
-    options.options[0].enabled = true;
+    let mut app_options = AppOptions::default();
+    app_options.enable(AppOption::HideTimestamp);
 
     let iterations = 100000;
     let avg_time_max = 300;
 
-    let avg_time = measure_time(iterations, || options.apply_to_line(SAMPLE_LOG_LINE));
+    let avg_time = measure_time(iterations, || app_options.apply_to_line(SAMPLE_LOG_LINE));
 
     println!("options (hide pattern): {} ns/iteration", avg_time);
 
