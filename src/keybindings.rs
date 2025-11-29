@@ -85,7 +85,7 @@ impl KeybindingRegistry {
         if let Some(ov) = overlay {
             return Self::find_cmd(
                 &self.bindings,
-                &KeybindingContext::Overlay(ov.clone()),
+                &KeybindingContext::Overlay(self.get_overlay_type(ov)),
                 key_event,
             );
         }
@@ -96,6 +96,15 @@ impl KeybindingRegistry {
             &KeybindingContext::View(view_state.clone()),
             key_event,
         )
+    }
+
+    // Replace the string with empty one to be able to match on the enum value
+    fn get_overlay_type(&self, overlay: &Overlay) -> Overlay {
+        match overlay {
+            Overlay::Message(_) => Overlay::Message(String::new()),
+            Overlay::Error(_) => Overlay::Error(String::new()),
+            other => other.clone(),
+        }
     }
 
     /// Returns all keybindings for a specific context, grouped and sorted.
