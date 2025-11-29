@@ -55,7 +55,7 @@ impl LogBuffer {
             .enumerate()
             .map(|(index, line)| LogLine::new(line.to_string(), index))
             .collect();
-        self.clear_filters();
+        self.reset_active_lines();
         Ok(())
     }
 
@@ -64,7 +64,7 @@ impl LogBuffer {
         self.file_path = Some("<stdin>".to_string());
         self.streaming = true;
         self.lines.clear();
-        self.clear_filters();
+        self.reset_active_lines();
     }
 
     /// Appends a new line to the buffer.
@@ -83,29 +83,40 @@ impl LogBuffer {
     }
 
     /// Applies the filters to all lines in the buffer.
-    ///
-    /// Rebuilds the active_lines list based on the filter criteria.
-    pub fn apply_filters(&mut self, filter: &Filter, marked_indices: &[usize]) {
+    pub fn apply_filtering(
+        &mut self,
+        filter: &Filter,
+        marked_indices: &[usize],
+        show_marked_lines_only: bool,
+        should_show_marked: bool,
+    ) {
         let filter_patterns = filter.get_filter_patterns();
-        let show_marked_only = filter.is_show_marked_only();
-        if filter_patterns.is_empty() && !show_marked_only {
-            self.clear_filters();
+        if filter_patterns.is_empty() {
+            self.reset_active_lines();
         } else {
             self.active_lines = self
                 .lines
                 .par_iter()
                 .enumerate()
                 .filter_map(|(index, log_line)| {
+                    let is_marked_line = marked_indices.binary_search(&index).is_ok();
+
+                    if show_marked_lines_only {
+                        if is_marked_line {
+                            return Some(index);
+                        } else {
+                            return None;
+                        }
+                    }
+
+                    if is_marked_line && should_show_marked {
+                        return Some(index);
+                    }
+
                     let passes_text_filter =
                         processing::apply_filters(&log_line.content, filter_patterns);
 
-                    let passes_marked_filter = if show_marked_only {
-                        marked_indices.binary_search(&index).is_ok()
-                    } else {
-                        true
-                    };
-
-                    if passes_text_filter && passes_marked_filter {
+                    if passes_text_filter {
                         Some(index)
                     } else {
                         None
@@ -116,7 +127,7 @@ impl LogBuffer {
     }
 
     /// Clears all filters.
-    pub fn clear_filters(&mut self) {
+    fn reset_active_lines(&mut self) {
         self.active_lines = (0..self.lines.len()).collect();
     }
 

@@ -53,7 +53,7 @@ pub enum Command {
 
     // Display Options
     ActivateOptionsView,
-    ToggleDisplayOption,
+    ToggleOption,
 
     // Events
     ActivateEventsView,
@@ -140,7 +140,7 @@ impl Command {
 
             // Display Options
             Command::ActivateOptionsView => "Display options",
-            Command::ToggleDisplayOption => "Toggle option on/off",
+            Command::ToggleOption => "Toggle option on/off",
 
             // Events
             Command::ActivateEventsView => "View log events",
@@ -227,7 +227,7 @@ impl Command {
 
             // Display Options
             Command::ActivateOptionsView => app.activate_options_view(),
-            Command::ToggleDisplayOption => app.options.toggle_selected_option(),
+            Command::ToggleOption => app.toggle_option(),
 
             // Events
             Command::ActivateEventsView => app.activate_events_view(),

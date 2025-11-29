@@ -78,7 +78,7 @@ impl App {
         if self.viewport.center_cursor_mode {
             left_parts.push("| center".to_string());
         }
-        if self.filter.is_show_marked_only() {
+        if self.show_marked_lines_only {
             left_parts.push("| marked only".to_string());
         }
         let left = Line::from(left_parts.join(" "));

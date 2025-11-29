@@ -404,11 +404,7 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::Down, Command::MoveDown);
         self.bind_simple(context.clone(), KeyCode::Char('k'), Command::MoveUp);
         self.bind_simple(context.clone(), KeyCode::Char('j'), Command::MoveDown);
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char(' '),
-            Command::ToggleDisplayOption,
-        );
+        self.bind_simple(context.clone(), KeyCode::Char(' '), Command::ToggleOption);
     }
 
     fn register_events_view_bindings(&mut self) {

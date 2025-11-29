@@ -114,6 +114,8 @@ pub struct App {
     needs_redraw: bool,
     /// Whether persistence is enabled.
     persist_enabled: bool,
+    /// Whether to only show marked lines
+    pub show_marked_lines_only: bool,
 }
 
 impl App {
@@ -183,6 +185,7 @@ impl App {
             keybindings,
             needs_redraw: true,
             persist_enabled: !args.no_persist,
+            show_marked_lines_only: false,
         };
 
         if use_stdin {
@@ -223,12 +226,15 @@ impl App {
             .viewport_to_log_index(self.viewport.selected_line);
 
         let should_show_marked = self.options.is_enabled(AppOption::AlwaysShowMarkedLines);
-        if should_show_marked != self.filter.is_show_marked_only() {
-            self.filter.toggle_show_marked_only();
-        }
+        let show_marked_only = self.show_marked_lines_only;
 
         let marked_indices = self.marking.get_marked_indices();
-        self.log_buffer.apply_filters(&self.filter, &marked_indices);
+        self.log_buffer.apply_filtering(
+            &self.filter,
+            &marked_indices,
+            show_marked_only,
+            should_show_marked,
+        );
         let num_lines = self.log_buffer.get_active_lines_count();
 
         self.viewport.set_total_lines(num_lines);
@@ -819,8 +825,8 @@ impl App {
                 self.search.clear_matches();
                 self.update_temporary_highlights();
 
-                if self.filter.is_show_marked_only() {
-                    self.filter.toggle_show_marked_only();
+                if self.show_marked_lines_only {
+                    self.show_marked_lines_only = false;
                     self.update_view();
                 }
             }
@@ -974,6 +980,11 @@ impl App {
 
     pub fn activate_options_view(&mut self) {
         self.set_view_state(ViewState::OptionsView);
+    }
+
+    pub fn toggle_option(&mut self) {
+        self.options.toggle_selected_option();
+        self.update_view();
     }
 
     pub fn activate_events_view(&mut self) {
@@ -1271,11 +1282,7 @@ impl App {
     }
 
     pub fn toggle_show_marked_only(&mut self) {
-        if !self.filter.is_show_marked_only() && self.marking.count() == 0 {
-            return;
-        }
-
-        self.filter.toggle_show_marked_only();
+        self.show_marked_lines_only = !self.show_marked_lines_only;
         self.update_view();
     }
 
