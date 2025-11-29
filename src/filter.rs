@@ -1,5 +1,6 @@
 use crate::history::History;
 use crate::list_view_state::ListViewState;
+use crate::utils::contains_ignore_case;
 use serde::{Deserialize, Serialize};
 
 /// Filter mode - include or exclude matching lines.
@@ -323,6 +324,49 @@ impl Filter {
     /// Updates the pattern text of the currently selected filter.
     pub fn update_selected_pattern(&mut self, new_pattern: &str) -> bool {
         self.filter_list.update_selected(new_pattern)
+    }
+
+    /// Checks if content passes the filter patterns.
+    pub fn apply_filters(&self, content: &str) -> bool {
+        apply_filters(content, self.filter_list.patterns())
+    }
+}
+
+/// Checks if content passes the given filter patterns.
+pub fn apply_filters(content: &str, filter_patterns: &[FilterPattern]) -> bool {
+    if filter_patterns.is_empty() {
+        return true;
+    }
+
+    let mut has_include_filters = false;
+    let mut include_matched = false;
+
+    for filter in filter_patterns.iter().filter(|f| f.enabled) {
+        let matches = if filter.case_sensitive {
+            content.contains(&filter.pattern)
+        } else {
+            contains_ignore_case(content, &filter.pattern)
+        };
+
+        match filter.mode {
+            ActiveFilterMode::Exclude => {
+                if matches {
+                    return false;
+                }
+            }
+            ActiveFilterMode::Include => {
+                has_include_filters = true;
+                if matches {
+                    include_matched = true;
+                }
+            }
+        }
+    }
+
+    if has_include_filters {
+        include_matched
+    } else {
+        true
     }
 }
 

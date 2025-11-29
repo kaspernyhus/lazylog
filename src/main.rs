@@ -29,7 +29,6 @@ pub mod log_processor;
 pub mod marking;
 pub mod options;
 pub mod persistence;
-pub mod processing;
 pub mod search;
 pub mod ui;
 pub mod utils;

@@ -1,4 +1,4 @@
-use crate::{filter::Filter, processing};
+use crate::filter::{Filter, apply_filters};
 use rayon::prelude::*;
 
 /// A single log line with its content and original index.
@@ -113,8 +113,8 @@ impl LogBuffer {
                         return Some(index);
                     }
 
-                    let passes_text_filter =
-                        processing::apply_filters(&log_line.content, filter_patterns);
+                    // par_iter needs to call the stand alone apply_filters function to be thread safe
+                    let passes_text_filter = apply_filters(&log_line.content, filter_patterns);
 
                     if passes_text_filter {
                         Some(index)

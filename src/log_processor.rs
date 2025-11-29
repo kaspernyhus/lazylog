@@ -1,4 +1,7 @@
-use crate::{filter::FilterPattern, highlighter::HighlightPattern, processing::apply_filters};
+use crate::{
+    filter::{apply_filters, FilterPattern},
+    highlighter::HighlightPattern,
+};
 use rayon::prelude::*;
 use std::{sync::Arc, time::Duration};
 use tokio::{
