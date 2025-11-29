@@ -1,1 +1,6 @@
-words = ["esc"]
+words = [
+    "esc",
+    "lazylog",
+    "logview",
+    "rescan",
+]

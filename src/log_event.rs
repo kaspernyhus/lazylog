@@ -29,13 +29,15 @@ pub struct EventFilterList {
 }
 
 impl EventFilterList {
-    pub fn add_event_name(&mut self, event_name: String) {
-        self.event_filters.entry(event_name).or_insert(true);
+    pub fn add_event_name(&mut self, event_name: &str) {
+        self.event_filters
+            .entry(event_name.to_string())
+            .or_insert(true);
         self.filter_view.set_item_count(self.event_filters.len());
     }
 
-    pub fn add_filter(&mut self, event_name: String, enabled: bool) {
-        self.event_filters.insert(event_name, enabled);
+    pub fn add_filter(&mut self, event_name: &str, enabled: bool) {
+        self.event_filters.insert(event_name.to_string(), enabled);
         self.filter_view.set_item_count(self.event_filters.len());
     }
 
@@ -99,7 +101,7 @@ pub struct LogEventTracker {
     event_counts: HashMap<String, usize>,
     /// View state for the events list
     events_view: ListViewState,
-    /// Tracks whether the event list needs rescanning
+    /// Tracks whether the event list needs re-scanning
     needs_rescan: bool,
     /// Event filter list
     event_filter: EventFilterList,
@@ -120,7 +122,7 @@ impl LogEventTracker {
 
         for event in event_patterns {
             if let Some(name) = &event.name {
-                self.event_filter.add_event_name(name.clone());
+                self.event_filter.add_event_name(name);
                 self.event_counts.insert(name.clone(), 0);
             }
         }
@@ -137,7 +139,7 @@ impl LogEventTracker {
         self.needs_rescan = true;
     }
 
-    /// Returns true if the event list needs rescanning.
+    /// Returns true if the event list needs re-scanning.
     pub fn needs_rescan(&self) -> bool {
         self.needs_rescan
     }
@@ -377,7 +379,7 @@ impl LogEventTracker {
     /// Restores event filter states from persisted state.
     pub fn restore_filter_states(&mut self, filter_states: &[(String, bool)]) {
         for (name, enabled) in filter_states {
-            self.event_filter.add_filter(name.clone(), *enabled);
+            self.event_filter.add_filter(name, *enabled);
         }
     }
 }
@@ -434,7 +436,7 @@ mod tests {
         // Initialize filters and counts
         for event in patterns {
             if let Some(name) = &event.name {
-                tracker.event_filter.add_event_name(name.clone());
+                tracker.event_filter.add_event_name(name);
                 tracker.event_counts.insert(name.clone(), 0);
             }
         }
@@ -509,12 +511,12 @@ mod tests {
         // Initialize filters manually
         for pattern in &patterns {
             if let Some(name) = &pattern.name {
-                tracker.event_filter.add_event_name(name.clone());
+                tracker.event_filter.add_event_name(name);
             }
         }
 
         // Disable error filter
-        tracker.event_filter.add_filter("error".to_string(), false);
+        tracker.event_filter.add_filter("error", false);
 
         let log_line = LogLine::new("ERROR: Another error".to_string(), 10);
         tracker.scan_single_line(&log_line, &patterns, false);

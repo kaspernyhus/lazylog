@@ -207,9 +207,9 @@ impl App {
                     app.event_tracker
                         .scan_all_lines(&app.log_buffer, app.highlighter.events());
                 }
-                Err(e) => {
-                    app.show_error(format!("Failed to load file: {}\nError: {}", file_path, e))
-                }
+                Err(e) => app.show_error(
+                    format!("Failed to load file: {}\nError: {}", file_path, e).as_str(),
+                ),
             }
         }
 
@@ -286,13 +286,13 @@ impl App {
     }
 
     /// Shows a message overlay.
-    fn show_message(&mut self, message: String) {
-        self.show_overlay(Overlay::Message(message));
+    fn show_message(&mut self, message: &str) {
+        self.show_overlay(Overlay::Message(message.to_string()));
     }
 
     /// Shows an error overlay.
-    fn show_error(&mut self, error: String) {
-        self.show_overlay(Overlay::Error(error));
+    fn show_error(&mut self, error: &str) {
+        self.show_overlay(Overlay::Error(error.to_string()));
     }
 
     pub fn show_overlay(&mut self, overlay: Overlay) {
@@ -641,8 +641,7 @@ impl App {
             match overlay {
                 Overlay::EditFilter => {
                     if !self.input.value().is_empty() {
-                        self.filter
-                            .update_selected_pattern(self.input.value().to_string());
+                        self.filter.update_selected_pattern(self.input.value());
                         self.update_view();
                     }
                     self.close_overlay();
@@ -655,10 +654,12 @@ impl App {
                                 let abs_path = std::fs::canonicalize(self.input.value())
                                     .map(|p| p.to_string_lossy().to_string())
                                     .unwrap_or_else(|_| self.input.value().to_string());
-                                self.show_message(format!("Log saved to file:\n{}", abs_path));
+                                self.show_message(
+                                    format!("Log saved to file:\n{}", abs_path).as_str(),
+                                );
                             }
                             Err(e) => {
-                                self.show_error(format!("Failed to save file:\n{}", e));
+                                self.show_error(format!("Failed to save file:\n{}", e).as_str());
                             }
                         }
                     } else {
@@ -713,7 +714,7 @@ impl App {
                     if let Some(matches) = self.search.apply_pattern(self.input.value(), lines)
                         && matches == 0
                     {
-                        self.show_message(format!("0 hits for '{}'", self.input.value()));
+                        self.show_message(format!("0 hits for '{}'", self.input.value()).as_str());
                         return;
                     }
 
@@ -731,8 +732,7 @@ impl App {
             }
             ViewState::ActiveFilterMode => {
                 if !self.input.value().is_empty() {
-                    self.filter
-                        .add_filter_from_pattern(self.input.value().to_string());
+                    self.filter.add_filter_from_pattern(self.input.value());
                     self.update_view();
                 }
                 self.set_view_state(ViewState::LogView);
@@ -1424,20 +1424,23 @@ impl App {
                         Ok(_) => {
                             let num_lines = lines.len();
                             self.selection_range = None;
-                            self.show_message(format!(
-                                "Copied {} line{} to clipboard",
-                                num_lines,
-                                if num_lines == 1 { "" } else { "s" }
-                            ));
+                            self.show_message(
+                                format!(
+                                    "Copied {} line{} to clipboard",
+                                    num_lines,
+                                    if num_lines == 1 { "" } else { "s" }
+                                )
+                                .as_str(),
+                            );
                         }
                         Err(e) => {
                             self.selection_range = None;
-                            self.show_error(format!("Failed to copy to clipboard: {}", e));
+                            self.show_error(format!("Failed to copy to clipboard: {}", e).as_str());
                         }
                     },
                     Err(e) => {
                         self.selection_range = None;
-                        self.show_error(format!("Failed to access clipboard: {}", e));
+                        self.show_error(format!("Failed to access clipboard: {}", e).as_str());
                     }
                 }
             }
