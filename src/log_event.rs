@@ -1,8 +1,9 @@
 use crate::highlighter::HighlightPattern;
 use crate::list_view_state::ListViewState;
-use crate::log::{Interval, LogBuffer, LogLine};
-use crate::processing::{count_events, scan_for_events};
-use std::collections::HashMap;
+use crate::log::{LogBuffer, LogLine};
+use rayon::prelude::*;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 /// A log event occurrence.
 #[derive(Debug, Clone, PartialEq)]
@@ -95,10 +96,12 @@ impl EventFilterList {
 /// Manages log event tracking and scanning.
 #[derive(Debug, Default)]
 pub struct LogEventTracker {
-    /// Events sorted by line_index.
+    /// All events sorted by line_index.
     events: Vec<LogEvent>,
-    /// Total count of each event type (regardless of filter state)
+    /// Total count of each event type.
     event_counts: HashMap<String, usize>,
+    /// Cached active line indices from LogBuffer (lines that pass filters).
+    active_lines: HashSet<usize>,
     /// View state for the events list
     events_view: ListViewState,
     /// Tracks whether the event list needs re-scanning
@@ -115,7 +118,7 @@ impl LogEventTracker {
         Self::default()
     }
 
-    /// Scans all log lines for event occurrences and stores them.
+    /// Scans all log lines for event occurrences.
     pub fn scan_all_lines(&mut self, log_buffer: &LogBuffer, event_patterns: &[HighlightPattern]) {
         self.events.clear();
         self.event_counts.clear();
@@ -127,11 +130,74 @@ impl LogEventTracker {
             }
         }
 
-        let lines: Vec<LogLine> = log_buffer.get_lines_iter(Interval::All).cloned().collect();
-        self.event_counts = count_events(&lines, event_patterns);
-        self.events = scan_for_events(&lines, event_patterns, self.event_filter.get_filters());
-        self.events_view.set_item_count(self.count());
+        self.events = self.scan_lines(log_buffer.iter(), event_patterns);
+        self.event_counts = self.count_events(&self.events);
+        self.update_filtered_count();
         self.needs_rescan = false;
+    }
+
+    /// Scans log lines in parallel for event pattern matches.
+    fn scan_lines<'a>(
+        &self,
+        lines: impl Iterator<Item = &'a LogLine>,
+        event_patterns: &[HighlightPattern],
+    ) -> Vec<LogEvent> {
+        let event_patterns = Arc::new(event_patterns.to_vec());
+        let lines_vec: Vec<&LogLine> = lines.collect();
+
+        let mut events: Vec<LogEvent> = lines_vec
+            .par_iter()
+            .filter_map(|log_line| {
+                for event in event_patterns.iter() {
+                    if event.matcher.matches(log_line.content()) {
+                        if let Some(name) = &event.name {
+                            return Some(LogEvent {
+                                event_name: name.clone(),
+                                line_index: log_line.index,
+                            });
+                        }
+                        break;
+                    }
+                }
+                None
+            })
+            .collect();
+
+        // Sort by line_index to maintain chronological order
+        events.sort_by_key(|e| e.line_index);
+        events
+    }
+
+    // Count the occurrence of each event
+    fn count_events(&self, events: &[LogEvent]) -> HashMap<String, usize> {
+        let mut counts = HashMap::new();
+        for event in events {
+            *counts.entry(event.event_name.clone()).or_insert(0) += 1;
+        }
+        counts
+    }
+
+    /// Updates the active lines cache and recalculates filtered event count.
+    pub fn update_active_lines(&mut self, active_lines: &[usize]) {
+        self.active_lines = active_lines.iter().copied().collect();
+        self.update_filtered_count();
+    }
+
+    /// Updates the view item count based on filtered events.
+    fn update_filtered_count(&mut self) {
+        let count = self.get_filtered_events().len();
+        self.events_view.set_item_count(count);
+    }
+
+    /// Returns filtered events.
+    pub fn get_filtered_events(&self) -> Vec<&LogEvent> {
+        self.events
+            .iter()
+            .filter(|event| {
+                self.event_filter.is_enabled(&event.event_name)
+                    && self.active_lines.contains(&event.line_index)
+            })
+            .collect()
     }
 
     /// Marks the event list as needing a rescan (called when log filters change).
@@ -174,19 +240,19 @@ impl LogEventTracker {
         }
     }
 
-    /// Returns log events
+    /// Returns filtered log events.
     pub fn get_events(&self) -> Vec<&LogEvent> {
-        self.events.iter().collect()
+        self.get_filtered_events()
     }
 
-    /// Returns the number of events.
+    /// Returns the number of filtered events.
     pub fn count(&self) -> usize {
-        self.events.len()
+        self.get_filtered_events().len()
     }
 
-    /// Returns true if no events are tracked.
+    /// Returns true if no filtered events are visible.
     pub fn is_empty(&self) -> bool {
-        self.events.is_empty()
+        self.get_filtered_events().is_empty()
     }
 
     /// Sets the total item count for the events view.
@@ -207,20 +273,18 @@ impl LogEventTracker {
 
     /// Finds the index of the event nearest to the given line number.
     pub fn find_nearest(&self, line_index: usize) -> Option<usize> {
-        if self.events.is_empty() {
+        let filtered = self.get_filtered_events();
+        if filtered.is_empty() {
             return None;
         }
 
-        match self
-            .events
-            .binary_search_by_key(&line_index, |e| e.line_index)
-        {
+        match filtered.binary_search_by_key(&line_index, |e| e.line_index) {
             Ok(idx) => Some(idx),
             Err(0) => Some(0),
-            Err(idx) if idx >= self.events.len() => Some(self.events.len() - 1),
+            Err(idx) if idx >= filtered.len() => Some(filtered.len() - 1),
             Err(idx) => {
-                let dist_before = line_index - self.events[idx - 1].line_index;
-                let dist_after = self.events[idx].line_index - line_index;
+                let dist_before = line_index - filtered[idx - 1].line_index;
+                let dist_after = filtered[idx].line_index - line_index;
                 Some(if dist_before <= dist_after {
                     idx - 1
                 } else {
@@ -230,24 +294,25 @@ impl LogEventTracker {
         }
     }
 
-    /// Gets the line index of the currently selected event.
+    /// Gets the line index of the currently selected event (from filtered events).
     pub fn get_selected_line_index(&self) -> Option<usize> {
-        self.events
+        let filtered = self.get_filtered_events();
+        filtered
             .get(self.events_view.selected_index())
             .map(|event| event.line_index)
     }
 
-    /// Gets the next event after the given line index.
+    /// Gets the next event after the given line index (from filtered events).
     pub fn get_next_event(&self, current_line_index: usize) -> Option<usize> {
-        self.events
+        self.get_filtered_events()
             .iter()
             .find(|event| event.line_index > current_line_index)
             .map(|event| event.line_index)
     }
 
-    /// Gets the previous event before the given line index.
+    /// Gets the previous event before the given line index (from filtered events).
     pub fn get_previous_event(&self, current_line_index: usize) -> Option<usize> {
-        self.events
+        self.get_filtered_events()
             .iter()
             .rev()
             .find(|event| event.line_index < current_line_index)
@@ -365,7 +430,7 @@ impl LogEventTracker {
             && let Some(enabled) = self.event_filter.get_mut(&filter.name)
         {
             *enabled = !*enabled;
-            self.events_view.set_item_count(self.count());
+            self.update_filtered_count();
         }
     }
 
@@ -441,9 +506,12 @@ mod tests {
             }
         }
 
-        tracker.event_counts = count_events(&lines, patterns);
-        tracker.events = scan_for_events(&lines, patterns, tracker.event_filter.get_filters());
-        tracker.events_view.set_item_count(tracker.count());
+        tracker.events = tracker.scan_lines(lines.iter(), patterns);
+        tracker.event_counts = tracker.count_events(&tracker.events);
+
+        // Set all lines as active for tests
+        let active_lines: Vec<usize> = lines.iter().map(|l| l.index).collect();
+        tracker.update_active_lines(&active_lines);
     }
 
     #[test]
@@ -493,6 +561,16 @@ mod tests {
         let mut tracker = LogEventTracker::new();
         let patterns = create_test_patterns();
         let log_line = LogLine::new("ERROR: Test error".to_string(), 10);
+
+        // Initialize event filters
+        for pattern in &patterns {
+            if let Some(name) = &pattern.name {
+                tracker.event_filter.add_event_name(name);
+            }
+        }
+
+        // Set active lines so event is visible
+        tracker.update_active_lines(&[10]);
 
         tracker.scan_single_line(&log_line, &patterns, false);
 

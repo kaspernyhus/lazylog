@@ -139,7 +139,7 @@ impl LogBuffer {
     }
 
     /// Returns an iterator over active log lines in the specified interval.
-    pub fn get_lines_iter(&self, interval: Interval) -> impl Iterator<Item = &LogLine> {
+    pub fn get_active_lines_iter(&self, interval: Interval) -> impl Iterator<Item = &LogLine> {
         let active_indices = match interval {
             Interval::All => &self.active_lines[..],
             Interval::Range(start_index, end) => {
@@ -195,6 +195,11 @@ impl LogBuffer {
     /// Returns a reference to the active lines (original indices of visible lines).
     pub fn get_active_lines(&self) -> &[usize] {
         &self.active_lines
+    }
+
+    /// Returns an iterator over all log lines without active line filtering.
+    pub fn iter(&self) -> impl Iterator<Item = &LogLine> {
+        self.lines.iter()
     }
 
     /// Returns the original log line index for an active line index.

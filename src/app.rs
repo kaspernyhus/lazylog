@@ -202,6 +202,7 @@ impl App {
                         && let Some(state) = load_state(&file_path)
                     {
                         app.restore_state(state);
+                        app.update_view();
                     }
 
                     app.event_tracker
@@ -229,14 +230,13 @@ impl App {
 
         let active_lines = self.log_buffer.get_active_lines();
         self.marking.update_active_lines(active_lines);
-
-        self.event_tracker.mark_needs_rescan();
+        self.event_tracker.update_active_lines(active_lines);
 
         // Update search matches if there's an active search
         if let Some(pattern) = self.search.get_active_pattern().map(|p| p.to_string()) {
             let lines = self
                 .log_buffer
-                .get_lines_iter(Interval::All)
+                .get_active_lines_iter(Interval::All)
                 .map(|log_line| log_line.content());
             self.search.update_matches(&pattern, lines);
         }
@@ -316,7 +316,7 @@ impl App {
 
     fn update_completion_words(&mut self) {
         self.completion
-            .update(self.log_buffer.get_lines_iter(Interval::All));
+            .update(self.log_buffer.get_active_lines_iter(Interval::All));
     }
 
     pub fn apply_tab_completion(&mut self) {
@@ -708,7 +708,7 @@ impl App {
                 } else {
                     let lines = self
                         .log_buffer
-                        .get_lines_iter(Interval::All)
+                        .get_active_lines_iter(Interval::All)
                         .map(|log_line| log_line.content());
 
                     if let Some(matches) = self.search.apply_pattern(self.input.value(), lines)
@@ -1088,7 +1088,7 @@ impl App {
         if self.view_state == ViewState::ActiveSearchMode {
             let lines = self
                 .log_buffer
-                .get_lines_iter(Interval::All)
+                .get_active_lines_iter(Interval::All)
                 .map(|log_line| log_line.content());
             self.search.update_matches(self.input.value(), lines);
         }
@@ -1277,17 +1277,11 @@ impl App {
     pub fn toggle_event_filter(&mut self) {
         self.event_tracker.toggle_selected_filter();
         self.event_tracker
-            .scan_all_lines(&self.log_buffer, self.highlighter.events());
-
-        self.event_tracker
             .select_nearest_event(self.viewport.selected_line);
     }
 
     pub fn toggle_all_event_filters(&mut self) {
         self.event_tracker.toggle_all_filters();
-        self.event_tracker
-            .scan_all_lines(&self.log_buffer, self.highlighter.events());
-
         self.event_tracker
             .select_nearest_event(self.viewport.selected_line);
     }

@@ -35,7 +35,7 @@ impl App {
 
         let viewport_lines: Vec<(&str, usize)> = self
             .log_buffer
-            .get_lines_iter(Interval::Range(start, end))
+            .get_active_lines_iter(Interval::Range(start, end))
             .map(|log_line| {
                 (
                     self.options.apply_to_line(log_line.content()),
