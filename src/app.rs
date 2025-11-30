@@ -191,6 +191,7 @@ impl App {
         if use_stdin {
             app.log_buffer.init_stdin_mode();
             app.viewport.follow_mode = true;
+            app.update_processor_context();
             app.update_view();
             return app;
         }
@@ -210,6 +211,9 @@ impl App {
 
                     app.event_tracker
                         .scan_all_lines(&app.log_buffer, app.highlighter.events());
+                    // Update active_lines cache after scanning events
+                    app.event_tracker
+                        .update_active_lines(app.log_buffer.get_active_lines());
                 }
                 Err(e) => app.show_error(
                     format!("Failed to load file: {}\nError: {}", file_path, e).as_str(),
@@ -574,6 +578,7 @@ impl App {
                     return Ok(());
                 }
 
+                let mut should_select = false;
                 for pl in processed_lines {
                     let log_line_index = self.log_buffer.append_line(pl.line_content);
 
@@ -581,14 +586,23 @@ impl App {
                         self.log_buffer.add_to_active_lines(log_line_index);
 
                         let log_line = self.log_buffer.get_line(log_line_index).unwrap();
-                        self.event_tracker.scan_single_line(
-                            log_line,
-                            self.highlighter.events(),
-                            self.viewport.follow_mode,
-                        );
+                        let active_event = self
+                            .event_tracker
+                            .scan_single_line(log_line, self.highlighter.events());
+                        if active_event && self.viewport.follow_mode {
+                            should_select = true;
+                        }
                         self.completion.append_line(log_line);
                         self.search.append_line(log_line_index, log_line.content());
                     }
+                }
+
+                let active_lines = self.log_buffer.get_active_lines();
+                self.marking.update_active_lines(active_lines);
+                self.event_tracker.update_active_lines(active_lines);
+
+                if should_select {
+                    self.event_tracker.select_last_event();
                 }
 
                 self.viewport
@@ -968,6 +982,7 @@ impl App {
     pub fn activate_goto_line_mode(&mut self) {
         self.input.reset();
         self.set_view_state(ViewState::GotoLineMode);
+        self.viewport.follow_mode = false;
     }
 
     pub fn activate_filter_mode(&mut self) {
@@ -1252,8 +1267,9 @@ impl App {
     pub fn clear_log_buffer(&mut self) {
         if self.log_buffer.streaming {
             self.log_buffer.clear_all();
-            self.viewport.set_total_lines(0);
-            self.viewport.selected_line = 0;
+            self.marking.clear_all();
+            self.viewport.reset_view();
+            self.update_view();
         }
     }
 

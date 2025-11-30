@@ -29,6 +29,15 @@ pub struct Viewport {
 }
 
 impl Viewport {
+    pub fn reset_view(&mut self) {
+        self.total_lines = 0;
+        self.top_line = 0;
+        self.selected_line = 0;
+        self.horizontal_offset = 0;
+        self.history = Vec::new();
+        self.history_position = 0;
+    }
+
     /// Updates the viewport dimensions.
     pub fn resize(&mut self, width: usize, height: usize) {
         self.width = width;
