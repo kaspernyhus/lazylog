@@ -1,5 +1,5 @@
 use crate::{
-    filter::{apply_filters, FilterPattern},
+    filter::{FilterPattern, apply_filters},
     highlighter::HighlightPattern,
 };
 use rayon::prelude::*;
@@ -23,14 +23,14 @@ pub struct ProcessingContext {
     pub event_patterns: Vec<HighlightPattern>,
 }
 
-pub struct LogProcessor {
+pub struct LiveProcessor {
     input_rx: mpsc::UnboundedReceiver<String>,
     output_tx: mpsc::UnboundedSender<Vec<ProcessedLine>>,
     context_rx: mpsc::UnboundedReceiver<ProcessingContext>,
     current_context: ProcessingContext,
 }
 
-impl LogProcessor {
+impl LiveProcessor {
     pub fn new(
         input_rx: mpsc::UnboundedReceiver<String>,
         output_tx: mpsc::UnboundedSender<Vec<ProcessedLine>>,
@@ -121,17 +121,17 @@ impl LogProcessor {
 }
 
 #[derive(Debug)]
-pub struct ProcessorHandle {
+pub struct LiveProcessorHandle {
     pub input_tx: mpsc::UnboundedSender<String>,
     pub context_tx: mpsc::UnboundedSender<ProcessingContext>,
 }
 
-impl ProcessorHandle {
+impl LiveProcessorHandle {
     pub fn spawn(output_tx: mpsc::UnboundedSender<Vec<ProcessedLine>>) -> Self {
         let (input_tx, input_rx) = mpsc::unbounded_channel();
         let (context_tx, context_rx) = mpsc::unbounded_channel();
 
-        let processor = LogProcessor::new(input_rx, output_tx, context_rx);
+        let processor = LiveProcessor::new(input_rx, output_tx, context_rx);
 
         tokio::spawn(async move {
             processor.run().await;

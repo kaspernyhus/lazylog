@@ -5,7 +5,7 @@ use std::io::{BufRead, BufReader};
 use std::time::Duration;
 use tokio::sync::mpsc;
 
-use crate::log_processor::{ProcessedLine, ProcessorHandle};
+use crate::live_processor::{LiveProcessorHandle, ProcessedLine};
 
 /// The frequency at which tick events are emitted.
 const TICK_FPS: f64 = 5.0;
@@ -46,7 +46,7 @@ pub struct EventHandler {
     /// Event receiver channel.
     receiver: mpsc::UnboundedReceiver<Event>,
     /// Log processor handle for streaming mode.
-    pub processor: Option<ProcessorHandle>,
+    pub processor: Option<LiveProcessorHandle>,
 }
 
 impl EventHandler {
@@ -58,7 +58,7 @@ impl EventHandler {
             tokio::spawn(async { actor.run().await });
 
             let (output_tx, mut output_rx) = mpsc::unbounded_channel();
-            let processor = ProcessorHandle::spawn(output_tx);
+            let processor = LiveProcessorHandle::spawn(output_tx);
 
             let event_sender = sender.clone();
             let proc_input = processor.input_tx.clone();
