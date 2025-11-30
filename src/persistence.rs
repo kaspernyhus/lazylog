@@ -201,14 +201,11 @@ pub fn clear_all_state() -> Result<String, String> {
     }
 
     let mut count = 0;
-    for entry in
-        fs::read_dir(&state_dir).map_err(|e| format!("Failed to read state directory: {}", e))?
-    {
+    for entry in fs::read_dir(&state_dir).map_err(|e| format!("Failed to read state directory: {}", e))? {
         let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
         let path = entry.path();
         if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
-            fs::remove_file(&path)
-                .map_err(|e| format!("Failed to remove file {:?}: {}", path, e))?;
+            fs::remove_file(&path).map_err(|e| format!("Failed to remove file {:?}: {}", path, e))?;
             count += 1;
         }
     }

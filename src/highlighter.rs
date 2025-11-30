@@ -151,12 +151,7 @@ pub struct HighlightPattern {
 
 impl HighlightPattern {
     /// Creates a new highlight pattern.
-    pub fn new(
-        pattern: &str,
-        match_type: PatternMatchType,
-        style: PatternStyle,
-        name: Option<String>,
-    ) -> Option<Self> {
+    pub fn new(pattern: &str, match_type: PatternMatchType, style: PatternStyle, name: Option<String>) -> Option<Self> {
         let matcher = match match_type {
             PatternMatchType::Plain(case_sensitive) => PatternMatcher::Plain(PlainMatch {
                 pattern: pattern.to_string(),
@@ -165,11 +160,7 @@ impl HighlightPattern {
             PatternMatchType::Regex => PatternMatcher::Regex(Regex::new(pattern).ok()?),
         };
 
-        Some(Self {
-            name,
-            matcher,
-            style,
-        })
+        Some(Self { name, matcher, style })
     }
 }
 
@@ -260,12 +251,7 @@ impl Highlighter {
     }
 
     /// Adds a temporary highlight pattern to be applied on top of any other highlighting.
-    pub fn add_temporary_highlight(
-        &mut self,
-        pattern: String,
-        style: PatternStyle,
-        case_sensitive: bool,
-    ) {
+    pub fn add_temporary_highlight(&mut self, pattern: String, style: PatternStyle, case_sensitive: bool) {
         self.temporary_highlights.push(HighlightPattern {
             name: None,
             matcher: PatternMatcher::Plain(PlainMatch {
@@ -284,19 +270,9 @@ impl Highlighter {
     }
 
     /// Returns a HighlightedLine with all styling information ready to render.
-    pub fn highlight_line(
-        &self,
-        line: &str,
-        horizontal_offset: usize,
-        enable_colors: bool,
-    ) -> HighlightedLine {
+    pub fn highlight_line(&self, line: &str, horizontal_offset: usize, enable_colors: bool) -> HighlightedLine {
         // Check cache first
-        let cache_key = (
-            line.to_string(),
-            horizontal_offset,
-            enable_colors,
-            self.cache_version,
-        );
+        let cache_key = (line.to_string(), horizontal_offset, enable_colors, self.cache_version);
 
         {
             let cache = self.cache.borrow();
@@ -354,11 +330,7 @@ impl Highlighter {
     }
 
     /// Adjusts ranges for horizontal scrolling offset.
-    fn adjust_for_viewport_offset(
-        &self,
-        ranges: Vec<StyledRange>,
-        offset: usize,
-    ) -> Vec<StyledRange> {
+    fn adjust_for_viewport_offset(&self, ranges: Vec<StyledRange>, offset: usize) -> Vec<StyledRange> {
         ranges
             .into_iter()
             .filter_map(|styled_range| {
@@ -397,8 +369,7 @@ impl Highlighter {
             let mut splits = Vec::new();
 
             // Check if this range should inherit background color
-            let should_inherit_bg =
-                range.style.bg_color.is_none() && range.style.fg_color.is_some();
+            let should_inherit_bg = range.style.bg_color.is_none() && range.style.fg_color.is_some();
 
             // Find background to preserve BEFORE modifying result
             let bg_to_preserve = if should_inherit_bg {
@@ -406,8 +377,7 @@ impl Highlighter {
                     .iter()
                     .find(|r| {
                         // Find any overlapping range that has a background
-                        r.style.bg_color.is_some()
-                            && !(r.end <= range.start || r.start >= range.end)
+                        r.style.bg_color.is_some() && !(r.end <= range.start || r.start >= range.end)
                     })
                     .and_then(|r| r.style.bg_color)
             } else {

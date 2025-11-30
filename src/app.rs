@@ -212,12 +212,9 @@ impl App {
                     app.event_tracker
                         .scan_all_lines(&app.log_buffer, app.highlighter.events());
                     // Update active_lines cache after scanning events
-                    app.event_tracker
-                        .update_active_lines(app.log_buffer.get_active_lines());
+                    app.event_tracker.update_active_lines(app.log_buffer.get_active_lines());
                 }
-                Err(e) => app.show_error(
-                    format!("Failed to load file: {}\nError: {}", file_path, e).as_str(),
-                ),
+                Err(e) => app.show_error(format!("Failed to load file: {}\nError: {}", file_path, e).as_str()),
             }
         }
 
@@ -225,20 +222,14 @@ impl App {
     }
 
     fn update_view(&mut self) {
-        let log_line_index = self
-            .log_buffer
-            .viewport_to_log_index(self.viewport.selected_line);
+        let log_line_index = self.log_buffer.viewport_to_log_index(self.viewport.selected_line);
 
         let should_show_marked = self.options.is_enabled(AppOption::AlwaysShowMarkedLines);
         let show_marked_only = self.show_marked_lines_only;
 
         let marked_indices = self.marking.get_marked_indices();
-        self.log_buffer.apply_filtering(
-            &self.filter,
-            &marked_indices,
-            show_marked_only,
-            should_show_marked,
-        );
+        self.log_buffer
+            .apply_filtering(&self.filter, &marked_indices, show_marked_only, should_show_marked);
         let num_lines = self.log_buffer.get_active_lines_count();
 
         self.viewport.set_total_lines(num_lines);
@@ -361,11 +352,7 @@ impl App {
         // Check view states
         match self.view_state {
             ViewState::ActiveSearchMode => {
-                let case_sensitive = if self.search.is_case_sensitive() {
-                    "Aa"
-                } else {
-                    "aa"
-                };
+                let case_sensitive = if self.search.is_case_sensitive() { "Aa" } else { "aa" };
                 format!("Search: [{}] ", case_sensitive)
             }
             ViewState::ActiveFilterMode => {
@@ -373,11 +360,7 @@ impl App {
                     ActiveFilterMode::Include => "IN",
                     ActiveFilterMode::Exclude => "EX",
                 };
-                let case_sensitive = if self.filter.is_case_sensitive() {
-                    "Aa"
-                } else {
-                    "aa"
-                };
+                let case_sensitive = if self.filter.is_case_sensitive() { "Aa" } else { "aa" };
                 format!("Filter: [{}] [{}] ", case_sensitive, filter_mode)
             }
             ViewState::GotoLineMode => "Go to line: ".to_string(),
@@ -389,8 +372,7 @@ impl App {
         self.highlighter.clear_temporary_highlights();
 
         // Add filter mode preview highlight
-        if (self.view_state == ViewState::ActiveFilterMode
-            || matches!(self.overlay, Some(Overlay::EditFilter)))
+        if (self.view_state == ViewState::ActiveFilterMode || matches!(self.overlay, Some(Overlay::EditFilter)))
             && self.input.value().chars().count() >= 2
         {
             self.highlighter.add_temporary_highlight(
@@ -401,8 +383,7 @@ impl App {
         }
 
         // Add search mode preview highlight
-        if self.view_state == ViewState::ActiveSearchMode && self.input.value().chars().count() >= 2
-        {
+        if self.view_state == ViewState::ActiveSearchMode && self.input.value().chars().count() >= 2 {
             self.highlighter.add_temporary_highlight(
                 self.input.value().to_string(),
                 PatternStyle::new(Some(SEARCH_MODE_FG), Some(SEARCH_MODE_BG), true),
@@ -448,9 +429,7 @@ impl App {
                         Some((cursor_x, footer_y))
                     } else if matches!(
                         self.overlay,
-                        Some(Overlay::EditFilter)
-                            | Some(Overlay::MarkName)
-                            | Some(Overlay::SaveToFile)
+                        Some(Overlay::EditFilter) | Some(Overlay::MarkName) | Some(Overlay::SaveToFile)
                     ) {
                         // Popup-based input modes (cursor at x=1+visual_cursor, y=1, accounting for border)
                         let popup_rect = popup_area(frame.area(), 60, 3);
@@ -552,8 +531,7 @@ impl App {
             .map(|ef| (ef.name().to_string(), ef.enabled()))
             .collect();
 
-        self.event_tracker
-            .restore_filter_states(&event_filter_states);
+        self.event_tracker.restore_filter_states(&event_filter_states);
 
         let filtered_lines = self.log_buffer.get_active_lines_count();
         if filtered_lines > 0 {
@@ -586,9 +564,7 @@ impl App {
                         self.log_buffer.add_to_active_lines(log_line_index);
 
                         let log_line = self.log_buffer.get_line(log_line_index).unwrap();
-                        let active_event = self
-                            .event_tracker
-                            .scan_single_line(log_line, self.highlighter.events());
+                        let active_event = self.event_tracker.scan_single_line(log_line, self.highlighter.events());
                         if active_event && self.viewport.follow_mode {
                             should_select = true;
                         }
@@ -605,8 +581,7 @@ impl App {
                     self.event_tracker.select_last_event();
                 }
 
-                self.viewport
-                    .set_total_lines(self.log_buffer.get_active_lines_count());
+                self.viewport.set_total_lines(self.log_buffer.get_active_lines_count());
 
                 if self.viewport.follow_mode {
                     self.viewport.goto_bottom();
@@ -623,10 +598,7 @@ impl App {
             self.update_temporary_highlights();
         }
 
-        if let Some(command) = self
-            .keybindings
-            .lookup(&self.view_state, &self.overlay, key_event)
-        {
+        if let Some(command) = self.keybindings.lookup(&self.view_state, &self.overlay, key_event) {
             command.execute(self)?;
         }
 
@@ -679,9 +651,7 @@ impl App {
                                 let abs_path = std::fs::canonicalize(self.input.value())
                                     .map(|p| p.to_string_lossy().to_string())
                                     .unwrap_or_else(|_| self.input.value().to_string());
-                                self.show_message(
-                                    format!("Log saved to file:\n{}", abs_path).as_str(),
-                                );
+                                self.show_message(format!("Log saved to file:\n{}", abs_path).as_str());
                             }
                             Err(e) => {
                                 self.show_error(format!("Failed to save file:\n{}", e).as_str());
@@ -693,26 +663,20 @@ impl App {
                     return;
                 }
                 Overlay::MarkName => {
-                    if self.view_state == ViewState::EventsView
-                        && self.event_tracker.showing_marks()
-                    {
+                    if self.view_state == ViewState::EventsView && self.event_tracker.showing_marks() {
                         let events = self.event_tracker.get_events();
                         let marks = self.marking.get_filtered_marks();
                         let merged_items = EventMarkView::merge(&events, &marks, true);
 
-                        if let Some(EventOrMark::Mark(mark)) =
-                            merged_items.get(self.event_tracker.selected_index())
-                        {
-                            self.marking
-                                .set_mark_name(mark.line_index, self.input.value());
+                        if let Some(EventOrMark::Mark(mark)) = merged_items.get(self.event_tracker.selected_index()) {
+                            self.marking.set_mark_name(mark.line_index, self.input.value());
                         }
                     }
 
                     if self.view_state == ViewState::MarksView
                         && let Some(mark) = self.marking.get_selected_mark()
                     {
-                        self.marking
-                            .set_mark_name(mark.line_index, self.input.value());
+                        self.marking.set_mark_name(mark.line_index, self.input.value());
                     }
 
                     self.close_overlay();
@@ -744,9 +708,7 @@ impl App {
                     }
 
                     if !self.options.is_enabled(AppOption::SearchDisableJumping) {
-                        if let Some(line) =
-                            self.search.first_match_from(self.viewport.selected_line)
-                        {
+                        if let Some(line) = self.search.first_match_from(self.viewport.selected_line) {
                             self.push_viewport_line_to_history(line);
                             self.viewport.goto_line(line, false);
                         }
@@ -764,8 +726,7 @@ impl App {
             }
             ViewState::EventsView => {
                 if let Some(target_line) = self.event_tracker.get_selected_line_index()
-                    && let Some(active_line) =
-                        self.log_buffer.find_closest_line_by_index(target_line)
+                    && let Some(active_line) = self.log_buffer.find_closest_line_by_index(target_line)
                 {
                     self.viewport.goto_line(active_line, true);
                 }
@@ -844,10 +805,7 @@ impl App {
                     self.update_view();
                 }
             }
-            ViewState::FilterView
-            | ViewState::OptionsView
-            | ViewState::EventsView
-            | ViewState::MarksView => {
+            ViewState::FilterView | ViewState::OptionsView | ViewState::EventsView | ViewState::MarksView => {
                 self.set_view_state(ViewState::LogView);
             }
         }
@@ -1018,10 +976,7 @@ impl App {
             self.event_tracker
                 .scan_all_lines(&self.log_buffer, self.highlighter.events());
         }
-        if let Some(line_index) = self
-            .log_buffer
-            .viewport_to_log_index(self.viewport.selected_line)
-        {
+        if let Some(line_index) = self.log_buffer.viewport_to_log_index(self.viewport.selected_line) {
             self.event_tracker.select_nearest_event(line_index);
         }
         self.set_view_state(ViewState::EventsView);
@@ -1034,10 +989,7 @@ impl App {
     }
 
     pub fn activate_marks_view(&mut self) {
-        if let Some(line_index) = self
-            .log_buffer
-            .viewport_to_log_index(self.viewport.selected_line)
-        {
+        if let Some(line_index) = self.log_buffer.viewport_to_log_index(self.viewport.selected_line) {
             self.marking.select_nearest_mark(line_index);
         } else {
             self.marking.reset_view();
@@ -1053,9 +1005,7 @@ impl App {
                 let marks = self.marking.get_filtered_marks();
                 let merged_items = EventMarkView::merge(&events, &marks, true);
 
-                if let Some(EventOrMark::Mark(mark)) =
-                    merged_items.get(self.event_tracker.selected_index())
-                {
+                if let Some(EventOrMark::Mark(mark)) = merged_items.get(self.event_tracker.selected_index()) {
                     if let Some(name) = &mark.name {
                         self.input = Input::new(name.clone());
                     } else {
@@ -1091,9 +1041,7 @@ impl App {
         if self.view_state == ViewState::SelectionMode {
             if let Some((start, end)) = self.get_selection_range() {
                 let log_indices: Vec<usize> = (start..=end)
-                    .filter_map(|viewport_line| {
-                        self.log_buffer.viewport_to_log_index(viewport_line)
-                    })
+                    .filter_map(|viewport_line| self.log_buffer.viewport_to_log_index(viewport_line))
                     .collect();
 
                 if log_indices.is_empty() {
@@ -1115,10 +1063,7 @@ impl App {
                     }
                 }
             }
-        } else if let Some(line_index) = self
-            .log_buffer
-            .viewport_to_log_index(self.viewport.selected_line)
-        {
+        } else if let Some(line_index) = self.log_buffer.viewport_to_log_index(self.viewport.selected_line) {
             self.marking.toggle_mark(line_index);
         }
     }
@@ -1153,9 +1098,7 @@ impl App {
     }
 
     pub fn mark_next(&mut self) {
-        if let Some(line_index) = self
-            .log_buffer
-            .viewport_to_log_index(self.viewport.selected_line)
+        if let Some(line_index) = self.log_buffer.viewport_to_log_index(self.viewport.selected_line)
             && let Some(next_line) = self.marking.get_next_mark(line_index)
         {
             self.viewport.push_history(next_line);
@@ -1164,9 +1107,7 @@ impl App {
     }
 
     pub fn mark_previous(&mut self) {
-        if let Some(line_index) = self
-            .log_buffer
-            .viewport_to_log_index(self.viewport.selected_line)
+        if let Some(line_index) = self.log_buffer.viewport_to_log_index(self.viewport.selected_line)
             && let Some(prev_line) = self.marking.get_previous_mark(line_index)
         {
             self.viewport.push_history(prev_line);
@@ -1175,9 +1116,7 @@ impl App {
     }
 
     pub fn event_next(&mut self) {
-        if let Some(line_index) = self
-            .log_buffer
-            .viewport_to_log_index(self.viewport.selected_line)
+        if let Some(line_index) = self.log_buffer.viewport_to_log_index(self.viewport.selected_line)
             && let Some(next_event_line) = self.event_tracker.get_next_event(line_index)
             && let Some(active_line) = self.log_buffer.find_line(next_event_line)
         {
@@ -1187,9 +1126,7 @@ impl App {
     }
 
     pub fn event_previous(&mut self) {
-        if let Some(line_index) = self
-            .log_buffer
-            .viewport_to_log_index(self.viewport.selected_line)
+        if let Some(line_index) = self.log_buffer.viewport_to_log_index(self.viewport.selected_line)
             && let Some(prev_event_line) = self.event_tracker.get_previous_event(line_index)
             && let Some(active_line) = self.log_buffer.find_line(prev_event_line)
         {
@@ -1214,9 +1151,7 @@ impl App {
 
     pub fn scroll_right(&mut self) {
         let (start, end) = self.viewport.visible();
-        let max_line_length = self
-            .log_buffer
-            .get_lines_max_length(Interval::Range(start, end));
+        let max_line_length = self.log_buffer.get_lines_max_length(Interval::Range(start, end));
         self.viewport.scroll_right(max_line_length);
     }
 
@@ -1305,14 +1240,12 @@ impl App {
 
     pub fn toggle_event_filter(&mut self) {
         self.event_tracker.toggle_selected_filter();
-        self.event_tracker
-            .select_nearest_event(self.viewport.selected_line);
+        self.event_tracker.select_nearest_event(self.viewport.selected_line);
     }
 
     pub fn toggle_all_event_filters(&mut self) {
         self.event_tracker.toggle_all_filters();
-        self.event_tracker
-            .select_nearest_event(self.viewport.selected_line);
+        self.event_tracker.select_nearest_event(self.viewport.selected_line);
     }
 
     pub fn toggle_events_show_marks(&mut self) {
@@ -1419,13 +1352,8 @@ impl App {
 
     /// Gets the selection range, ensuring start <= end.
     pub fn get_selection_range(&self) -> Option<(usize, usize)> {
-        self.selection_range.map(|(start, end)| {
-            if start <= end {
-                (start, end)
-            } else {
-                (end, start)
-            }
-        })
+        self.selection_range
+            .map(|(start, end)| if start <= end { (start, end) } else { (end, start) })
     }
 
     /// Copies the selected lines to the clipboard.

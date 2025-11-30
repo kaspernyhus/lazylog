@@ -16,10 +16,7 @@ pub struct Mark {
 impl Mark {
     /// Creates a new mark without a name.
     pub fn new(line_index: usize) -> Self {
-        Self {
-            name: None,
-            line_index,
-        }
+        Self { name: None, line_index }
     }
     pub fn new_with_name(line_index: usize, name: &str) -> Self {
         Self {
@@ -63,10 +60,7 @@ impl Marking {
 
     /// Toggles the mark status of a log line.
     pub fn toggle_mark(&mut self, line_index: usize) {
-        match self
-            .marks
-            .binary_search_by_key(&line_index, |mark| mark.line_index)
-        {
+        match self.marks.binary_search_by_key(&line_index, |mark| mark.line_index) {
             Ok(pos) => {
                 self.marks.remove(pos);
             }
@@ -80,21 +74,14 @@ impl Marking {
 
     /// Sets or updates the name of an existing mark.
     pub fn set_mark_name(&mut self, line_index: usize, name: &str) {
-        if let Some(mark) = self
-            .marks
-            .iter_mut()
-            .find(|mark| mark.line_index == line_index)
-        {
+        if let Some(mark) = self.marks.iter_mut().find(|mark| mark.line_index == line_index) {
             mark.set_name(name);
         }
     }
 
     /// Unmarks a log line.
     pub fn unmark(&mut self, line_index: usize) {
-        if let Ok(pos) = self
-            .marks
-            .binary_search_by_key(&line_index, |mark| mark.line_index)
-        {
+        if let Ok(pos) = self.marks.binary_search_by_key(&line_index, |mark| mark.line_index) {
             self.marks.remove(pos);
             let count = self.get_filtered_marks().len();
             self.view.set_item_count(count);
@@ -102,11 +89,7 @@ impl Marking {
     }
 
     /// Creates marks for all lines matching the given pattern (case-insensitive).
-    pub fn create_marks_from_pattern<'a>(
-        &mut self,
-        pattern: &str,
-        lines: impl Iterator<Item = &'a LogLine>,
-    ) {
+    pub fn create_marks_from_pattern<'a>(&mut self, pattern: &str, lines: impl Iterator<Item = &'a LogLine>) {
         if pattern.is_empty() {
             return;
         }
@@ -119,9 +102,7 @@ impl Marking {
         let new_marks: Vec<Mark> = lines_vec
             .par_iter()
             .filter_map(|log_line| {
-                if contains_ignore_case(log_line.content(), &pattern_str)
-                    && !marked_set.contains(&log_line.index)
-                {
+                if contains_ignore_case(log_line.content(), &pattern_str) && !marked_set.contains(&log_line.index) {
                     Some(Mark::new_with_name(log_line.index, &pattern_str))
                 } else {
                     None
@@ -213,11 +194,7 @@ impl Marking {
             Err(idx) => {
                 let dist_before = line_index - active_marks[idx - 1].line_index;
                 let dist_after = active_marks[idx].line_index - line_index;
-                if dist_before <= dist_after {
-                    idx - 1
-                } else {
-                    idx
-                }
+                if dist_before <= dist_after { idx - 1 } else { idx }
             }
         };
 

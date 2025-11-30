@@ -19,11 +19,7 @@ pub struct Search {
 
 impl Search {
     /// Applies a search pattern and updates matches.
-    pub fn apply_pattern<'a>(
-        &mut self,
-        pattern: &str,
-        lines: impl Iterator<Item = &'a str>,
-    ) -> Option<usize> {
+    pub fn apply_pattern<'a>(&mut self, pattern: &str, lines: impl Iterator<Item = &'a str>) -> Option<usize> {
         if pattern.is_empty() {
             return None;
         }
@@ -114,11 +110,7 @@ impl Search {
         }
 
         // Find the first match after the current line
-        if let Some(next_index) = self
-            .match_indices
-            .iter()
-            .position(|&pos| pos > current_line)
-        {
+        if let Some(next_index) = self.match_indices.iter().position(|&pos| pos > current_line) {
             self.current_match_index = next_index;
             Some(self.match_indices[self.current_match_index])
         } else {
@@ -138,11 +130,7 @@ impl Search {
         }
 
         // Find the first match at or after the current line
-        if let Some(next_index) = self
-            .match_indices
-            .iter()
-            .position(|&pos| pos >= current_line)
-        {
+        if let Some(next_index) = self.match_indices.iter().position(|&pos| pos >= current_line) {
             self.current_match_index = next_index;
             Some(self.match_indices[self.current_match_index])
         } else {
@@ -162,11 +150,7 @@ impl Search {
         }
 
         // Find the last match before the current line
-        if let Some(prev_index) = self
-            .match_indices
-            .iter()
-            .rposition(|&pos| pos < current_line)
-        {
+        if let Some(prev_index) = self.match_indices.iter().rposition(|&pos| pos < current_line) {
             self.current_match_index = prev_index;
             Some(self.match_indices[self.current_match_index])
         } else {

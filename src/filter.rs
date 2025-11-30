@@ -36,12 +36,7 @@ pub struct FilterPattern {
 
 impl FilterPattern {
     /// Creates a new filter pattern.
-    pub fn new(
-        pattern: String,
-        mode: ActiveFilterMode,
-        case_sensitive: bool,
-        enabled: bool,
-    ) -> Self {
+    pub fn new(pattern: String, mode: ActiveFilterMode, case_sensitive: bool, enabled: bool) -> Self {
         Self {
             pattern,
             mode,
@@ -133,9 +128,11 @@ impl FilterList {
         let selected = self.view.selected_index();
         if selected < self.patterns.len() {
             let selected_mode = self.patterns[selected].mode;
-            let duplicate_exists = self.patterns.iter().enumerate().any(|(idx, fp)| {
-                idx != selected && fp.pattern == new_pattern && fp.mode == selected_mode
-            });
+            let duplicate_exists = self
+                .patterns
+                .iter()
+                .enumerate()
+                .any(|(idx, fp)| idx != selected && fp.pattern == new_pattern && fp.mode == selected_mode);
 
             if !duplicate_exists {
                 self.patterns[selected].pattern = new_pattern.to_string();
@@ -154,9 +151,7 @@ impl FilterList {
     }
 
     fn pattern_exists(&self, pattern: &str, mode: ActiveFilterMode) -> bool {
-        self.patterns
-            .iter()
-            .any(|fp| fp.pattern == pattern && fp.mode == mode)
+        self.patterns.iter().any(|fp| fp.pattern == pattern && fp.mode == mode)
     }
 }
 
@@ -238,12 +233,7 @@ impl Filter {
     /// Adds a new filter pattern if it doesn't already exist.
     pub fn add_filter_from_pattern(&mut self, pattern: &str) {
         if !pattern.is_empty() && !self.filter_list.pattern_exists(pattern, self.filter_mode) {
-            let new_filter = FilterPattern::new(
-                pattern.to_string(),
-                self.filter_mode,
-                self.case_sensitive,
-                true,
-            );
+            let new_filter = FilterPattern::new(pattern.to_string(), self.filter_mode, self.case_sensitive, true);
 
             self.filter_list.add_pattern(&new_filter);
 
@@ -257,10 +247,7 @@ impl Filter {
 
     /// Add a FilterPattern
     pub fn add_filter(&mut self, filter: &FilterPattern) {
-        if !self
-            .filter_list
-            .pattern_exists(&filter.pattern, filter.mode)
-        {
+        if !self.filter_list.pattern_exists(&filter.pattern, filter.mode) {
             self.filter_list.add_pattern(filter);
 
             self.history.add(FilterHistoryEntry {
@@ -363,11 +350,7 @@ pub fn apply_filters(content: &str, filter_patterns: &[FilterPattern]) -> bool {
         }
     }
 
-    if has_include_filters {
-        include_matched
-    } else {
-        true
-    }
+    if has_include_filters { include_matched } else { true }
 }
 
 #[cfg(test)]
@@ -466,10 +449,7 @@ mod tests {
         let success = filter.update_selected_pattern("ERROR");
         assert!(success); // Should succeed because mode is different
         assert_eq!(filter.get_filter_patterns()[1].pattern, "ERROR");
-        assert_eq!(
-            filter.get_filter_patterns()[1].mode,
-            ActiveFilterMode::Exclude
-        );
+        assert_eq!(filter.get_filter_patterns()[1].mode, ActiveFilterMode::Exclude);
     }
 
     #[test]

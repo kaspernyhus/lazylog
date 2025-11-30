@@ -3,8 +3,7 @@ use ratatui::layout::{Alignment, Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::Line;
 use ratatui::widgets::{
-    Block, Borders, Clear, List, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState,
-    StatefulWidget, Widget,
+    Block, Borders, Clear, List, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Widget,
 };
 use std::cell::Cell;
 
@@ -114,11 +113,7 @@ impl Help {
         // LogView section
         help_items.push(HelpItem::new_empty());
         help_items.push(HelpItem::new_header("LogView", None));
-        self.add_context_bindings(
-            &mut help_items,
-            registry,
-            &KeybindingContext::View(ViewState::LogView),
-        );
+        self.add_context_bindings(&mut help_items, registry, &KeybindingContext::View(ViewState::LogView));
         help_items.push(HelpItem::new(
             "y",
             Command::CopySelection.description(),
@@ -237,11 +232,7 @@ impl Help {
                 continue;
             }
 
-            help_items.push(HelpItem::new(
-                &key,
-                command.description(),
-                HelpItemType::Keybind,
-            ));
+            help_items.push(HelpItem::new(&key, command.description(), HelpItemType::Keybind));
         }
     }
 
@@ -388,11 +379,9 @@ impl Help {
         self.help_items
             .iter()
             .map(|item| match item.item_type {
-                HelpItemType::Header => Line::from(item.key.clone()).style(
-                    Style::default()
-                        .fg(HELP_HEADER_FG)
-                        .add_modifier(Modifier::BOLD),
-                ),
+                HelpItemType::Header => {
+                    Line::from(item.key.clone()).style(Style::default().fg(HELP_HEADER_FG).add_modifier(Modifier::BOLD))
+                }
                 HelpItemType::Empty => Line::from(""),
                 HelpItemType::Keybind => {
                     let formatted = format!("{:<15} {}", item.key, item.description);
@@ -431,11 +420,7 @@ impl Help {
 
         StatefulWidget::render(help_list, help_area, buf, &mut list_state);
 
-        let selectable_count = self
-            .help_items
-            .iter()
-            .filter(|item| item.is_selectable())
-            .count();
+        let selectable_count = self.help_items.iter().filter(|item| item.is_selectable()).count();
         let selectable_position = self.help_items[..=self.selected_index]
             .iter()
             .filter(|item| item.is_selectable())

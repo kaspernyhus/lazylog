@@ -137,10 +137,7 @@ impl LiveProcessorHandle {
             processor.run().await;
         });
 
-        Self {
-            input_tx,
-            context_tx,
-        }
+        Self { input_tx, context_tx }
     }
 
     pub fn update_context(&self, context: ProcessingContext) {

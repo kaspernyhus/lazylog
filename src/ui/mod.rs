@@ -20,12 +20,8 @@ const MAX_PATH_LENGTH: usize = 60;
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let [top, middle, bottom] = Layout::vertical([
-            Constraint::Length(1),
-            Constraint::Fill(1),
-            Constraint::Length(1),
-        ])
-        .areas(area);
+        let [top, middle, bottom] =
+            Layout::vertical([Constraint::Length(1), Constraint::Fill(1), Constraint::Length(1)]).areas(area);
 
         let [log_view_area, scrollbar_area] =
             Layout::horizontal([Constraint::Fill(1), Constraint::Length(1)]).areas(middle);

@@ -121,10 +121,7 @@ impl EventHandler {
     /// error occurs in the event thread. In practice, this should not happen unless there is a
     /// problem with the underlying terminal.
     pub async fn next(&mut self) -> color_eyre::Result<Event> {
-        self.receiver
-            .recv()
-            .await
-            .ok_or_eyre("Failed to receive event")
+        self.receiver.recv().await.ok_or_eyre("Failed to receive event")
     }
 
     /// Queue an app event to be sent to the event receiver.

@@ -116,11 +116,7 @@ impl LogBuffer {
                     // par_iter needs to call the stand alone apply_filters function to be thread safe
                     let passes_text_filter = apply_filters(&log_line.content, filter_patterns);
 
-                    if passes_text_filter {
-                        Some(index)
-                    } else {
-                        None
-                    }
+                    if passes_text_filter { Some(index) } else { None }
                 })
                 .collect();
         }

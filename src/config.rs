@@ -235,12 +235,7 @@ impl Config {
                     PatternMatchType::Plain(true)
                 };
 
-                HighlightPattern::new(
-                    &ev_config.pattern,
-                    match_type,
-                    style,
-                    Some(ev_config.name.clone()),
-                )
+                HighlightPattern::new(&ev_config.pattern, match_type, style, Some(ev_config.name.clone()))
             })
             .collect()
     }

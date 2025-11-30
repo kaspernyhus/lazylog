@@ -10,9 +10,7 @@ pub struct CompletionEngine {
 
 impl CompletionEngine {
     pub fn new() -> Self {
-        Self {
-            words: HashSet::new(),
-        }
+        Self { words: HashSet::new() }
     }
 
     /// Extracts all unique words from the provided log lines.
@@ -41,11 +39,7 @@ impl CompletionEngine {
             return None;
         }
 
-        let mut matches: Vec<&String> = self
-            .words
-            .iter()
-            .filter(|word| word.starts_with(prefix))
-            .collect();
+        let mut matches: Vec<&String> = self.words.iter().filter(|word| word.starts_with(prefix)).collect();
 
         matches.sort();
 

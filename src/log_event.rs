@@ -32,9 +32,7 @@ pub struct EventFilterList {
 
 impl EventFilterList {
     pub fn add_event_name(&mut self, event_name: &str) {
-        self.event_filters
-            .entry(event_name.to_string())
-            .or_insert(true);
+        self.event_filters.entry(event_name.to_string()).or_insert(true);
         self.filter_view.set_item_count(self.event_filters.len());
     }
 
@@ -104,10 +102,7 @@ impl EventCounter {
     fn new_count(&mut self, events: &[LogEvent]) {
         self.event_counts = HashMap::new();
         for event in events {
-            *self
-                .event_counts
-                .entry(event.event_name.clone())
-                .or_insert(0) += 1;
+            *self.event_counts.entry(event.event_name.clone()).or_insert(0) += 1;
         }
     }
 
@@ -169,11 +164,7 @@ impl LogEventTracker {
     /// Checks a single line for event matches and adds it if it matches.
     ///
     /// Returns true if an event was added and should be selected in the events list
-    pub fn scan_single_line(
-        &mut self,
-        log_line: &LogLine,
-        event_patterns: &[HighlightPattern],
-    ) -> bool {
+    pub fn scan_single_line(&mut self, log_line: &LogLine, event_patterns: &[HighlightPattern]) -> bool {
         let new_event = self.scan_lines(once(log_line), event_patterns);
 
         if new_event.is_empty() {
@@ -243,8 +234,7 @@ impl LogEventTracker {
         self.events
             .iter()
             .filter(|event| {
-                self.event_filter.is_enabled(&event.event_name)
-                    && self.active_lines.contains(&event.line_index)
+                self.event_filter.is_enabled(&event.event_name) && self.active_lines.contains(&event.line_index)
             })
             .collect()
     }
@@ -304,11 +294,7 @@ impl LogEventTracker {
             Err(idx) => {
                 let dist_before = line_index - filtered[idx - 1].line_index;
                 let dist_after = filtered[idx].line_index - line_index;
-                Some(if dist_before <= dist_after {
-                    idx - 1
-                } else {
-                    idx
-                })
+                Some(if dist_before <= dist_after { idx - 1 } else { idx })
             }
         }
     }
@@ -794,10 +780,7 @@ mod tests {
         tracker.toggle_selected_filter();
 
         let updated_filters = tracker.get_event_filters();
-        let toggled_filter = updated_filters
-            .iter()
-            .find(|f| f.name == first_filter_name)
-            .unwrap();
+        let toggled_filter = updated_filters.iter().find(|f| f.name == first_filter_name).unwrap();
         assert!(!toggled_filter.enabled);
     }
 
@@ -842,10 +825,7 @@ mod tests {
 
         // Should be sorted by count descending: error(2), info(2), warning(1)
         assert_eq!(filters.len(), 3);
-        let counts: Vec<_> = filters
-            .iter()
-            .map(|f| tracker.get_event_count(&f.name))
-            .collect();
+        let counts: Vec<_> = filters.iter().map(|f| tracker.get_event_count(&f.name)).collect();
         assert!(counts[0] >= counts[1]);
         assert!(counts[1] >= counts[2]);
     }

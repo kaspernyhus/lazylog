@@ -38,11 +38,7 @@ pub struct EventMarkView;
 impl EventMarkView {
     /// Merges events and marks into a single sorted vector.
     /// Both input slices must be sorted by line_index.
-    pub fn merge<'a>(
-        events: &[&'a LogEvent],
-        marks: &[&'a Mark],
-        show_marks: bool,
-    ) -> Vec<EventOrMark<'a>> {
+    pub fn merge<'a>(events: &[&'a LogEvent], marks: &[&'a Mark], show_marks: bool) -> Vec<EventOrMark<'a>> {
         if !show_marks {
             return events.iter().map(|&e| EventOrMark::Event(e)).collect();
         }

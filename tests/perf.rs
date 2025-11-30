@@ -1,6 +1,4 @@
-use lazylog::highlighter::{
-    HighlightPattern, Highlighter, PatternMatchType, PatternStyle, PlainMatch,
-};
+use lazylog::highlighter::{HighlightPattern, Highlighter, PatternMatchType, PatternStyle, PlainMatch};
 use lazylog::options::{AppOption, AppOptions};
 use ratatui::style::Color;
 use regex::Regex;
@@ -86,9 +84,7 @@ fn perf_highlight_line_cache_hit() {
     let iterations = 10000;
     let avg_time_max = 600;
 
-    let avg_time = measure_time(iterations, || {
-        highlighter.highlight_line(SAMPLE_LOG_LINE, 0, true)
-    });
+    let avg_time = measure_time(iterations, || highlighter.highlight_line(SAMPLE_LOG_LINE, 0, true));
 
     println!("Highlight line (cache hit): {} ns/iteration", avg_time);
 

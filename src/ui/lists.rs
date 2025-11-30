@@ -1,9 +1,8 @@
 use crate::app::App;
 use crate::colors::{
-    EVENT_LINE_PREVIEW, EVENT_LIST_BG, EVENT_LIST_HIGHLIGHT_BG, EVENT_NAME_FG, FILTER_DISABLED_FG,
-    FILTER_ENABLED_FG, FILTER_LIST_HIGHLIGHT_BG, FILTER_MODE_BG, MARK_INDICATOR_COLOR,
-    MARK_LINE_PREVIEW, MARK_LIST_HIGHLIGHT_BG, MARK_MODE_BG, MARK_NAME_FG, OPTION_DISABLED_FG,
-    OPTION_ENABLED_FG, RIGHT_ARROW, WHITE_COLOR,
+    EVENT_LINE_PREVIEW, EVENT_LIST_BG, EVENT_LIST_HIGHLIGHT_BG, EVENT_NAME_FG, FILTER_DISABLED_FG, FILTER_ENABLED_FG,
+    FILTER_LIST_HIGHLIGHT_BG, FILTER_MODE_BG, MARK_INDICATOR_COLOR, MARK_LINE_PREVIEW, MARK_LIST_HIGHLIGHT_BG,
+    MARK_MODE_BG, MARK_NAME_FG, OPTION_DISABLED_FG, OPTION_ENABLED_FG, RIGHT_ARROW, WHITE_COLOR,
 };
 use crate::event_mark_view::EventMarkView;
 use crate::filter::ActiveFilterMode;
@@ -13,9 +12,7 @@ use ratatui::{
     layout::{Alignment, Rect},
     style::{Modifier, Style, Stylize},
     text::{Line, Span},
-    widgets::{
-        Block, BorderType, Borders, Clear, List, ListState, Paragraph, StatefulWidget, Widget,
-    },
+    widgets::{Block, BorderType, Borders, Clear, List, ListState, Paragraph, StatefulWidget, Widget},
 };
 
 impl App {
@@ -165,11 +162,7 @@ impl App {
         }
 
         // Calculate max name length from merged items
-        let max_name_length = list_items
-            .iter()
-            .map(|item| item.name().len())
-            .max()
-            .unwrap_or(0);
+        let max_name_length = list_items.iter().map(|item| item.name().len()).max().unwrap_or(0);
 
         let inner_area = block.inner(area);
         let list_area_width = inner_area.width.saturating_sub(1);
@@ -228,8 +221,7 @@ impl App {
             )
             .render(area, buf, block);
 
-        self.event_tracker
-            .set_viewport_height(list_area.height as usize);
+        self.event_tracker.set_viewport_height(list_area.height as usize);
     }
 
     pub(super) fn render_event_filter_popup(&self, area: Rect, buf: &mut Buffer) {
@@ -278,8 +270,7 @@ impl App {
             .highlight_style(Style::default().add_modifier(Modifier::BOLD))
             .render(area, buf, block);
 
-        self.event_tracker
-            .set_filter_viewport_height(list_area.height as usize);
+        self.event_tracker.set_filter_viewport_height(list_area.height as usize);
     }
 
     pub(super) fn render_marks_list(&self, area: Rect, buf: &mut Buffer) {
@@ -340,9 +331,7 @@ impl App {
                         Span::raw(padding),
                         Span::styled(
                             name.clone(),
-                            Style::default()
-                                .fg(MARK_NAME_FG)
-                                .add_modifier(Modifier::BOLD),
+                            Style::default().fg(MARK_NAME_FG).add_modifier(Modifier::BOLD),
                         ),
                         Span::raw(" "),
                         Span::styled(preview, Style::default().fg(MARK_LINE_PREVIEW)),
@@ -363,17 +352,10 @@ impl App {
             .collect();
 
         let (list_area, _) = ScrollableList::new(items)
-            .selection(
-                self.marking.selected_index(),
-                self.marking.viewport_offset(),
-            )
+            .selection(self.marking.selected_index(), self.marking.viewport_offset())
             .total_count(filtered_marks.len())
             .highlight_symbol(RIGHT_ARROW)
-            .highlight_style(
-                Style::default()
-                    .bg(MARK_LIST_HIGHLIGHT_BG)
-                    .add_modifier(Modifier::BOLD),
-            )
+            .highlight_style(Style::default().bg(MARK_LIST_HIGHLIGHT_BG).add_modifier(Modifier::BOLD))
             .render(area, buf, block);
 
         self.marking.set_viewport_height(list_area.height as usize);

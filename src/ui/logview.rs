@@ -1,7 +1,5 @@
 use crate::app::App;
-use crate::colors::{
-    MARK_INDICATOR, MARK_INDICATOR_COLOR, RIGHT_ARROW, SCROLLBAR_FG, SELECTION_BG,
-};
+use crate::colors::{MARK_INDICATOR, MARK_INDICATOR_COLOR, RIGHT_ARROW, SCROLLBAR_FG, SELECTION_BG};
 use crate::highlighter::HighlightedLine;
 use crate::log::Interval;
 use crate::options::AppOption;
@@ -37,12 +35,7 @@ impl App {
         let viewport_lines: Vec<(&str, usize)> = self
             .log_buffer
             .get_active_lines_iter(Interval::Range(start, end))
-            .map(|log_line| {
-                (
-                    self.options.apply_to_line(log_line.content()),
-                    log_line.index,
-                )
-            })
+            .map(|log_line| (self.options.apply_to_line(log_line.content()), log_line.index))
             .collect();
 
         let items: Vec<Line> = viewport_lines
@@ -61,13 +54,7 @@ impl App {
                 } else {
                     false
                 };
-                self.process_line(
-                    line,
-                    text,
-                    self.viewport.horizontal_offset,
-                    is_marked,
-                    is_selected,
-                )
+                self.process_line(line, text, self.viewport.horizontal_offset, is_marked, is_selected)
             })
             .collect();
 
@@ -94,9 +81,7 @@ impl App {
     ) -> Line<'a> {
         let enable_colors = !self.options.is_enabled(AppOption::DisableColors);
 
-        let highlighted = self
-            .highlighter
-            .highlight_line(full_line, line_offset, enable_colors);
+        let highlighted = self.highlighter.highlight_line(full_line, line_offset, enable_colors);
 
         let mark_indicator = if is_marked {
             Span::styled(MARK_INDICATOR, Style::default().fg(MARK_INDICATOR_COLOR))
@@ -125,10 +110,7 @@ impl App {
 }
 
 /// Builds a styled Line from a HighlightedLine.
-pub(super) fn build_line_from_highlighted<'a>(
-    content: &'a str,
-    highlighted: HighlightedLine,
-) -> Line<'a> {
+pub(super) fn build_line_from_highlighted<'a>(content: &'a str, highlighted: HighlightedLine) -> Line<'a> {
     // Build spans from segments
     let mut spans = Vec::new();
     let mut pos = 0;

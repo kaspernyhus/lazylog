@@ -3,10 +3,7 @@ use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::Style,
     text::Line,
-    widgets::{
-        Block, List, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget,
-        Widget,
-    },
+    widgets::{Block, List, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Widget},
 };
 
 /// Helper for rendering a scrollable list with a scrollbar.
@@ -59,12 +56,7 @@ impl<'a> ScrollableList<'a> {
 
     /// Renders the list with a scrollbar into the given area.
     /// Returns the list_area and scrollbar_area for custom rendering if needed.
-    pub fn render(
-        self,
-        area: Rect,
-        buf: &mut Buffer,
-        block: Block<'a>,
-    ) -> (Rect, Rect) {
+    pub fn render(self, area: Rect, buf: &mut Buffer, block: Block<'a>) -> (Rect, Rect) {
         let inner_area = block.inner(area);
 
         let [list_area, scrollbar_area] =

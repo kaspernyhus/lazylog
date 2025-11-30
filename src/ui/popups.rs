@@ -33,14 +33,7 @@ pub fn popup_area(area: Rect, width: u16, height: u16) -> Rect {
 
 impl App {
     /// Renders a centered popup that adapts to content size.
-    pub(super) fn render_popup(
-        &self,
-        message: &str,
-        title: &str,
-        title_color: Color,
-        area: Rect,
-        buf: &mut Buffer,
-    ) {
+    pub(super) fn render_popup(&self, message: &str, title: &str, title_color: Color, area: Rect, buf: &mut Buffer) {
         let lines: Vec<&str> = message.split('\n').collect();
         let max_line_width = lines.iter().map(|line| line.len()).max().unwrap_or(0);
 
@@ -65,9 +58,7 @@ impl App {
             .border_style(Style::default().fg(border_color))
             .padding(Padding::uniform(1));
 
-        let popup = Paragraph::new(message)
-            .block(block)
-            .alignment(Alignment::Center);
+        let popup = Paragraph::new(message).block(block).alignment(Alignment::Center);
 
         popup.render(popup_area, buf);
     }

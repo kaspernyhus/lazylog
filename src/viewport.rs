@@ -80,8 +80,7 @@ impl Viewport {
     pub fn page_down(&mut self) {
         if self.selected_line + 1 < self.total_lines {
             let page_size = self.height.saturating_sub(1);
-            self.selected_line =
-                (self.selected_line + page_size).min(self.total_lines.saturating_sub(1));
+            self.selected_line = (self.selected_line + page_size).min(self.total_lines.saturating_sub(1));
             self.adjust_visible();
             self.center_selected();
         }
@@ -187,8 +186,7 @@ impl Viewport {
     pub fn scroll_right(&mut self, max_line_length: usize) {
         if max_line_length > self.width {
             let scroll_amount = self.width / 2;
-            self.horizontal_offset =
-                (self.horizontal_offset + scroll_amount).min(max_line_length - self.width / 2);
+            self.horizontal_offset = (self.horizontal_offset + scroll_amount).min(max_line_length - self.width / 2);
         }
     }
 

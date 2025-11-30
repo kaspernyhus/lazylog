@@ -20,9 +20,7 @@ pub struct KeybindingRegistry {
 impl KeybindingRegistry {
     /// Creates a new keybinding registry with all default bindings.
     pub fn new() -> Self {
-        let mut registry = Self {
-            bindings: Vec::new(),
-        };
+        let mut registry = Self { bindings: Vec::new() };
 
         registry.register_log_view_bindings();
         registry.register_selection_mode_bindings();
@@ -52,10 +50,8 @@ impl KeybindingRegistry {
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::EventsFilter));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::MarkName));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::SaveToFile));
-        registry
-            .register_global_bindings(KeybindingContext::Overlay(Overlay::Message(String::new())));
-        registry
-            .register_global_bindings(KeybindingContext::Overlay(Overlay::Error(String::new())));
+        registry.register_global_bindings(KeybindingContext::Overlay(Overlay::Message(String::new())));
+        registry.register_global_bindings(KeybindingContext::Overlay(Overlay::Error(String::new())));
 
         registry
     }
@@ -68,19 +64,12 @@ impl KeybindingRegistry {
         bindings
             .iter()
             .find(|((context, kcode, kmod), _)| {
-                context == expected_context
-                    && *kcode == key_event.code
-                    && *kmod == key_event.modifiers
+                context == expected_context && *kcode == key_event.code && *kmod == key_event.modifiers
             })
             .map(|(_, cmd)| *cmd)
     }
 
-    pub fn lookup(
-        &self,
-        view_state: &ViewState,
-        overlay: &Option<Overlay>,
-        key_event: KeyEvent,
-    ) -> Option<Command> {
+    pub fn lookup(&self, view_state: &ViewState, overlay: &Option<Overlay>, key_event: KeyEvent) -> Option<Command> {
         // Check for overlay specific bindings if an overlay is active
         if let Some(ov) = overlay {
             return Self::find_cmd(
@@ -91,11 +80,7 @@ impl KeybindingRegistry {
         }
 
         // Check for bindings relating to views
-        Self::find_cmd(
-            &self.bindings,
-            &KeybindingContext::View(view_state.clone()),
-            key_event,
-        )
+        Self::find_cmd(&self.bindings, &KeybindingContext::View(view_state.clone()), key_event)
     }
 
     // Replace the string with empty one to be able to match on the enum value
@@ -108,10 +93,7 @@ impl KeybindingRegistry {
     }
 
     /// Returns all keybindings for a specific context, grouped and sorted.
-    pub fn get_keybindings_for_context(
-        &self,
-        target_context: &KeybindingContext,
-    ) -> Vec<(String, Command)> {
+    pub fn get_keybindings_for_context(&self, target_context: &KeybindingContext) -> Vec<(String, Command)> {
         let bindings: Vec<(String, Command)> = self
             .bindings
             .iter()
@@ -158,13 +140,7 @@ impl KeybindingRegistry {
     }
 
     /// Helper to register a single keybinding.
-    fn bind(
-        &mut self,
-        context: KeybindingContext,
-        keycode: KeyCode,
-        modifiers: KeyModifiers,
-        command: Command,
-    ) {
+    fn bind(&mut self, context: KeybindingContext, keycode: KeyCode, modifiers: KeyModifiers, command: Command) {
         self.bindings.push(((context, keycode, modifiers), command));
     }
 
@@ -208,16 +184,8 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::Right, Command::ScrollRight);
         self.bind_simple(context.clone(), KeyCode::Char('h'), Command::ScrollLeft);
         self.bind_simple(context.clone(), KeyCode::Char('l'), Command::ScrollRight);
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char('0'),
-            Command::ResetHorizontal,
-        );
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char('/'),
-            Command::ActivateActiveSearchMode,
-        );
+        self.bind_simple(context.clone(), KeyCode::Char('0'), Command::ResetHorizontal);
+        self.bind_simple(context.clone(), KeyCode::Char('/'), Command::ActivateActiveSearchMode);
         self.bind(
             context.clone(),
             KeyCode::Char('f'),
@@ -226,52 +194,20 @@ impl KeybindingRegistry {
         );
         self.bind_simple(context.clone(), KeyCode::Char('n'), Command::SearchNext);
         self.bind_shift(context.clone(), 'N', Command::SearchPrevious);
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char('f'),
-            Command::ActivateActiveFilterMode,
-        );
+        self.bind_simple(context.clone(), KeyCode::Char('f'), Command::ActivateActiveFilterMode);
         self.bind_shift(context.clone(), 'F', Command::ActivateFilterView);
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char(':'),
-            Command::ActivateGotoLineMode,
-        );
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char('o'),
-            Command::ActivateOptionsView,
-        );
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char('e'),
-            Command::ActivateEventsView,
-        );
+        self.bind_simple(context.clone(), KeyCode::Char(':'), Command::ActivateGotoLineMode);
+        self.bind_simple(context.clone(), KeyCode::Char('o'), Command::ActivateOptionsView);
+        self.bind_simple(context.clone(), KeyCode::Char('e'), Command::ActivateEventsView);
         self.bind_simple(context.clone(), KeyCode::Char(' '), Command::ToggleMark);
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char('m'),
-            Command::ActivateMarksView,
-        );
+        self.bind_simple(context.clone(), KeyCode::Char('m'), Command::ActivateMarksView);
         self.bind_simple(context.clone(), KeyCode::Char(']'), Command::MarkNext);
         self.bind_simple(context.clone(), KeyCode::Char('['), Command::MarkPrevious);
         self.bind_simple(context.clone(), KeyCode::Char('}'), Command::EventNext);
         self.bind_simple(context.clone(), KeyCode::Char('{'), Command::EventPrevious);
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char('c'),
-            Command::ToggleCenterCursorMode,
-        );
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char('t'),
-            Command::ToggleFollowMode,
-        );
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char('p'),
-            Command::TogglePauseMode,
-        );
+        self.bind_simple(context.clone(), KeyCode::Char('c'), Command::ToggleCenterCursorMode);
+        self.bind_simple(context.clone(), KeyCode::Char('t'), Command::ToggleFollowMode);
+        self.bind_simple(context.clone(), KeyCode::Char('p'), Command::TogglePauseMode);
         self.bind(
             context.clone(),
             KeyCode::Char('l'),
@@ -352,36 +288,16 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::Down, Command::MoveDown);
         self.bind_simple(context.clone(), KeyCode::Char('k'), Command::MoveUp);
         self.bind_simple(context.clone(), KeyCode::Char('j'), Command::MoveDown);
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char(' '),
-            Command::ToggleFilterPattern,
-        );
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Delete,
-            Command::RemoveFilterPattern,
-        );
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char('d'),
-            Command::RemoveFilterPattern,
-        );
+        self.bind_simple(context.clone(), KeyCode::Char(' '), Command::ToggleFilterPattern);
+        self.bind_simple(context.clone(), KeyCode::Delete, Command::RemoveFilterPattern);
+        self.bind_simple(context.clone(), KeyCode::Char('d'), Command::RemoveFilterPattern);
         self.bind_simple(
             context.clone(),
             KeyCode::Char('e'),
             Command::ActivateEditActiveFilterMode,
         );
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char('f'),
-            Command::ActivateActiveFilterMode,
-        );
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char('a'),
-            Command::ToggleAllFilterPatterns,
-        );
+        self.bind_simple(context.clone(), KeyCode::Char('f'), Command::ActivateActiveFilterMode);
+        self.bind_simple(context.clone(), KeyCode::Char('a'), Command::ToggleAllFilterPatterns);
         self.bind(
             context.clone(),
             KeyCode::Char('a'),
@@ -419,16 +335,8 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::Char('j'), Command::MoveDown);
         self.bind_simple(context.clone(), KeyCode::PageUp, Command::PageUp);
         self.bind_simple(context.clone(), KeyCode::PageDown, Command::PageDown);
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char(' '),
-            Command::GotoSelectedEvent,
-        );
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char('e'),
-            Command::ActivateMarkNameMode,
-        );
+        self.bind_simple(context.clone(), KeyCode::Char(' '), Command::GotoSelectedEvent);
+        self.bind_simple(context.clone(), KeyCode::Char('e'), Command::ActivateMarkNameMode);
     }
 
     fn register_event_filter_view_bindings(&mut self) {
@@ -441,16 +349,8 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::Char('j'), Command::MoveDown);
         self.bind_simple(context.clone(), KeyCode::PageUp, Command::PageUp);
         self.bind_simple(context.clone(), KeyCode::PageDown, Command::PageDown);
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char(' '),
-            Command::ToggleEventFilter,
-        );
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char('a'),
-            Command::ToggleAllEventFilters,
-        );
+        self.bind_simple(context.clone(), KeyCode::Char(' '), Command::ToggleEventFilter);
+        self.bind_simple(context.clone(), KeyCode::Char('a'), Command::ToggleAllEventFilters);
     }
 
     fn register_marks_view_bindings(&mut self) {
@@ -463,18 +363,10 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::Char('j'), Command::MoveDown);
         self.bind_simple(context.clone(), KeyCode::PageUp, Command::PageUp);
         self.bind_simple(context.clone(), KeyCode::PageDown, Command::PageDown);
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char(' '),
-            Command::GotoSelectedMark,
-        );
+        self.bind_simple(context.clone(), KeyCode::Char(' '), Command::GotoSelectedMark);
         self.bind_simple(context.clone(), KeyCode::Delete, Command::UnmarkSelected);
         self.bind_simple(context.clone(), KeyCode::Char('d'), Command::UnmarkSelected);
-        self.bind_simple(
-            context.clone(),
-            KeyCode::Char('e'),
-            Command::ActivateMarkNameMode,
-        );
+        self.bind_simple(context.clone(), KeyCode::Char('e'), Command::ActivateMarkNameMode);
         self.bind_simple(context.clone(), KeyCode::Char('c'), Command::ClearAllMarks);
         self.bind_shift(context.clone(), 'F', Command::ToggleShowMarkedOnly)
     }
