@@ -946,6 +946,17 @@ impl App {
         }
     }
 
+    pub fn goto_top(&mut self) {
+        self.viewport.goto_top();
+        self.push_viewport_line_to_history(self.viewport.selected_line);
+        self.viewport.follow_mode = false;
+    }
+
+    pub fn goto_bottom(&mut self) {
+        self.viewport.goto_bottom();
+        self.push_viewport_line_to_history(self.viewport.selected_line);
+    }
+
     pub fn activate_search_mode(&mut self) {
         self.input.reset();
         self.search.clear_matches();
@@ -1184,16 +1195,6 @@ impl App {
         if let Some(line_index) = self.log_buffer.viewport_to_log_index(viewport_line) {
             self.viewport.push_history(line_index);
         }
-    }
-
-    pub fn goto_top(&mut self) {
-        self.viewport.goto_top();
-        self.push_viewport_line_to_history(self.viewport.selected_line);
-    }
-
-    pub fn goto_bottom(&mut self) {
-        self.viewport.goto_bottom();
-        self.push_viewport_line_to_history(self.viewport.selected_line);
     }
 
     pub fn scroll_right(&mut self) {
