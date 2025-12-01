@@ -3,18 +3,14 @@ use regex::Regex;
 use std::sync::LazyLock;
 
 static ISO8601_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:?\d{2})?")
-        .unwrap()
+    Regex::new(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:?\d{2})?").unwrap()
 });
 
 static COMMON_DATETIME_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{1,9})?").unwrap());
 
 static SYSLOG_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})",
-    )
-    .unwrap()
+    Regex::new(r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})").unwrap()
 });
 
 /// Attempts to parse a timestamp from a log line using multiple common formats
@@ -51,15 +47,17 @@ fn try_iso8601(line: &str) -> Option<DateTime<Utc>> {
 
     // Handle timezone offset without colon (e.g., +0200 from journalctl)
     if let Some(tz_pos) = timestamp_str.rfind(['+', '-'])
-        && tz_pos > 0 && !timestamp_str[tz_pos..].contains(':') {
-            let mut normalized = timestamp_str.to_string();
-            if normalized.len() == tz_pos + 5 {
-                normalized.insert(tz_pos + 3, ':');
-                if let Ok(dt) = DateTime::parse_from_rfc3339(&normalized) {
-                    return Some(dt.with_timezone(&Utc));
-                }
+        && tz_pos > 0
+        && !timestamp_str[tz_pos..].contains(':')
+    {
+        let mut normalized = timestamp_str.to_string();
+        if normalized.len() == tz_pos + 5 {
+            normalized.insert(tz_pos + 3, ':');
+            if let Ok(dt) = DateTime::parse_from_rfc3339(&normalized) {
+                return Some(dt.with_timezone(&Utc));
             }
         }
+    }
 
     let formats = [
         "%Y-%m-%dT%H:%M:%S%.f",
@@ -105,10 +103,7 @@ fn try_syslog_format(line: &str) -> Option<DateTime<Utc>> {
     // add year
     let year = Utc::now().year();
 
-    let timestamp_str = format!(
-        "{} {} {} {:02}:{:02}:{:02}",
-        year, month, day, hour, minute, second
-    );
+    let timestamp_str = format!("{} {} {} {:02}:{:02}:{:02}", year, month, day, hour, minute, second);
 
     if let Ok(naive) = NaiveDateTime::parse_from_str(&timestamp_str, "%Y %b %d %H:%M:%S") {
         return Some(DateTime::from_naive_utc_and_offset(naive, Utc));

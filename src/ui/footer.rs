@@ -70,8 +70,8 @@ impl App {
                     .enumerate()
                     .map(|(file_id, path)| {
                         let path_str = path.as_str();
-                        let max_path_len = (60 - 9 * self.log_buffer.file_paths.len())
-                            / self.log_buffer.file_paths.len();
+                        let max_path_len =
+                            (60 - 9 * self.log_buffer.file_paths.len()) / self.log_buffer.file_paths.len();
                         let truncated = if path_str.len() > max_path_len {
                             format!("...{}", &path_str[path_str.len() - max_path_len..])
                         } else {

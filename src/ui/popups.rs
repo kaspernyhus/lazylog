@@ -1,5 +1,5 @@
-use crate::app::App;
 use super::colors::{MESSAGE_BORDER, MESSAGE_ERROR_FG, MESSAGE_INFO_FG, WHITE_COLOR};
+use crate::app::App;
 use ratatui::widgets::{BorderType, Padding};
 use ratatui::{
     buffer::Buffer,

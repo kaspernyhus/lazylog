@@ -54,7 +54,14 @@ impl App {
                 } else {
                     false
                 };
-                self.process_line(log_line, viewport_line, text, self.viewport.horizontal_offset, is_marked, is_selected)
+                self.process_line(
+                    log_line,
+                    viewport_line,
+                    text,
+                    self.viewport.horizontal_offset,
+                    is_marked,
+                    is_selected,
+                )
             })
             .collect();
 
