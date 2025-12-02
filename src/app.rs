@@ -1419,7 +1419,17 @@ impl App {
                         .viewport_to_log_index(viewport_line)
                         .and_then(|log_index| self.log_buffer.get_line(log_index))
                 })
-                .map(|log_line| log_line.content.clone())
+                .map(|log_line| {
+                    if self.file_manager.is_multi_file() {
+                        if let Some(file_id) = log_line.log_file_id {
+                            format!("[{}] {}", file_id + 1, log_line.content)
+                        } else {
+                            log_line.content.clone()
+                        }
+                    } else {
+                        log_line.content.clone()
+                    }
+                })
                 .collect();
 
             if !lines.is_empty() {
