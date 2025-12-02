@@ -4,6 +4,7 @@ use crate::{
     config::{Config, Filters},
     event::{AppEvent, Event, EventHandler},
     event_mark_view::{EventMarkView, EventOrMark},
+    file_manager::FileManager,
     filter::{ActiveFilterMode, Filter, FilterPattern},
     help::Help,
     highlighter::{Highlighter, PatternStyle},
@@ -46,6 +47,8 @@ pub enum ViewState {
     EventsView,
     /// View for displaying marked log lines.
     MarksView,
+    /// View for listing opened files in multi-file sessions.
+    FilesView,
     /// Visual selection mode for selecting a range of lines.
     SelectionMode,
 }
@@ -102,6 +105,8 @@ pub struct App {
     pub event_tracker: LogEventTracker,
     /// Log line marking manager
     pub marking: Marking,
+    /// File manager for multi-file sessions
+    pub file_manager: FileManager,
     /// Selection range for visual selection mode.
     selection_range: Option<(usize, usize)>,
     /// Timestamp when a message was shown.
@@ -179,6 +184,7 @@ impl App {
             streaming_paused: false,
             event_tracker: LogEventTracker::default(),
             marking: Marking::default(),
+            file_manager: FileManager::new(&args.files),
             selection_range: None,
             message_timestamp: None,
             completion: CompletionEngine::default(),
@@ -196,39 +202,42 @@ impl App {
             return app;
         }
 
-        if !args.files.is_empty() {
-            let load_result = if args.files.len() == 1 {
-                app.log_buffer.load_file(args.files[0].as_str())
-            } else {
-                app.log_buffer.load_files(&args.files)
-            };
+        if app.file_manager.count() == 0 {
+            app.show_error("No file paths");
+        }
 
-            match load_result {
-                Ok(skipped_lines) => {
-                    app.update_view();
-                    app.update_completion_words();
+        let load_result = if app.file_manager.is_multi_file() {
+            let file_paths = app.file_manager.get_paths();
+            app.log_buffer.load_files(&file_paths)
+        } else {
+            let file_path = app.file_manager.get_path();
+            app.log_buffer.load_file(file_path)
+        };
 
-                    if app.persist_enabled
-                        && let Some(state) = load_state(&app.log_buffer.file_paths)
-                    {
-                        app.restore_state(state);
-                    }
+        match load_result {
+            Ok(skipped_lines) => {
+                app.update_view();
+                app.update_completion_words();
 
-                    app.event_tracker
-                        .scan_all_lines(&app.log_buffer, app.highlighter.events());
-                    // Update active_lines cache after scanning events
-                    app.event_tracker.update_active_lines(app.log_buffer.get_active_lines());
+                if app.persist_enabled
+                    && let Some(state) = load_state(&app.log_buffer.file_paths)
+                {
+                    app.restore_state(state);
+                }
 
-                    if skipped_lines > 0 {
-                        app.show_message(format!(
+                app.event_tracker
+                    .scan_all_lines(&app.log_buffer, app.highlighter.events());
+                app.event_tracker.update_active_lines(app.log_buffer.get_active_lines());
+
+                if skipped_lines > 0 {
+                    app.show_message(format!(
                             "Warning: Failed to parse timestamps for {} line(s).\nThe line(s) will not be displayed in the correct order!",
                             skipped_lines
                         ).as_str());
-                    }
                 }
-                Err(e) => {
-                    app.show_error(format!("Failed to load file(s): {}\nError: {}", args.files.join(", "), e).as_str())
-                }
+            }
+            Err(e) => {
+                app.show_error(format!("Failed to load file(s): {}\nError: {}", args.files.join(", "), e).as_str())
             }
         }
 
@@ -815,7 +824,11 @@ impl App {
                     self.update_view();
                 }
             }
-            ViewState::FilterView | ViewState::OptionsView | ViewState::EventsView | ViewState::MarksView => {
+            ViewState::FilterView
+            | ViewState::OptionsView
+            | ViewState::EventsView
+            | ViewState::MarksView
+            | ViewState::FilesView => {
                 self.set_view_state(ViewState::LogView);
             }
         }
@@ -843,6 +856,9 @@ impl App {
             }
             ViewState::MarksView => {
                 self.marking.move_selection_up();
+            }
+            ViewState::FilesView => {
+                self.file_manager.move_selection_up();
             }
             ViewState::SelectionMode => {
                 self.viewport.move_up();
@@ -878,6 +894,9 @@ impl App {
             ViewState::MarksView => {
                 self.marking.move_selection_down();
             }
+            ViewState::FilesView => {
+                self.file_manager.move_selection_down();
+            }
             ViewState::SelectionMode => {
                 self.viewport.move_down();
                 self.viewport.follow_mode = false;
@@ -896,6 +915,9 @@ impl App {
             }
             ViewState::MarksView => {
                 self.marking.page_up();
+            }
+            ViewState::FilesView => {
+                self.file_manager.page_up();
             }
             ViewState::SelectionMode => {
                 self.viewport.page_up();
@@ -916,6 +938,9 @@ impl App {
             }
             ViewState::MarksView => {
                 self.marking.page_down();
+            }
+            ViewState::FilesView => {
+                self.file_manager.page_down();
             }
             ViewState::SelectionMode => {
                 self.viewport.page_down();
@@ -1005,6 +1030,12 @@ impl App {
             self.marking.reset_view();
         }
         self.set_view_state(ViewState::MarksView);
+    }
+
+    pub fn activate_files_view(&mut self) {
+        if self.file_manager.is_multi_file() {
+            self.set_view_state(ViewState::FilesView);
+        }
     }
 
     pub fn activate_mark_name_input_mode(&mut self) {

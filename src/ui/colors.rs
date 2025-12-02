@@ -54,6 +54,11 @@ pub const HELP_HIGHLIGHT_FG: Color = Color::LightBlue;
 pub const OPTION_ENABLED_FG: Color = Color::Green;
 pub const OPTION_DISABLED_FG: Color = Color::White;
 
+// Files
+pub const FILE_BORDER: Color = Color::Indexed(108);
+pub const FILE_ENABLED_FG: Color = Color::Green;
+pub const FILE_DISABLED_FG: Color = Color::White;
+
 // Messages
 pub const MESSAGE_INFO_FG: Color = WHITE_COLOR;
 pub const MESSAGE_BORDER: Color = Color::Blue;

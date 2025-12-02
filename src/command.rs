@@ -76,6 +76,9 @@ pub enum Command {
     MarkPrevious,
     ToggleShowMarkedOnly,
 
+    // Files
+    ActivateFilesView,
+
     // Streaming
     ToggleFollowMode,
     TogglePauseMode,
@@ -163,6 +166,9 @@ impl Command {
             Command::MarkPrevious => "Go to previous mark",
             Command::ToggleShowMarkedOnly => "Show marked lines only on/off",
 
+            // Files
+            Command::ActivateFilesView => "View files list",
+
             // Streaming
             Command::ToggleFollowMode => "Toggle follow mode (stdin)",
             Command::TogglePauseMode => "Toggle pause mode (stdin)",
@@ -249,6 +255,9 @@ impl Command {
             Command::MarkNext => app.mark_next(),
             Command::MarkPrevious => app.mark_previous(),
             Command::ToggleShowMarkedOnly => app.toggle_show_marked_only(),
+
+            // Files
+            Command::ActivateFilesView => app.activate_files_view(),
 
             // Streaming
             Command::ToggleFollowMode => app.toggle_follow_mode(),

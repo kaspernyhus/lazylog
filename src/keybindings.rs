@@ -31,6 +31,7 @@ impl KeybindingRegistry {
         registry.register_events_view_bindings();
         registry.register_event_filter_view_bindings();
         registry.register_marks_view_bindings();
+        registry.register_files_view_bindings();
         registry.register_message_state_bindings();
         registry.register_error_state_bindings();
 
@@ -43,6 +44,7 @@ impl KeybindingRegistry {
         registry.register_global_bindings(KeybindingContext::View(ViewState::OptionsView));
         registry.register_global_bindings(KeybindingContext::View(ViewState::EventsView));
         registry.register_global_bindings(KeybindingContext::View(ViewState::MarksView));
+        registry.register_global_bindings(KeybindingContext::View(ViewState::FilesView));
         registry.register_global_bindings(KeybindingContext::View(ViewState::GotoLineMode));
 
         // Register global bindings for all overlay types
@@ -201,6 +203,7 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::Char('e'), Command::ActivateEventsView);
         self.bind_simple(context.clone(), KeyCode::Char(' '), Command::ToggleMark);
         self.bind_simple(context.clone(), KeyCode::Char('m'), Command::ActivateMarksView);
+        self.bind_simple(context.clone(), KeyCode::Char('i'), Command::ActivateFilesView);
         self.bind_simple(context.clone(), KeyCode::Char(']'), Command::MarkNext);
         self.bind_simple(context.clone(), KeyCode::Char('['), Command::MarkPrevious);
         self.bind_simple(context.clone(), KeyCode::Char('}'), Command::EventNext);
@@ -369,6 +372,18 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::Char('e'), Command::ActivateMarkNameMode);
         self.bind_simple(context.clone(), KeyCode::Char('c'), Command::ClearAllMarks);
         self.bind_shift(context.clone(), 'F', Command::ToggleShowMarkedOnly)
+    }
+
+    fn register_files_view_bindings(&mut self) {
+        let context = KeybindingContext::View(ViewState::FilesView);
+
+        self.bind_simple(context.clone(), KeyCode::Char('q'), Command::Quit);
+        self.bind_simple(context.clone(), KeyCode::Up, Command::MoveUp);
+        self.bind_simple(context.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(context.clone(), KeyCode::Char('k'), Command::MoveUp);
+        self.bind_simple(context.clone(), KeyCode::Char('j'), Command::MoveDown);
+        self.bind_simple(context.clone(), KeyCode::PageUp, Command::PageUp);
+        self.bind_simple(context.clone(), KeyCode::PageDown, Command::PageDown);
     }
 
     fn register_message_state_bindings(&mut self) {

@@ -5,6 +5,7 @@ use super::colors::{
 };
 use crate::event_mark_view::EventMarkView;
 use crate::filter::ActiveFilterMode;
+use crate::ui::colors::{FILE_BORDER, FILE_DISABLED_FG, FILE_ENABLED_FG};
 use crate::ui::scrollable_list::ScrollableList;
 use crate::{app::App, ui::colors::MARK_INDICATOR_COLOR};
 use ratatui::{
@@ -359,6 +360,63 @@ impl App {
             .render(area, buf, block);
 
         self.marking.set_viewport_height(list_area.height as usize);
+    }
+
+    pub(super) fn render_files_list(&self, area: Rect, buf: &mut Buffer) {
+        use super::colors::FILE_ID_COLORS;
+        Clear.render(area, buf);
+
+        let block = Block::default()
+            .title(" Files ")
+            .title_alignment(Alignment::Center)
+            .title_style(Style::default().bold())
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(FILE_BORDER));
+
+        if self.file_manager.count() == 0 {
+            let popup = Paragraph::new("No files loaded")
+                .block(block)
+                .alignment(Alignment::Center);
+            popup.render(area, buf);
+            return;
+        }
+
+        let items: Vec<Line> = self
+            .file_manager
+            .iter()
+            .map(|file| {
+                let file_indicator = format!("[{}] ", file.file_id + 1);
+                let filename = file.get_filename();
+                let file_color = if file.enabled {
+                    FILE_ENABLED_FG
+                } else {
+                    FILE_DISABLED_FG
+                };
+
+                let color = FILE_ID_COLORS[file.file_id % FILE_ID_COLORS.len()];
+
+                let spans = vec![
+                    Span::raw(" "),
+                    Span::styled(file_indicator, Style::default().fg(color).add_modifier(Modifier::BOLD)),
+                    Span::styled(filename, Style::default().fg(file_color)),
+                ];
+
+                Line::from(spans)
+            })
+            .collect();
+
+        let mut list_state = ListState::default();
+        if !self.file_manager.iter().collect::<Vec<_>>().is_empty() {
+            list_state.select(Some(self.file_manager.selected_index()));
+        }
+
+        let files_list = List::new(items)
+            .block(block)
+            .highlight_symbol(RIGHT_ARROW)
+            .highlight_style(Style::default().add_modifier(Modifier::BOLD));
+
+        StatefulWidget::render(files_list, area, buf, &mut list_state);
     }
 
     pub(super) fn render_mark_name_input_popup(&self, area: Rect, buf: &mut Buffer) {
