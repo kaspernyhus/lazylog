@@ -140,7 +140,7 @@ pub fn load_state(file_paths: &[String]) -> Option<PersistedState> {
     match fs::read_to_string(&state_path) {
         Ok(json) => match serde_json::from_str::<PersistedState>(&json) {
             Ok(state) => {
-                if state.log_file_paths == file_paths {
+                if paths_match(&state.log_file_paths, file_paths) {
                     Some(state)
                 } else {
                     None
@@ -160,13 +160,36 @@ pub fn load_state(file_paths: &[String]) -> Option<PersistedState> {
     }
 }
 
+/// Checks if two file path lists contain the same files, regardless of order.
+fn paths_match(paths1: &[String], paths2: &[String]) -> bool {
+    if paths1.len() != paths2.len() {
+        return false;
+    }
+
+    let mut sorted1: Vec<_> = paths1.iter().filter_map(|p| std::fs::canonicalize(p).ok()).collect();
+    let mut sorted2: Vec<_> = paths2.iter().filter_map(|p| std::fs::canonicalize(p).ok()).collect();
+
+    if sorted1.len() != sorted2.len() {
+        return false;
+    }
+
+    sorted1.sort();
+    sorted2.sort();
+
+    sorted1 == sorted2
+}
+
 /// Calculates the state file path based on the log file paths.
 fn get_state_file_path(file_paths: &[String]) -> Option<PathBuf> {
     let mut hasher = DefaultHasher::new();
 
-    // Hash all file paths together in a deterministic order
-    for file_path in file_paths {
-        let absolute_path = std::fs::canonicalize(file_path).ok()?;
+    let mut absolute_paths: Vec<PathBuf> = file_paths
+        .iter()
+        .filter_map(|path| std::fs::canonicalize(path).ok())
+        .collect();
+    absolute_paths.sort();
+
+    for absolute_path in absolute_paths {
         let path_str = absolute_path.to_string_lossy();
         path_str.hash(&mut hasher);
     }
