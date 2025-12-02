@@ -6,11 +6,11 @@ A terminal-based log viewer with search, filtering, and streaming capabilities.
 
 ## Features
 
-- **Stream logs from stdin** - Pipe logs directly from any command
-- **Search and highlight** - Fast search with case-insensitive option
-- **Filtering** - Include/exclude patterns
-- **Event tracking** - Define event patterns and track these
 - **Syntax highlighting** - Configurable color patterns
+- **Search and highlight** - Search the entire log file and highlight results
+- **Filtering** - Include/exclude patterns for filtering lines
+- **Event tracking** - Define event patterns and track these
+- **Stream logs from stdin** - Pipe logs directly from any command
 - **Save streams** - Export stdin streams to files
 
 ## Installation
@@ -24,6 +24,11 @@ Installs to `/usr/local/bin/`
 View a log file:
 ```bash
 lazylog myapp.log
+```
+
+View multiple log files:
+```bash
+lazylog myapp_1.log myapp_2.log
 ```
 
 Stream from stdin:
