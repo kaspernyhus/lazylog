@@ -228,6 +228,7 @@ impl App {
                 app.event_tracker
                     .scan_all_lines(&app.log_buffer, app.highlighter.events());
                 app.event_tracker.update_active_lines(app.log_buffer.get_active_lines());
+                app.update_events_view_count();
 
                 if skipped_lines > 0 {
                     app.show_message(format!(
@@ -268,6 +269,8 @@ impl App {
         let active_lines = self.log_buffer.get_active_lines();
         self.marking.update_active_lines(active_lines);
         self.event_tracker.update_active_lines(active_lines);
+
+        self.update_events_view_count();
 
         // Update search matches if there's an active search
         if let Some(pattern) = self.search.get_active_pattern().map(|p| p.to_string()) {
@@ -604,6 +607,7 @@ impl App {
                 let active_lines = self.log_buffer.get_active_lines();
                 self.marking.update_active_lines(active_lines);
                 self.event_tracker.update_active_lines(active_lines);
+                self.update_events_view_count();
 
                 if should_select {
                     self.event_tracker.select_last_event();
@@ -1294,24 +1298,26 @@ impl App {
 
     pub fn toggle_event_filter(&mut self) {
         self.event_tracker.toggle_selected_filter();
+        self.update_events_view_count();
         self.event_tracker.select_nearest_event(self.viewport.selected_line);
     }
 
     pub fn toggle_all_event_filters(&mut self) {
         self.event_tracker.toggle_all_filters();
+        self.update_events_view_count();
         self.event_tracker.select_nearest_event(self.viewport.selected_line);
     }
 
     pub fn toggle_events_show_marks(&mut self) {
-        let showing_marks = self.event_tracker.toggle_show_marks();
+        self.event_tracker.toggle_show_marks();
+        self.update_events_view_count();
+    }
 
-        let count = if showing_marks {
-            self.event_tracker.count() + self.marking.get_filtered_marks().len()
-        } else {
-            self.event_tracker.count()
-        };
-
-        self.event_tracker.set_events_view_item_count(count);
+    fn update_events_view_count(&mut self) {
+        let events = self.event_tracker.get_events();
+        let marks = self.marking.get_filtered_marks();
+        let merged_items = EventMarkView::merge(&events, &marks, self.event_tracker.showing_marks());
+        self.event_tracker.set_events_view_item_count(merged_items.len());
     }
 
     pub fn search_history_previous(&mut self) {
