@@ -251,8 +251,16 @@ impl App {
         let show_marked_only = self.show_marked_lines_only;
 
         let marked_indices = self.marking.get_marked_indices();
-        self.log_buffer
-            .apply_filtering(&self.filter, &marked_indices, show_marked_only, should_show_marked);
+
+        let enabled_file_ids = self.file_manager.get_enabled_ids();
+
+        self.log_buffer.apply_filtering(
+            &self.filter,
+            &marked_indices,
+            show_marked_only,
+            should_show_marked,
+            enabled_file_ids,
+        );
         let num_lines = self.log_buffer.get_active_lines_count();
 
         self.viewport.set_total_lines(num_lines);
@@ -1036,6 +1044,11 @@ impl App {
         if self.file_manager.is_multi_file() {
             self.set_view_state(ViewState::FilesView);
         }
+    }
+
+    pub fn toggle_file(&mut self) {
+        self.file_manager.toggle_selected();
+        self.update_view();
     }
 
     pub fn activate_mark_name_input_mode(&mut self) {

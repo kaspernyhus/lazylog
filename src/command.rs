@@ -78,6 +78,7 @@ pub enum Command {
 
     // Files
     ActivateFilesView,
+    ToggleFile,
 
     // Streaming
     ToggleFollowMode,
@@ -168,6 +169,7 @@ impl Command {
 
             // Files
             Command::ActivateFilesView => "View files list",
+            Command::ToggleFile => "Toggle file visibility",
 
             // Streaming
             Command::ToggleFollowMode => "Toggle follow mode (stdin)",
@@ -258,6 +260,7 @@ impl Command {
 
             // Files
             Command::ActivateFilesView => app.activate_files_view(),
+            Command::ToggleFile => app.toggle_file(),
 
             // Streaming
             Command::ToggleFollowMode => app.toggle_follow_mode(),

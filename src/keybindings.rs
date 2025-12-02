@@ -384,6 +384,7 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::Char('j'), Command::MoveDown);
         self.bind_simple(context.clone(), KeyCode::PageUp, Command::PageUp);
         self.bind_simple(context.clone(), KeyCode::PageDown, Command::PageDown);
+        self.bind_simple(context.clone(), KeyCode::Char(' '), Command::ToggleFile);
     }
 
     fn register_message_state_bindings(&mut self) {

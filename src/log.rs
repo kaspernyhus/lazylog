@@ -4,6 +4,7 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use rayon::prelude::*;
+use std::sync::Arc;
 
 /// A single log line with its content and original index.
 #[derive(Debug, Clone)]
@@ -157,37 +158,45 @@ impl LogBuffer {
         marked_indices: &[usize],
         show_marked_lines_only: bool,
         should_show_marked: bool,
+        enabled_file_ids: Option<Vec<usize>>,
     ) {
         let filter_patterns = filter.get_filter_patterns();
         if filter_patterns.is_empty() {
             self.reset_active_lines();
-        } else {
-            self.active_lines = self
-                .lines
-                .par_iter()
-                .enumerate()
-                .filter_map(|(index, log_line)| {
-                    let is_marked_line = marked_indices.binary_search(&index).is_ok();
-
-                    if show_marked_lines_only {
-                        if is_marked_line {
-                            return Some(index);
-                        } else {
-                            return None;
-                        }
-                    }
-
-                    if is_marked_line && should_show_marked {
-                        return Some(index);
-                    }
-
-                    // par_iter needs to call the stand alone apply_filters function to be thread safe
-                    let passes_text_filter = apply_filters(&log_line.content, filter_patterns);
-
-                    if passes_text_filter { Some(index) } else { None }
-                })
-                .collect();
+            return;
         }
+
+        let enabled_file_ids = enabled_file_ids.map(Arc::new);
+
+        self.active_lines = self
+            .lines
+            .par_iter()
+            .enumerate()
+            .filter_map(|(index, log_line)| {
+                let is_marked_line = marked_indices.binary_search(&index).is_ok();
+
+                if show_marked_lines_only {
+                    return if is_marked_line { Some(index) } else { None };
+                }
+
+                if is_marked_line && should_show_marked {
+                    return Some(index);
+                }
+
+                if let Some(enabled_ids) = &enabled_file_ids
+                    && let Some(file_id) = log_line.log_file_id
+                    && !enabled_ids.contains(&file_id)
+                {
+                    return None;
+                }
+
+                if apply_filters(&log_line.content, filter_patterns) {
+                    Some(index)
+                } else {
+                    None
+                }
+            })
+            .collect();
     }
 
     /// Clears all filters.

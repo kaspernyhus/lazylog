@@ -124,11 +124,16 @@ impl FileManager {
     }
 
     /// Returns a list of enabled file paths.
-    pub fn get_enabled_paths(&self) -> Vec<&str> {
-        self.files
-            .iter()
-            .filter(|f| f.enabled)
-            .map(|f| f.path.as_str())
-            .collect()
+    pub fn get_enabled_ids(&self) -> Option<Vec<usize>> {
+        if self.is_multi_file() {
+            let enabled_ids = self
+                .files
+                .iter()
+                .filter_map(|f| if f.enabled { Some(f.file_id) } else { None })
+                .collect();
+            Some(enabled_ids)
+        } else {
+            None
+        }
     }
 }
