@@ -57,29 +57,33 @@ impl App {
             let formatted_paths: Vec<String> = self
                 .file_manager
                 .iter()
-                .map(|f| {
-                    let path_str = &f.path;
+                .map(|file| {
+                    let path_str = &file.path;
                     let max_path_len = (60 - 9 * self.file_manager.count()) / self.file_manager.count();
-                    let truncated = if path_str.len() > max_path_len {
-                        format!("...{}", &path_str[path_str.len() - max_path_len..])
+                    let truncated = if path_str.chars().count() > max_path_len {
+                        let skip = path_str.chars().count().saturating_sub(max_path_len);
+                        let suffix: String = path_str.chars().skip(skip).collect();
+                        format!("...{}", suffix)
                     } else {
                         format!(" {}", path_str)
                     };
-                    format!("[{}]{}", f.file_id + 1, truncated)
+                    format!("[{}]{}", file.file_id + 1, truncated)
                 })
                 .collect();
 
             let combined = formatted_paths.join(", ");
-            if combined.len() > max_width {
-                let skip = combined.len() - max_width;
-                format!("...{}", &combined[skip..])
+            if combined.chars().count() > max_width {
+                let skip = combined.chars().count().saturating_sub(max_width);
+                let suffix: String = combined.chars().skip(skip).collect();
+                format!("...{}", suffix)
             } else {
                 combined
             }
         } else if let Some(path) = self.file_manager.first_path() {
-            if path.len() > max_width {
-                let skip = path.len() - max_width;
-                format!("...{}", &path[skip..])
+            if path.chars().count() > max_width {
+                let skip = path.chars().count().saturating_sub(max_width);
+                let suffix: String = path.chars().skip(skip).collect();
+                format!("...{}", suffix)
             } else {
                 path.to_string()
             }

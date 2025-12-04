@@ -70,7 +70,7 @@ impl Widget for &App {
                 self.render_marks_list(marks_area, buf);
             }
             ViewState::FilesView => {
-                let files_area = popup_area(area, 75, 8);
+                let files_area = popup_area(area, 70, 8);
                 self.render_files_list(files_area, buf);
             }
             _ => {}

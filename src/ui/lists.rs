@@ -5,6 +5,7 @@ use super::colors::{
 };
 use crate::event_mark_view::EventMarkView;
 use crate::filter::ActiveFilterMode;
+use crate::ui::MAX_PATH_LENGTH;
 use crate::ui::colors::{FILE_BORDER, FILE_DISABLED_FG, FILE_ENABLED_FG};
 use crate::ui::scrollable_list::ScrollableList;
 use crate::{app::App, ui::colors::MARK_INDICATOR_COLOR};
@@ -375,10 +376,6 @@ impl App {
             .border_style(Style::default().fg(FILE_BORDER));
 
         if self.file_manager.count() == 0 {
-            let popup = Paragraph::new("No files loaded")
-                .block(block)
-                .alignment(Alignment::Center);
-            popup.render(area, buf);
             return;
         }
 
@@ -387,7 +384,15 @@ impl App {
             .iter()
             .map(|file| {
                 let file_indicator = format!("[{}] ", file.file_id + 1);
-                let filename = file.get_path();
+
+                let filename = if file.get_path().chars().count() > MAX_PATH_LENGTH {
+                    let skip = file.get_path().chars().count().saturating_sub(MAX_PATH_LENGTH - 3);
+                    let suffix: String = file.get_path().chars().skip(skip).collect();
+                    format!("...{}", suffix)
+                } else {
+                    file.get_path().to_string()
+                };
+
                 let file_color = if file.enabled {
                     FILE_ENABLED_FG
                 } else {
