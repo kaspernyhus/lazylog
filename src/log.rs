@@ -22,8 +22,6 @@ pub struct LogLine {
 /// Buffer for storing and managing log lines with filtering support.
 #[derive(Debug, Default)]
 pub struct LogBuffer {
-    /// Optional path(s) to the file(s) being viewed.
-    pub file_paths: Vec<String>,
     /// All log lines (unfiltered).
     lines: Vec<LogLine>,
     /// Indices of lines that pass the applied filters.
@@ -62,7 +60,6 @@ impl LogBuffer {
     /// Loads log lines from a file. (Not streaming mode.)
     pub fn load_file(&mut self, path: &str) -> color_eyre::Result<usize> {
         let content = std::fs::read_to_string(path)?;
-        self.file_paths = vec![path.to_string()];
         self.streaming = false;
         self.lines = content
             .lines()
@@ -80,7 +77,6 @@ impl LogBuffer {
 
         let mut total_lines_skipped = 0;
         self.streaming = false;
-        self.file_paths = paths.to_vec();
 
         for (file_id, path) in paths.iter().enumerate() {
             let content = std::fs::read_to_string(path)?;
@@ -130,7 +126,6 @@ impl LogBuffer {
 
     /// Initializes the buffer for stdin streaming mode.
     pub fn init_stdin_mode(&mut self) {
-        self.file_paths = vec!["<stdin>".to_string()];
         self.streaming = true;
         self.lines.clear();
         self.reset_active_lines();

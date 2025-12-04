@@ -23,6 +23,10 @@ impl FileEntry {
     pub fn get_filename(&self) -> &str {
         self.path.rsplit('/').next().unwrap_or(&self.path)
     }
+
+    pub fn get_path(&self) -> &str {
+        &self.path
+    }
 }
 
 /// Manages the list of opened files in multi-file sessions.

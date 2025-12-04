@@ -387,7 +387,7 @@ impl App {
             .iter()
             .map(|file| {
                 let file_indicator = format!("[{}] ", file.file_id + 1);
-                let filename = file.get_filename();
+                let filename = file.get_path();
                 let file_color = if file.enabled {
                     FILE_ENABLED_FG
                 } else {

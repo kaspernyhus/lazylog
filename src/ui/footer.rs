@@ -53,41 +53,35 @@ impl App {
     pub(super) fn render_default_footer(&self, area: Rect, buf: &mut Buffer) {
         let max_width = MAX_PATH_LENGTH.min((self.viewport.width / 2).saturating_sub(13));
 
-        let file_name = if !self.log_buffer.file_paths.is_empty() {
-            if self.log_buffer.file_paths.len() == 1 {
-                let path = &self.log_buffer.file_paths[0];
-                if path.len() > max_width {
-                    let skip = path.len() - max_width;
-                    format!("...{}", &path[skip..])
-                } else {
-                    path.clone()
-                }
-            } else {
-                let formatted_paths: Vec<String> = self
-                    .log_buffer
-                    .file_paths
-                    .iter()
-                    .enumerate()
-                    .map(|(file_id, path)| {
-                        let path_str = path.as_str();
-                        let max_path_len =
-                            (60 - 9 * self.log_buffer.file_paths.len()) / self.log_buffer.file_paths.len();
-                        let truncated = if path_str.len() > max_path_len {
-                            format!("...{}", &path_str[path_str.len() - max_path_len..])
-                        } else {
-                            format!(" {}", path_str)
-                        };
-                        format!("[{}]{}", file_id + 1, truncated)
-                    })
-                    .collect();
+        let file_name = if self.file_manager.is_multi_file() {
+            let formatted_paths: Vec<String> = self
+                .file_manager
+                .iter()
+                .map(|f| {
+                    let path_str = &f.path;
+                    let max_path_len = (60 - 9 * self.file_manager.count()) / self.file_manager.count();
+                    let truncated = if path_str.len() > max_path_len {
+                        format!("...{}", &path_str[path_str.len() - max_path_len..])
+                    } else {
+                        format!(" {}", path_str)
+                    };
+                    format!("[{}]{}", f.file_id + 1, truncated)
+                })
+                .collect();
 
-                let combined = formatted_paths.join(", ");
-                if combined.len() > max_width {
-                    let skip = combined.len() - max_width;
-                    format!("...{}", &combined[skip..])
-                } else {
-                    combined
-                }
+            let combined = formatted_paths.join(", ");
+            if combined.len() > max_width {
+                let skip = combined.len() - max_width;
+                format!("...{}", &combined[skip..])
+            } else {
+                combined
+            }
+        } else if let Some(path) = self.file_manager.first_path() {
+            if path.len() > max_width {
+                let skip = path.len() - max_width;
+                format!("...{}", &path[skip..])
+            } else {
+                path.to_string()
             }
         } else {
             "".to_string()

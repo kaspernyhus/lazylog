@@ -220,7 +220,7 @@ impl App {
                 app.update_completion_words();
 
                 if app.persist_enabled
-                    && let Some(state) = load_state(&app.log_buffer.file_paths)
+                    && let Some(state) = load_state(&app.file_manager.get_paths())
                 {
                     app.restore_state(state);
                 }
@@ -521,8 +521,8 @@ impl App {
     ///
     /// If not in streaming mode, persist current state to disk.
     pub fn quit(&mut self) {
-        if self.persist_enabled && !self.log_buffer.streaming && !self.log_buffer.file_paths.is_empty() {
-            save_state(&self.log_buffer.file_paths, self);
+        if self.persist_enabled && !self.log_buffer.streaming {
+            save_state(&self.file_manager.get_paths(), self);
         }
 
         self.running = false;
