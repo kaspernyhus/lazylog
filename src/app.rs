@@ -202,17 +202,13 @@ impl App {
             return app;
         }
 
-        if app.file_manager.count() == 0 {
-            app.show_error("No file paths");
+        if !use_stdin && app.file_manager.is_empty() {
+            app.show_error("No file paths provided");
+            return app;
         }
 
-        let load_result = if app.file_manager.is_multi_file() {
-            let file_paths = app.file_manager.get_paths();
-            app.log_buffer.load_files(&file_paths)
-        } else {
-            let file_path = app.file_manager.get_path();
-            app.log_buffer.load_file(file_path)
-        };
+        let file_paths = app.file_manager.paths();
+        let load_result = app.log_buffer.load_files(&file_paths);
 
         match load_result {
             Ok(skipped_lines) => {
@@ -220,7 +216,7 @@ impl App {
                 app.update_completion_words();
 
                 if app.persist_enabled
-                    && let Some(state) = load_state(&app.file_manager.get_paths())
+                    && let Some(state) = load_state(&app.file_manager.paths())
                 {
                     app.restore_state(state);
                 }
@@ -253,7 +249,11 @@ impl App {
 
         let marked_indices = self.marking.get_marked_indices();
 
-        let enabled_file_ids = self.file_manager.get_enabled_ids();
+        let enabled_file_ids = if self.file_manager.is_multi_file() {
+            Some(self.file_manager.enabled_file_ids())
+        } else {
+            None
+        };
 
         self.log_buffer.apply_filtering(
             &self.filter,
@@ -522,7 +522,7 @@ impl App {
     /// If not in streaming mode, persist current state to disk.
     pub fn quit(&mut self) {
         if self.persist_enabled && !self.log_buffer.streaming {
-            save_state(&self.file_manager.get_paths(), self);
+            save_state(&self.file_manager.paths(), self);
         }
 
         self.running = false;

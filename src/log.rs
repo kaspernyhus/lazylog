@@ -57,26 +57,28 @@ impl LogLine {
 }
 
 impl LogBuffer {
-    /// Loads log lines from a file. (Not streaming mode.)
-    pub fn load_file(&mut self, path: &str) -> color_eyre::Result<usize> {
-        let content = std::fs::read_to_string(path)?;
-        self.streaming = false;
-        self.lines = content
-            .lines()
-            .enumerate()
-            .map(|(index, line)| LogLine::new(line.to_string(), index))
-            .collect();
-        self.reset_active_lines();
-        Ok(0)
-    }
-
-    pub fn load_files(&mut self, paths: &[String]) -> color_eyre::Result<usize> {
+    /// Loads log lines from one of more files.
+    pub fn load_files(&mut self, paths: &[&str]) -> color_eyre::Result<usize> {
         if paths.is_empty() {
             return Err(color_eyre::eyre::eyre!("No files provided"));
         }
 
-        let mut total_lines_skipped = 0;
         self.streaming = false;
+
+        // Single file: skip timestamp parsing and sorting
+        if paths.len() == 1 {
+            let content = std::fs::read_to_string(paths[0])?;
+            self.lines = content
+                .lines()
+                .enumerate()
+                .map(|(index, line)| LogLine::new(line.to_string(), index))
+                .collect();
+            self.reset_active_lines();
+            return Ok(0);
+        }
+
+        // Multi-file: parse timestamps and sort
+        let mut total_lines_skipped = 0;
 
         for (file_id, path) in paths.iter().enumerate() {
             let content = std::fs::read_to_string(path)?;

@@ -66,12 +66,18 @@ impl FileManager {
         self.files.len() > 1
     }
 
-    pub fn get_paths(&self) -> Vec<String> {
-        self.files.iter().map(|f| f.path.clone()).collect()
+    pub fn is_empty(&self) -> bool {
+        self.files.is_empty()
     }
 
-    pub fn get_path(&self) -> &str {
-        if !self.is_multi_file() { &self.files[0].path } else { "" }
+    /// Returns all file paths.
+    pub fn paths(&self) -> Vec<&str> {
+        self.files.iter().map(|f| f.path.as_str()).collect()
+    }
+
+    /// Returns the first file path (typically used in single-file mode).
+    pub fn first_path(&self) -> Option<&str> {
+        self.files.first().map(|f| f.path.as_str())
     }
 
     /// Returns an iterator over the file entries.
@@ -127,17 +133,8 @@ impl FileManager {
         self.files.get(self.view.selected_index())
     }
 
-    /// Returns a list of enabled file paths.
-    pub fn get_enabled_ids(&self) -> Option<Vec<usize>> {
-        if self.is_multi_file() {
-            let enabled_ids = self
-                .files
-                .iter()
-                .filter_map(|f| if f.enabled { Some(f.file_id) } else { None })
-                .collect();
-            Some(enabled_ids)
-        } else {
-            None
-        }
+    /// Returns a vec of enabled file IDs (only relevant for multi-file filtering).
+    pub fn enabled_file_ids(&self) -> Vec<usize> {
+        self.files.iter().filter(|f| f.enabled).map(|f| f.file_id).collect()
     }
 }

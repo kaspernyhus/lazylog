@@ -56,10 +56,10 @@ pub struct EventFilterState {
 }
 
 impl PersistedState {
-    pub fn from_app(file_paths: &[String], app: &App) -> Self {
+    pub fn from_app(file_paths: &[&str], app: &App) -> Self {
         Self {
             version: 1,
-            log_file_paths: file_paths.to_vec(),
+            log_file_paths: file_paths.iter().map(|s| s.to_string()).collect(),
             viewport: ViewportState {
                 selected_line: app.viewport.selected_line,
                 top_line: app.viewport.top_line,
@@ -110,7 +110,7 @@ impl PersistedState {
 }
 
 /// Saves the current application state to disk.
-pub fn save_state(file_paths: &[String], app: &App) {
+pub fn save_state(file_paths: &[&str], app: &App) {
     if !ensure_state_dir() {
         return;
     }
@@ -130,7 +130,7 @@ pub fn save_state(file_paths: &[String], app: &App) {
 }
 
 /// Loads the application state from disk if it exists.
-pub fn load_state(file_paths: &[String]) -> Option<PersistedState> {
+pub fn load_state(file_paths: &[&str]) -> Option<PersistedState> {
     let state_path = get_state_file_path(file_paths)?;
 
     if !state_path.exists() {
@@ -161,7 +161,7 @@ pub fn load_state(file_paths: &[String]) -> Option<PersistedState> {
 }
 
 /// Checks if two file path lists contain the same files, regardless of order.
-fn paths_match(paths1: &[String], paths2: &[String]) -> bool {
+fn paths_match(paths1: &[String], paths2: &[&str]) -> bool {
     if paths1.len() != paths2.len() {
         return false;
     }
@@ -180,7 +180,7 @@ fn paths_match(paths1: &[String], paths2: &[String]) -> bool {
 }
 
 /// Calculates the state file path based on the log file paths.
-fn get_state_file_path(file_paths: &[String]) -> Option<PathBuf> {
+fn get_state_file_path(file_paths: &[&str]) -> Option<PathBuf> {
     let mut hasher = DefaultHasher::new();
 
     let mut absolute_paths: Vec<PathBuf> = file_paths
