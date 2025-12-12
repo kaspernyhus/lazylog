@@ -144,8 +144,9 @@ impl LogBuffer {
     }
 
     /// Adds a line index to the active lines list.
-    pub fn add_to_active_lines(&mut self, index: usize) {
+    pub fn add_to_active_lines(&mut self, index: usize) -> usize {
         self.active_lines.push(index);
+        self.active_lines.len() - 1
     }
 
     /// Applies the filters to all lines in the buffer.

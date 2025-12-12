@@ -592,7 +592,7 @@ impl App {
                     let log_line_index = self.log_buffer.append_line(pl.line_content);
 
                     if pl.passes_filter {
-                        self.log_buffer.add_to_active_lines(log_line_index);
+                        let viewport_index = self.log_buffer.add_to_active_lines(log_line_index);
 
                         let log_line = self.log_buffer.get_line(log_line_index).unwrap();
                         let active_event = self.event_tracker.scan_single_line(log_line, self.highlighter.events());
@@ -600,7 +600,7 @@ impl App {
                             should_select = true;
                         }
                         self.completion.append_line(log_line);
-                        self.search.append_line(log_line_index, log_line.content());
+                        self.search.append_line(viewport_index, log_line.content());
                     }
                 }
 
@@ -739,7 +739,7 @@ impl App {
                         return;
                     }
 
-                    if !self.options.is_enabled(AppOption::SearchDisableJumping) {
+                    if self.options.is_disabled(AppOption::SearchDisableJumping) && !self.viewport.follow_mode {
                         if let Some(line) = self.search.first_match_from(self.viewport.selected_line) {
                             self.push_viewport_line_to_history(line);
                             self.viewport.goto_line(line, false);
