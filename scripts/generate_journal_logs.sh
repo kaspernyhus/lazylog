@@ -66,8 +66,8 @@ send_log_line() {
 }
 
 while true; do
-    # Randomly trigger a burst (10% chance)
-    if [ $((RANDOM % 10)) -eq 0 ]; then
+    # Randomly trigger a burst
+    if [ $((RANDOM % 100)) -eq 0 ]; then
         echo "BURST: Sending 100 log lines rapidly..." >&2
         for i in {1..100}; do
             level=${LOG_LEVELS[$RANDOM % ${#LOG_LEVELS[@]}]}
