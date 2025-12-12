@@ -254,6 +254,12 @@ impl LogEventTracker {
         self.get_filtered_events()
     }
 
+    pub fn clear_all(&mut self) {
+        self.events.clear();
+        self.event_counter.reset();
+        self.events_view.reset();
+    }
+
     /// Returns the number of filtered events.
     pub fn count(&self) -> usize {
         self.get_filtered_events().len()

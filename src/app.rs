@@ -1261,6 +1261,7 @@ impl App {
         if self.log_buffer.streaming {
             self.log_buffer.clear_all();
             self.marking.clear_all();
+            self.event_tracker.clear_all();
             self.viewport.reset_view();
             self.update_view();
         }
