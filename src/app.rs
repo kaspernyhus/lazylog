@@ -155,7 +155,13 @@ impl App {
 
         let events = EventHandler::new(use_stdin);
 
-        let config = Config::load(&args.config);
+        let (config, initial_overlay) = match Config::load(&args.config) {
+            Ok(config) => (config, initial_overlay),
+            Err(err) => {
+                let overlay = initial_overlay.or(Some(Overlay::Message(err)));
+                (Config::default(), overlay)
+            }
+        };
         let highlighter = config.build_highlighter();
 
         let mut filter_patterns = config.parse_filter_patterns();

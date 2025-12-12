@@ -16,6 +16,8 @@ pub struct Config {
     /// Predefined filters.
     #[serde(default)]
     pub filters: Vec<FilterConfig>,
+    pub default_event_fg_color_index: Option<u8>,
+    pub default_event_bg_color_index: Option<u8>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -125,7 +127,7 @@ impl Filters {
 
 impl Config {
     /// Load configuration from the specified path, the default config dir (~/.config/lazylog/) or a local .lazylog.toml.
-    pub fn load(path: &Option<String>) -> Self {
+    pub fn load(path: &Option<String>) -> Result<Self, String> {
         let config_path = if let Some(p) = path {
             PathBuf::from(p)
         } else {
@@ -134,18 +136,28 @@ impl Config {
         Self::load_from_path(&config_path)
     }
 
-    fn load_from_path(config_path: &PathBuf) -> Self {
+    fn load_from_path(config_path: &PathBuf) -> Result<Self, String> {
         if config_path.exists() {
             match std::fs::read_to_string(config_path) {
-                Ok(content) => {
-                    let mut config: Config = toml::from_str(&content).unwrap_or_default();
-                    config.path = config_path.to_str().map(|s| s.to_string());
-                    config
-                }
-                Err(_) => Self::default(),
+                Ok(content) => match toml::from_str::<Config>(&content) {
+                    Ok(mut config) => {
+                        config.path = config_path.to_str().map(|s| s.to_string());
+                        Ok(config)
+                    }
+                    Err(err) => Err(format!(
+                        "Failed to parse config file '{}': {}",
+                        config_path.display(),
+                        err
+                    )),
+                },
+                Err(err) => Err(format!(
+                    "Failed to read config file '{}': {}",
+                    config_path.display(),
+                    err
+                )),
             }
         } else {
-            Self::default()
+            Ok(Self::default())
         }
     }
 
@@ -227,7 +239,17 @@ impl Config {
                     .style
                     .as_ref()
                     .map(Self::parse_style_config)
-                    .unwrap_or_else(PatternStyle::default_colors);
+                    .unwrap_or_else(|| {
+                        if self.default_event_fg_color_index.is_some() || self.default_event_bg_color_index.is_some() {
+                            PatternStyle {
+                                fg_color: self.default_event_fg_color_index.map(Color::Indexed),
+                                bg_color: self.default_event_bg_color_index.map(Color::Indexed),
+                                bold: false,
+                            }
+                        } else {
+                            PatternStyle::default_colors()
+                        }
+                    });
 
                 let match_type = if ev_config.regex {
                     PatternMatchType::Regex

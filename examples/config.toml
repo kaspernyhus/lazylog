@@ -31,6 +31,11 @@ events = [
     { name = "Application Started", pattern = "Application started successfully", regex = false },
 ]
 
+# Optional: default event colors
+# https://ratatui.rs/examples/style/colors/
+default_event_fg_color_index = 255
+default_event_bg_color_index = 18
+
 # Predefined filters.
 filters = [
     { pattern = "DEBUG", mode = "exclude", case_sensitive = false, enabled = true },
