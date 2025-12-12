@@ -100,6 +100,10 @@ impl AppOptions {
             .unwrap_or(false)
     }
 
+    pub fn is_disabled(&self, option: AppOption) -> bool {
+        !self.is_enabled(option)
+    }
+
     pub fn enable(&mut self, option: AppOption) {
         if let Some(opt) = self.options.iter_mut().find(|opt| opt.option == option) {
             opt.enabled = true;
