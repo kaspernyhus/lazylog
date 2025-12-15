@@ -1,7 +1,9 @@
+use std::collections::HashSet;
+
 use super::colors::{FILE_ID_COLORS, MARK_INDICATOR, MARK_INDICATOR_COLOR, RIGHT_ARROW, SCROLLBAR_FG, SELECTION_BG};
 use crate::highlighter::HighlightedLine;
-use crate::log::Interval;
 use crate::options::AppOption;
+use crate::resolver::Tag;
 use crate::{app::App, log::LogLine};
 use ratatui::{
     buffer::Buffer,
@@ -32,36 +34,44 @@ impl App {
         let (start, end) = self.viewport.visible();
         let selection_range = self.get_selection_range();
 
-        let viewport_lines: Vec<&LogLine> = self
-            .log_buffer
-            .get_active_lines_iter(Interval::Range(start, end))
-            .collect();
+        let all_lines = self.log_buffer.all_lines();
+        let visible_lines = self.resolver.get_visible_lines(all_lines);
 
-        let items: Vec<Line> = viewport_lines
+        let viewport_data = if start < visible_lines.len() {
+            let range_end = end.min(visible_lines.len());
+            visible_lines[start..range_end].iter().collect()
+        } else {
+            Vec::new()
+        };
+
+        let horizontal_offset = self.viewport.horizontal_offset;
+        let enable_colors = !self.options.is_enabled(AppOption::DisableColors);
+
+        let items: Vec<Line> = viewport_data
             .iter()
             .enumerate()
-            .map(|(log_index, log_line)| {
+            .map(|(offset, vl)| {
+                let log_line = &all_lines[vl.log_index];
                 let viewport_line = self.options.apply_to_line(log_line.content());
-                let text = if self.viewport.horizontal_offset >= viewport_line.len() {
+                let text = if horizontal_offset >= viewport_line.len() {
                     ""
                 } else {
-                    &viewport_line[self.viewport.horizontal_offset..]
+                    &viewport_line[horizontal_offset..]
                 };
-                let is_marked = self.marking.is_marked(log_line.index);
-                let viewport_line_index = start + log_index;
+
+                let viewport_line_index = start + offset;
                 let is_selected = if let Some((sel_start, sel_end)) = selection_range {
                     viewport_line_index >= sel_start && viewport_line_index <= sel_end
                 } else {
                     false
                 };
-                self.process_line(
-                    log_line,
-                    viewport_line,
-                    text,
-                    self.viewport.horizontal_offset,
-                    is_marked,
-                    is_selected,
-                )
+
+                let mut tags = vl.tags.clone();
+                if is_selected {
+                    tags.insert(Tag::Selected);
+                }
+
+                self.process_line_impl(log_line, viewport_line, text, horizontal_offset, &tags, enable_colors)
             })
             .collect();
 
@@ -78,22 +88,20 @@ impl App {
     }
 
     /// Applies syntax highlighting to a single line.
-    fn process_line<'a>(
+    fn process_line_impl<'a>(
         &self,
         log_line: &LogLine,
         transformed_line: &'a str,
         visible_text: &'a str,
         line_offset: usize,
-        is_marked: bool,
-        is_selected: bool,
+        tags: &HashSet<Tag>,
+        enable_colors: bool,
     ) -> Line<'a> {
-        let enable_colors = !self.options.is_enabled(AppOption::DisableColors);
-
         let highlighted = self
             .highlighter
             .highlight_line(transformed_line, line_offset, enable_colors);
 
-        let mark_indicator = if is_marked {
+        let mark_indicator = if tags.contains(&Tag::Marked) {
             Span::styled(MARK_INDICATOR, Style::default().fg(MARK_INDICATOR_COLOR))
         } else {
             Span::raw(" ")
@@ -114,7 +122,8 @@ impl App {
         let mut line = if highlighted.segments.is_empty() {
             let mut spans = vec![mark_indicator, file_id_indicator];
             if !visible_text.is_empty() {
-                spans.push(Span::raw(visible_text));
+                let text_style = Style::default();
+                spans.push(Span::styled(visible_text, text_style));
             }
             Line::from(spans)
         } else {
@@ -124,7 +133,7 @@ impl App {
             line
         };
 
-        if is_selected {
+        if tags.contains(&Tag::Selected) {
             line = line.style(Style::default().bg(SELECTION_BG));
         }
 

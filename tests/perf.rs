@@ -65,14 +65,12 @@ fn perf_highlight_line_cache_hit() {
             "ERROR",
             PatternMatchType::Plain(false),
             PatternStyle::new(Some(Color::Red), None, false),
-            None,
         )
         .unwrap(),
         HighlightPattern::new(
             "INFO",
             PatternMatchType::Plain(false),
             PatternStyle::new(Some(Color::Green), None, false),
-            None,
         )
         .unwrap(),
     ];
@@ -103,14 +101,12 @@ fn perf_highlight_line_cache_miss() {
             "ERROR",
             PatternMatchType::Plain(false),
             PatternStyle::new(Some(Color::Red), None, false),
-            None,
         )
         .unwrap(),
         HighlightPattern::new(
             "INFO",
             PatternMatchType::Plain(false),
             PatternStyle::new(Some(Color::Green), None, false),
-            None,
         )
         .unwrap(),
     ];
@@ -205,42 +201,36 @@ fn perf_highlight_multiple_patterns() {
             "ERROR",
             PatternMatchType::Plain(false),
             PatternStyle::new(Some(Color::Red), None, true),
-            None,
         )
         .unwrap(),
         HighlightPattern::new(
             "WARN",
             PatternMatchType::Plain(false),
             PatternStyle::new(Some(Color::Yellow), None, false),
-            None,
         )
         .unwrap(),
         HighlightPattern::new(
             "INFO",
             PatternMatchType::Plain(false),
             PatternStyle::new(Some(Color::Green), None, false),
-            None,
         )
         .unwrap(),
         HighlightPattern::new(
             "DEBUG",
             PatternMatchType::Plain(false),
             PatternStyle::new(Some(Color::Blue), None, false),
-            None,
         )
         .unwrap(),
         HighlightPattern::new(
             r"\d+ms",
             PatternMatchType::Regex,
             PatternStyle::new(Some(Color::Cyan), None, false),
-            None,
         )
         .unwrap(),
         HighlightPattern::new(
             r"id=\d+",
             PatternMatchType::Regex,
             PatternStyle::new(Some(Color::Magenta), None, false),
-            None,
         )
         .unwrap(),
     ];

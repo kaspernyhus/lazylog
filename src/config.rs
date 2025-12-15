@@ -1,6 +1,9 @@
 use crate::filter::{ActiveFilterMode, FilterPattern};
-use crate::highlighter::{HighlightPattern, Highlighter, PatternMatchType, PatternStyle};
+use crate::highlighter::{HighlightPattern, PatternMatchType, PatternStyle};
+use crate::highlighter::{PatternMatcher, PlainMatch};
+use crate::log_event::EventPattern;
 use ratatui::style::Color;
+use regex::Regex;
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -105,7 +108,7 @@ impl Filters {
     }
 
     /// Convert to FilterPattern vector.
-    pub fn parse_filter_patterns(&self) -> Vec<crate::filter::FilterPattern> {
+    pub fn parse_filter_patterns(&self) -> Vec<FilterPattern> {
         self.filters
             .iter()
             .map(|filter_config| {
@@ -177,17 +180,8 @@ impl Config {
         PathBuf::from(".lazylog.toml")
     }
 
-    /// Builds a Highlighter from the configuration.
-    pub fn build_highlighter(&self) -> Highlighter {
-        let patterns = self.parse_highlight_patterns();
-        let events = self.parse_event_patterns();
-        Highlighter::new(patterns, events)
-    }
-
     /// Parses filter configurations and returns a list of FilterPatterns.
-    pub fn parse_filter_patterns(&self) -> Vec<crate::filter::FilterPattern> {
-        use crate::filter::{ActiveFilterMode, FilterPattern};
-
+    pub fn parse_filter_patterns(&self) -> Vec<FilterPattern> {
         self.filters
             .iter()
             .map(|filter_config| {
@@ -206,7 +200,8 @@ impl Config {
             .collect()
     }
 
-    fn parse_highlight_patterns(&self) -> Vec<HighlightPattern> {
+    /// Parses highlight patterns
+    pub fn parse_highlight_patterns(&self) -> Vec<HighlightPattern> {
         self.highlights
             .iter()
             .filter_map(|hl_config| {
@@ -226,12 +221,13 @@ impl Config {
                     PatternMatchType::Plain(hl_config.case_sensitive)
                 };
 
-                HighlightPattern::new(&hl_config.pattern, match_type, style, None)
+                HighlightPattern::new(&hl_config.pattern, match_type, style)
             })
             .collect()
     }
 
-    fn parse_event_patterns(&self) -> Vec<HighlightPattern> {
+    /// Parses event patterns to the highlighter
+    pub fn parse_highlight_event_patterns(&self) -> Vec<HighlightPattern> {
         self.events
             .iter()
             .filter_map(|ev_config| {
@@ -257,7 +253,31 @@ impl Config {
                     PatternMatchType::Plain(true)
                 };
 
-                HighlightPattern::new(&ev_config.pattern, match_type, style, Some(ev_config.name.clone()))
+                HighlightPattern::new(&ev_config.pattern, match_type, style)
+            })
+            .collect()
+    }
+
+    /// Parses event patterns to the log event tracker
+    pub fn parse_log_event_patterns(&self) -> Vec<EventPattern> {
+        self.events
+            .iter()
+            .filter_map(|ev_config| {
+                let matcher = if ev_config.regex {
+                    Regex::new(&ev_config.pattern).ok().map(PatternMatcher::Regex)
+                } else {
+                    Some(PatternMatcher::Plain(PlainMatch {
+                        pattern: ev_config.pattern.clone(),
+                        case_sensitive: true,
+                    }))
+                };
+
+                matcher.map(|m| EventPattern {
+                    name: ev_config.name.clone(),
+                    matcher: m,
+                    enabled: true,
+                    count: 0,
+                })
             })
             .collect()
     }

@@ -1,6 +1,8 @@
-use crate::history::History;
-use crate::list_view_state::ListViewState;
+use std::sync::Arc;
+
+use crate::log::LogLine;
 use crate::utils::contains_ignore_case;
+use crate::{history::History, resolver::VisibilityRule};
 use serde::{Deserialize, Serialize};
 
 /// Filter mode - include or exclude matching lines.
@@ -46,143 +48,26 @@ impl FilterPattern {
     }
 }
 
-#[derive(Debug, Default)]
-struct FilterList {
-    /// All filter patterns.
-    patterns: Vec<FilterPattern>,
-    /// View state for the filter list
-    view: ListViewState,
-}
-
-impl FilterList {
-    fn patterns(&self) -> &[FilterPattern] {
-        &self.patterns
-    }
-
-    fn selected_index(&self) -> usize {
-        self.view.selected_index()
-    }
-
-    fn move_up(&mut self) {
-        self.view.move_up_wrap();
-    }
-
-    fn move_down(&mut self) {
-        self.view.move_down_wrap();
-    }
-
-    fn toggle_selected(&mut self) {
-        let selected = self.view.selected_index();
-        if selected < self.patterns.len() {
-            self.patterns[selected].enabled = !self.patterns[selected].enabled;
-        }
-    }
-
-    fn remove_selected(&mut self) {
-        let selected = self.view.selected_index();
-        if selected < self.patterns.len() {
-            self.patterns.remove(selected);
-            let count = self.patterns.len();
-            self.view.set_item_count(count);
-        }
-    }
-
-    fn toggle_selected_case_sensitive(&mut self) {
-        let selected = self.view.selected_index();
-        if selected < self.patterns.len() {
-            self.patterns[selected].case_sensitive = !self.patterns[selected].case_sensitive;
-        }
-    }
-
-    fn toggle_selected_mode(&mut self) {
-        let selected = self.view.selected_index();
-        if selected < self.patterns.len() {
-            self.patterns[selected].mode = match self.patterns[selected].mode {
-                ActiveFilterMode::Include => ActiveFilterMode::Exclude,
-                ActiveFilterMode::Exclude => ActiveFilterMode::Include,
-            };
-        }
-    }
-
-    fn toggle_all_patterns(&mut self) {
-        if self.patterns.is_empty() {
-            return;
-        }
-
-        let all_enabled = self.patterns.iter().all(|p| p.enabled);
-        for pattern in &mut self.patterns {
-            pattern.enabled = !all_enabled;
-        }
-    }
-
-    fn get_selected(&self) -> Option<&FilterPattern> {
-        let selected = self.view.selected_index();
-        if selected < self.patterns.len() {
-            Some(&self.patterns[selected])
-        } else {
-            None
-        }
-    }
-
-    fn update_selected(&mut self, new_pattern: &str) -> bool {
-        let selected = self.view.selected_index();
-        if selected < self.patterns.len() {
-            let selected_mode = self.patterns[selected].mode;
-            let duplicate_exists = self
-                .patterns
-                .iter()
-                .enumerate()
-                .any(|(idx, fp)| idx != selected && fp.pattern == new_pattern && fp.mode == selected_mode);
-
-            if !duplicate_exists {
-                self.patterns[selected].pattern = new_pattern.to_string();
-                return true;
-            }
-        }
-        false
-    }
-
-    fn add_pattern(&mut self, pattern: &FilterPattern) {
-        self.patterns.push(pattern.clone());
-        // Select the newly added pattern
-        let count = self.patterns.len();
-        self.view.set_item_count(count);
-        self.view.select_last();
-    }
-
-    fn pattern_exists(&self, pattern: &str, mode: ActiveFilterMode) -> bool {
-        self.patterns.iter().any(|fp| fp.pattern == pattern && fp.mode == mode)
-    }
-}
-
 /// Manages filter patterns.
 #[derive(Debug, Default)]
 pub struct Filter {
-    filter_list: FilterList,
+    patterns: Vec<FilterPattern>,
     filter_mode: ActiveFilterMode,
     case_sensitive: bool,
     pub history: History<FilterHistoryEntry>,
 }
 
+const DEFAULT_CASE_SENSITIVITY: bool = false;
+
 impl Filter {
     /// Creates a new Filter with preconfigured patterns.
     pub fn with_patterns(patterns: Vec<FilterPattern>) -> Self {
-        let mut filter = Self {
-            filter_list: FilterList {
-                patterns,
-                view: ListViewState::new(),
-            },
+        Self {
+            patterns,
             filter_mode: ActiveFilterMode::default(),
-            case_sensitive: false,
+            case_sensitive: DEFAULT_CASE_SENSITIVITY,
             history: History::new(),
-        };
-
-        filter
-            .filter_list
-            .view
-            .set_item_count(filter.filter_list.patterns.len());
-
-        filter
+        }
     }
 }
 
@@ -201,8 +86,13 @@ impl Filter {
     }
 
     /// Returns the current filter mode.
-    pub fn get_mode(&self) -> &ActiveFilterMode {
-        &self.filter_mode
+    pub fn get_mode(&self) -> ActiveFilterMode {
+        self.filter_mode
+    }
+
+    /// Sets the filter mode.
+    pub fn set_mode(&mut self, mode: ActiveFilterMode) {
+        self.filter_mode = mode;
     }
 
     /// Returns whether new filters will be case-sensitive.
@@ -211,31 +101,25 @@ impl Filter {
     }
 
     /// Toggles the case sensitivity for new filters.
-    pub fn toggle_case_sensitive(&mut self) {
+    pub fn toggle_case_sensitivity(&mut self) {
         self.case_sensitive = !self.case_sensitive;
     }
 
-    /// Resets case sensitivity to false.
-    pub fn reset_case_sensitive(&mut self) {
-        self.case_sensitive = false;
-    }
-
-    /// Sets the filter mode.
-    pub fn set_mode(&mut self, mode: ActiveFilterMode) {
-        self.filter_mode = mode;
-    }
-
     /// Sets case sensitivity.
-    pub fn set_case_sensitive(&mut self, case_sensitive: bool) {
+    pub fn set_case_sensitivity(&mut self, case_sensitive: bool) {
         self.case_sensitive = case_sensitive;
+    }
+
+    /// Resets case sensitivity to default.
+    pub fn reset_case_sensitivity(&mut self) {
+        self.case_sensitive = DEFAULT_CASE_SENSITIVITY;
     }
 
     /// Adds a new filter pattern if it doesn't already exist.
     pub fn add_filter_from_pattern(&mut self, pattern: &str) {
-        if !pattern.is_empty() && !self.filter_list.pattern_exists(pattern, self.filter_mode) {
+        if !pattern.is_empty() && !self.pattern_exists(pattern, self.filter_mode) {
             let new_filter = FilterPattern::new(pattern.to_string(), self.filter_mode, self.case_sensitive, true);
-
-            self.filter_list.add_pattern(&new_filter);
+            self.patterns.push(new_filter);
 
             self.history.add(FilterHistoryEntry {
                 pattern: pattern.to_string(),
@@ -247,8 +131,8 @@ impl Filter {
 
     /// Add a FilterPattern
     pub fn add_filter(&mut self, filter: &FilterPattern) {
-        if !self.filter_list.pattern_exists(&filter.pattern, filter.mode) {
-            self.filter_list.add_pattern(filter);
+        if !self.pattern_exists(&filter.pattern, filter.mode) {
+            self.patterns.push(filter.clone());
 
             self.history.add(FilterHistoryEntry {
                 pattern: filter.pattern.clone(),
@@ -260,62 +144,90 @@ impl Filter {
 
     /// Returns all filter patterns.
     pub fn get_filter_patterns(&self) -> &[FilterPattern] {
-        self.filter_list.patterns()
+        &self.patterns
     }
 
-    /// Returns the index of the currently selected pattern in the overview.
-    pub fn get_selected_pattern_index(&self) -> usize {
-        self.filter_list.selected_index()
+    /// Returns the number of filter patterns.
+    pub fn count(&self) -> usize {
+        self.patterns.len()
     }
 
-    /// Moves the filter view selection to the previous pattern, wrapping to the end.
-    pub fn move_selection_up(&mut self) {
-        self.filter_list.move_up();
+    /// Returns the pattern at the given index, if any.
+    pub fn get_pattern(&self, index: usize) -> Option<&FilterPattern> {
+        self.patterns.get(index)
     }
 
-    /// Moves the filter view selection to the next pattern, wrapping to the beginning.
-    pub fn move_selection_down(&mut self) {
-        self.filter_list.move_down();
-    }
-
-    /// Toggles the enabled state of the selected pattern.
-    pub fn toggle_selected_pattern(&mut self) {
-        self.filter_list.toggle_selected();
-    }
-
-    /// Removes the currently selected pattern and adjusts selection.
-    pub fn remove_selected_pattern(&mut self) {
-        self.filter_list.remove_selected();
-    }
-
-    /// Toggles case sensitivity for the selected pattern.
-    pub fn toggle_selected_pattern_case_sensitive(&mut self) {
-        self.filter_list.toggle_selected_case_sensitive();
-    }
-
-    /// Toggles the mode (Include/Exclude) of the selected pattern.
-    pub fn toggle_selected_pattern_mode(&mut self) {
-        self.filter_list.toggle_selected_mode();
+    /// Toggles the enabled state of the pattern at the given index.
+    pub fn toggle_pattern_enabled(&mut self, index: usize) {
+        if let Some(pattern) = self.patterns.get_mut(index) {
+            pattern.enabled = !pattern.enabled;
+        }
     }
 
     /// Toggles all patterns between enabled and disabled.
-    pub fn toggle_all_patterns(&mut self) {
-        self.filter_list.toggle_all_patterns();
+    pub fn toggle_all_patterns_enabled(&mut self) {
+        if self.patterns.is_empty() {
+            return;
+        }
+
+        let all_enabled = self.patterns.iter().all(|p| p.enabled);
+        for pattern in &mut self.patterns {
+            pattern.enabled = !all_enabled;
+        }
     }
 
-    /// Returns the currently selected pattern, if any.
-    pub fn get_selected_pattern(&self) -> Option<&FilterPattern> {
-        self.filter_list.get_selected()
+    /// Removes the pattern at the given index.
+    pub fn remove_pattern(&mut self, index: usize) {
+        if index < self.patterns.len() {
+            self.patterns.remove(index);
+        }
     }
 
-    /// Updates the pattern text of the currently selected filter.
-    pub fn update_selected_pattern(&mut self, new_pattern: &str) -> bool {
-        self.filter_list.update_selected(new_pattern)
+    /// Toggles case sensitivity for the pattern at the given index.
+    pub fn toggle_pattern_case_sensitivity(&mut self, index: usize) {
+        if let Some(pattern) = self.patterns.get_mut(index) {
+            pattern.case_sensitive = !pattern.case_sensitive;
+        }
+    }
+
+    /// Toggles the mode (Include/Exclude) of the pattern at the given index.
+    pub fn toggle_pattern_mode(&mut self, index: usize) {
+        if let Some(pattern) = self.patterns.get_mut(index) {
+            pattern.mode = match pattern.mode {
+                ActiveFilterMode::Include => ActiveFilterMode::Exclude,
+                ActiveFilterMode::Exclude => ActiveFilterMode::Include,
+            };
+        }
+    }
+
+    /// Updates the pattern text at the given index.
+    pub fn update_pattern(&mut self, index: usize, new_pattern: &str) -> bool {
+        if let Some(pattern) = self.patterns.get(index) {
+            let selected_mode = pattern.mode;
+            let duplicate_exists = self
+                .patterns
+                .iter()
+                .enumerate()
+                .any(|(idx, fp)| idx != index && fp.pattern == new_pattern && fp.mode == selected_mode);
+
+            if !duplicate_exists {
+                if let Some(pattern) = self.patterns.get_mut(index) {
+                    pattern.pattern = new_pattern.to_string();
+                }
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Checks if a pattern exists with the given mode.
+    fn pattern_exists(&self, pattern: &str, mode: ActiveFilterMode) -> bool {
+        self.patterns.iter().any(|fp| fp.pattern == pattern && fp.mode == mode)
     }
 
     /// Checks if content passes the filter patterns.
     pub fn apply_filters(&self, content: &str) -> bool {
-        apply_filters(content, self.filter_list.patterns())
+        apply_filters(content, &self.patterns)
     }
 }
 
@@ -353,6 +265,27 @@ pub fn apply_filters(content: &str, filter_patterns: &[FilterPattern]) -> bool {
     if has_include_filters { include_matched } else { true }
 }
 
+/// Rule that applies text filtering
+pub struct FilterRule {
+    patterns: Arc<Vec<FilterPattern>>,
+}
+
+impl FilterRule {
+    pub fn new(patterns: Arc<Vec<FilterPattern>>) -> Self {
+        Self { patterns }
+    }
+}
+
+impl VisibilityRule for FilterRule {
+    fn is_visible(&self, line: &LogLine) -> bool {
+        if self.patterns.is_empty() {
+            true
+        } else {
+            apply_filters(line.content(), &self.patterns)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -385,86 +318,53 @@ mod tests {
     #[test]
     fn test_toggle_mode_switches_between_include_and_exclude() {
         let mut filter = Filter::default();
-        assert_eq!(*filter.get_mode(), ActiveFilterMode::Include);
+        assert_eq!(filter.get_mode(), ActiveFilterMode::Include);
         filter.toggle_mode();
-        assert_eq!(*filter.get_mode(), ActiveFilterMode::Exclude);
+        assert_eq!(filter.get_mode(), ActiveFilterMode::Exclude);
         filter.toggle_mode();
-        assert_eq!(*filter.get_mode(), ActiveFilterMode::Include);
+        assert_eq!(filter.get_mode(), ActiveFilterMode::Include);
     }
 
     #[test]
-    fn test_remove_selected_pattern_deletes_pattern() {
+    fn test_remove_pattern_deletes_pattern() {
         let mut filter = Filter::default();
         filter.add_filter_from_pattern("ERROR");
         filter.add_filter_from_pattern("WARNING");
-        // WARNING is selected (newly added), remove it
-        filter.remove_selected_pattern();
+        filter.remove_pattern(1);
         assert_eq!(filter.get_filter_patterns().len(), 1);
         assert_eq!(filter.get_filter_patterns()[0].pattern, "ERROR");
     }
 
     #[test]
-    fn test_get_selected_pattern_returns_current_pattern() {
+    fn test_update_pattern_succeeds_with_unique_pattern() {
         let mut filter = Filter::default();
         filter.add_filter_from_pattern("ERROR");
         filter.add_filter_from_pattern("WARNING");
-        // WARNING is selected (newly added)
-        let selected = filter.get_selected_pattern().unwrap();
-        assert_eq!(selected.pattern, "WARNING");
-        filter.move_selection_up();
-        let selected = filter.get_selected_pattern().unwrap();
-        assert_eq!(selected.pattern, "ERROR");
-    }
-
-    #[test]
-    fn test_update_selected_pattern_succeeds_with_unique_pattern() {
-        let mut filter = Filter::default();
-        filter.add_filter_from_pattern("ERROR");
-        filter.add_filter_from_pattern("WARNING");
-        // WARNING is selected (newly added), update it to INFO
-        let success = filter.update_selected_pattern("INFO");
+        let success = filter.update_pattern(1, "INFO");
         assert!(success);
         assert_eq!(filter.get_filter_patterns()[1].pattern, "INFO");
     }
 
     #[test]
-    fn test_update_selected_pattern_prevents_duplicates() {
+    fn test_update_pattern_prevents_duplicates() {
         let mut filter = Filter::default();
         filter.add_filter_from_pattern("ERROR");
         filter.add_filter_from_pattern("WARNING");
-        // WARNING is selected (newly added), try to update it to ERROR (duplicate)
-        let success = filter.update_selected_pattern("ERROR");
+        let success = filter.update_pattern(1, "ERROR");
         assert!(!success);
         assert_eq!(filter.get_filter_patterns()[0].pattern, "ERROR");
         assert_eq!(filter.get_filter_patterns()[1].pattern, "WARNING");
     }
 
     #[test]
-    fn test_update_selected_pattern_allows_same_pattern_different_mode() {
+    fn test_update_pattern_allows_same_pattern_different_mode() {
         let mut filter = Filter::default();
         filter.add_filter_from_pattern("ERROR"); // Include mode
         filter.toggle_mode();
         filter.add_filter_from_pattern("WARNING"); // Exclude mode
-        // WARNING (Exclude) is already selected (newly added)
-        let success = filter.update_selected_pattern("ERROR");
-        assert!(success); // Should succeed because mode is different
+        let success = filter.update_pattern(1, "ERROR");
+        assert!(success);
         assert_eq!(filter.get_filter_patterns()[1].pattern, "ERROR");
         assert_eq!(filter.get_filter_patterns()[1].mode, ActiveFilterMode::Exclude);
-    }
-
-    #[test]
-    fn test_add_filter_selects_newly_added_pattern() {
-        let mut filter = Filter::default();
-        filter.add_filter_from_pattern("ERROR");
-        assert_eq!(filter.get_selected_pattern_index(), 0);
-        assert_eq!(filter.get_selected_pattern().unwrap().pattern, "ERROR");
-
-        filter.add_filter_from_pattern("WARNING");
-        assert_eq!(filter.get_selected_pattern_index(), 1);
-        assert_eq!(filter.get_selected_pattern().unwrap().pattern, "WARNING");
-
-        filter.add_filter_from_pattern("INFO");
-        assert_eq!(filter.get_selected_pattern_index(), 2);
-        assert_eq!(filter.get_selected_pattern().unwrap().pattern, "INFO");
     }
 }

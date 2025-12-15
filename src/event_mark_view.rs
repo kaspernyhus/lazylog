@@ -20,7 +20,7 @@ impl<'a> EventOrMark<'a> {
     /// Returns the name of this item.
     pub fn name(&self) -> &str {
         match self {
-            EventOrMark::Event(e) => &e.event_name,
+            EventOrMark::Event(e) => &e.name,
             EventOrMark::Mark(m) => m.name.as_deref().unwrap_or("MARK"),
         }
     }
@@ -38,9 +38,9 @@ pub struct EventMarkView;
 impl EventMarkView {
     /// Merges events and marks into a single sorted vector.
     /// Both input slices must be sorted by line_index.
-    pub fn merge<'a>(events: &[&'a LogEvent], marks: &[&'a Mark], show_marks: bool) -> Vec<EventOrMark<'a>> {
+    pub fn merge<'a>(events: &'a [LogEvent], marks: &'a [Mark], show_marks: bool) -> Vec<EventOrMark<'a>> {
         if !show_marks {
-            return events.iter().map(|&e| EventOrMark::Event(e)).collect();
+            return events.iter().map(EventOrMark::Event).collect();
         }
 
         let mut result = Vec::with_capacity(events.len() + marks.len());
@@ -49,19 +49,19 @@ impl EventMarkView {
 
         while event_idx < events.len() || mark_idx < marks.len() {
             match (events.get(event_idx), marks.get(mark_idx)) {
-                (Some(&e), Some(&m)) if e.line_index <= m.line_index => {
+                (Some(e), Some(m)) if e.line_index <= m.line_index => {
                     result.push(EventOrMark::Event(e));
                     event_idx += 1;
                 }
-                (Some(_), Some(&m)) => {
+                (Some(_), Some(m)) => {
                     result.push(EventOrMark::Mark(m));
                     mark_idx += 1;
                 }
-                (Some(&e), None) => {
+                (Some(e), None) => {
                     result.push(EventOrMark::Event(e));
                     event_idx += 1;
                 }
-                (None, Some(&m)) => {
+                (None, Some(m)) => {
                     result.push(EventOrMark::Mark(m));
                     mark_idx += 1;
                 }

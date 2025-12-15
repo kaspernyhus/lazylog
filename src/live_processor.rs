@@ -1,7 +1,4 @@
-use crate::{
-    filter::{FilterPattern, apply_filters},
-    highlighter::HighlightPattern,
-};
+use crate::filter::{FilterPattern, apply_filters};
 use rayon::prelude::*;
 use std::{sync::Arc, time::Duration};
 use tokio::{
@@ -20,7 +17,6 @@ pub struct ProcessingContext {
     pub filter_patterns: Vec<FilterPattern>,
     pub search_pattern: Option<String>,
     pub search_case_sensitive: bool,
-    pub event_patterns: Vec<HighlightPattern>,
 }
 
 pub struct LiveProcessor {

@@ -1,4 +1,3 @@
-use crate::list_view_state::ListViewState;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -53,27 +52,19 @@ impl AppOptionDef {
 pub struct AppOptions {
     /// Vector of option definitions.
     options: Vec<AppOptionDef>,
-    /// View state for the options list.
-    view: ListViewState,
 }
 
 impl Default for AppOptions {
     fn default() -> Self {
-        let options = vec![
-            AppOptionDef::new(AppOption::HideTimestamp, "Hide Timestamp & Hostname", OptionAction::LineTransform(
-                    Regex::new(r"^(?:\w{3}\s+\d{2}\s+\d{2}:\d{2}:\d{2}\s+\S+\s+|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{4}\s+)").unwrap()
-                )),
-            AppOptionDef::new_toggle(AppOption::DisableColors, "Disable Colors"),
-            AppOptionDef::new_toggle(AppOption::SearchDisableJumping, "Search: Disable jumping to match"),
-            AppOptionDef::new_toggle(AppOption::AlwaysShowMarkedLines, "Always show marked lines"),
-
-        ];
-
-        let num_options = options.len();
-
         AppOptions {
-            options,
-            view: ListViewState::new_with_count(num_options),
+            options: vec![
+                AppOptionDef::new(AppOption::HideTimestamp, "Hide Timestamp & Hostname", OptionAction::LineTransform(
+                        Regex::new(r"^(?:\w{3}\s+\d{2}\s+\d{2}:\d{2}:\d{2}\s+\S+\s+|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{4}\s+)").unwrap()
+                    )),
+                AppOptionDef::new_toggle(AppOption::DisableColors, "Disable Colors"),
+                AppOptionDef::new_toggle(AppOption::SearchDisableJumping, "Search: Disable jumping to match"),
+                AppOptionDef::new_toggle(AppOption::AlwaysShowMarkedLines, "Always show marked lines"),
+            ],
         }
     }
 }
@@ -135,40 +126,23 @@ impl AppOptions {
         line
     }
 
-    /// Toggles the enabled state of the currently selected option.
-    pub fn toggle_selected_option(&mut self) {
-        let selected = self.view.selected_index();
-        if selected < self.options.len() {
-            self.options[selected].enabled = !self.options[selected].enabled;
+    /// Toggles the enabled state of an option at the given index.
+    pub fn toggle_option(&mut self, index: usize) {
+        if let Some(option) = self.options.get_mut(index) {
+            option.enabled = !option.enabled;
         }
     }
 
-    /// Enables the currently selected option (sets it to true).
-    pub fn enable_selected_option(&mut self) {
-        let selected = self.view.selected_index();
-        if selected < self.options.len() {
-            self.options[selected].enabled = true;
+    /// Enables an option at the given index (sets it to true).
+    pub fn enable_option(&mut self, index: usize) {
+        if let Some(option) = self.options.get_mut(index) {
+            option.enabled = true;
         }
     }
 
-    /// Gets the currently selected index.
-    pub fn selected_index(&self) -> usize {
-        self.view.selected_index()
-    }
-
-    /// Get the option at the selected index.
-    pub fn get_selected_option(&self) -> Option<&AppOptionDef> {
-        self.options.get(self.view.selected_index())
-    }
-
-    /// Moves the selection to the previous option, wrapping to the end.
-    pub fn move_selection_up(&mut self) {
-        self.view.move_up_wrap();
-    }
-
-    /// Moves the selection to the next option, wrapping to the beginning.
-    pub fn move_selection_down(&mut self) {
-        self.view.move_down_wrap();
+    /// Get the option at the given index.
+    pub fn get(&self, index: usize) -> Option<&AppOptionDef> {
+        self.options.get(index)
     }
 
     /// Restore options from a saved state.

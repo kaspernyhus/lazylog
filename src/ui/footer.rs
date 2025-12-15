@@ -13,26 +13,27 @@ use ratatui::{
 impl App {
     /// Returns current line information (progression in the file).
     pub(super) fn get_progression(&self) -> (usize, usize, usize, usize) {
-        let active_lines = self.log_buffer.get_active_lines_count();
+        let all_lines = self.log_buffer.all_lines();
+        let visible_lines = self.resolver.visible_count(all_lines);
         let total_lines = self.log_buffer.get_total_lines_count();
         let current_line = self.viewport.selected_line + 1;
-        let percent = if active_lines > 0 {
-            if current_line == active_lines {
+        let percent = if visible_lines > 0 {
+            if current_line == visible_lines {
                 100
             } else {
-                (current_line * 100) / active_lines
+                (current_line * 100) / visible_lines
             }
         } else {
             0
         };
-        (current_line, active_lines, total_lines, percent)
+        (current_line, visible_lines, total_lines, percent)
     }
 
     /// Formats progression information for display in footers.
     pub(super) fn format_progression_text(&self) -> String {
-        let (current_line, active_lines, total_lines, percent) = self.get_progression();
+        let (current_line, visible_lines, total_lines, percent) = self.get_progression();
 
-        if active_lines == total_lines {
+        if visible_lines == total_lines {
             format!(
                 "{}/{} {:3}%",
                 current_line.to_formatted_string(&Locale::en_DK),
@@ -43,7 +44,7 @@ impl App {
             format!(
                 "{}/{} ({}) {:3}%",
                 current_line.to_formatted_string(&Locale::en_DK),
-                active_lines.to_formatted_string(&Locale::en_DK),
+                visible_lines.to_formatted_string(&Locale::en_DK),
                 total_lines.to_formatted_string(&Locale::en_DK),
                 percent
             )

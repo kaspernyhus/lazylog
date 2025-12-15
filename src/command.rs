@@ -240,7 +240,7 @@ impl Command {
             // Events
             Command::ActivateEventsView => app.activate_events_view(),
             Command::ActivateEventFilterView => app.activate_event_filter_view(),
-            Command::GotoSelectedEvent => app.goto_selected_event(),
+            Command::GotoSelectedEvent => app.goto_selected_event(false),
             Command::ToggleEventFilter => app.toggle_event_filter(),
             Command::ToggleAllEventFilters => app.toggle_all_event_filters(),
             Command::ToggleEventsShowMarks => app.toggle_events_show_marks(),
@@ -250,10 +250,10 @@ impl Command {
             // Marks
             Command::ToggleMark => app.toggle_mark(),
             Command::ActivateMarksView => app.activate_marks_view(),
-            Command::GotoSelectedMark => app.goto_selected_mark(),
-            Command::ActivateMarkNameMode => app.activate_mark_name_input_mode(),
+            Command::GotoSelectedMark => app.goto_selected_mark(false),
+            Command::ActivateMarkNameMode => app.activate_mark_name_overlay(),
             Command::UnmarkSelected => app.unmark_selected(),
-            Command::ClearAllMarks => app.marking.clear_all(),
+            Command::ClearAllMarks => app.clear_all_marks(),
             Command::MarkNext => app.mark_next(),
             Command::MarkPrevious => app.mark_previous(),
             Command::ToggleShowMarkedOnly => app.toggle_show_marked_only(),

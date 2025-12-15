@@ -1,10 +1,5 @@
-use crate::{
-    filter::{Filter, apply_filters},
-    timestamp::parse_timestamp,
-};
+use crate::timestamp::parse_timestamp;
 use chrono::{DateTime, Utc};
-use rayon::prelude::*;
-use std::sync::Arc;
 
 /// A single log line with its content and original index.
 #[derive(Debug, Clone)]
@@ -24,19 +19,8 @@ pub struct LogLine {
 pub struct LogBuffer {
     /// All log lines (unfiltered).
     lines: Vec<LogLine>,
-    /// Indices of lines that pass the applied filters.
-    active_lines: Vec<usize>,
     /// Whether the buffer is in streaming mode (reading from stdin).
     pub streaming: bool,
-}
-
-/// Specifies which interval range of lines (potentially with filters) to retrieve from the buffer.
-#[derive(Debug)]
-pub enum Interval {
-    /// All active lines.
-    All,
-    /// Range of active lines by index (start, end).
-    Range(usize, usize),
 }
 
 impl LogLine {
@@ -73,7 +57,6 @@ impl LogBuffer {
                 .enumerate()
                 .map(|(index, line)| LogLine::new(line.to_string(), index))
                 .collect();
-            self.reset_active_lines();
             return Ok(0);
         }
 
@@ -82,7 +65,6 @@ impl LogBuffer {
 
         for (file_id, path) in paths.iter().enumerate() {
             let content = std::fs::read_to_string(path)?;
-
             let mut file_lines: Vec<LogLine> = content
                 .lines()
                 .enumerate()
@@ -109,8 +91,6 @@ impl LogBuffer {
             self.lines.append(&mut file_lines);
         }
 
-        self.reset_active_lines();
-
         // Sort lines with timestamps first, then lines without timestamps
         self.lines.sort_by(|a, b| match (&a.timestamp, &b.timestamp) {
             (Some(ts_a), Some(ts_b)) => ts_a.cmp(ts_b),
@@ -130,7 +110,6 @@ impl LogBuffer {
     pub fn init_stdin_mode(&mut self) {
         self.streaming = true;
         self.lines.clear();
-        self.reset_active_lines();
     }
 
     /// Appends a new line to the buffer.
@@ -143,70 +122,10 @@ impl LogBuffer {
         index
     }
 
-    /// Adds a line index to the active lines list.
-    pub fn add_to_active_lines(&mut self, index: usize) -> usize {
-        self.active_lines.push(index);
-        self.active_lines.len() - 1
-    }
-
-    /// Applies the filters to all lines in the buffer.
-    pub fn apply_filtering(
-        &mut self,
-        filter: &Filter,
-        marked_indices: &[usize],
-        show_marked_lines_only: bool,
-        should_show_marked: bool,
-        enabled_file_ids: Option<Vec<usize>>,
-    ) {
-        let filter_patterns = filter.get_filter_patterns();
-        if filter_patterns.is_empty() {
-            self.reset_active_lines();
-            return;
-        }
-
-        let enabled_file_ids = enabled_file_ids.map(Arc::new);
-
-        self.active_lines = self
-            .lines
-            .par_iter()
-            .enumerate()
-            .filter_map(|(index, log_line)| {
-                let is_marked_line = marked_indices.binary_search(&index).is_ok();
-
-                if show_marked_lines_only {
-                    return if is_marked_line { Some(index) } else { None };
-                }
-
-                if is_marked_line && should_show_marked {
-                    return Some(index);
-                }
-
-                if let Some(enabled_ids) = &enabled_file_ids
-                    && let Some(file_id) = log_line.log_file_id
-                    && !enabled_ids.contains(&file_id)
-                {
-                    return None;
-                }
-
-                if apply_filters(&log_line.content, filter_patterns) {
-                    Some(index)
-                } else {
-                    None
-                }
-            })
-            .collect();
-    }
-
-    /// Clears all filters.
-    fn reset_active_lines(&mut self) {
-        self.active_lines = (0..self.lines.len()).collect();
-    }
-
     /// Remove all lines and filters from the buffer. (Only in streaming mode.)
     pub fn clear_all(&mut self) {
         if self.streaming {
             self.lines.clear();
-            self.active_lines.clear();
         }
     }
 
@@ -220,23 +139,6 @@ impl LogBuffer {
         Ok(())
     }
 
-    /// Returns an iterator over active log lines in the specified interval.
-    pub fn get_active_lines_iter(&self, interval: Interval) -> impl Iterator<Item = &LogLine> {
-        let active_indices = match interval {
-            Interval::All => &self.active_lines[..],
-            Interval::Range(start_index, end) => {
-                let end_index = end.min(self.active_lines.len());
-                if start_index >= self.active_lines.len() {
-                    &[]
-                } else {
-                    &self.active_lines[start_index..end_index]
-                }
-            }
-        };
-
-        active_indices.iter().map(move |&idx| &self.lines[idx])
-    }
-
     /// Returns a reference to a log line by its original index.
     pub fn get_line(&self, line_index: usize) -> Option<&LogLine> {
         if line_index >= self.lines.len() {
@@ -245,38 +147,9 @@ impl LogBuffer {
         Some(&self.lines[line_index])
     }
 
-    /// Returns the maximum line length in the specified interval.
-    pub fn get_lines_max_length(&self, interval: Interval) -> usize {
-        let (start_index, end) = match interval {
-            Interval::All => (0, self.active_lines.len()),
-            Interval::Range(s, e) => (s, e),
-        };
-
-        let end_index = end.min(self.active_lines.len());
-        if start_index >= self.active_lines.len() {
-            return 0;
-        }
-
-        self.active_lines[start_index..end_index]
-            .iter()
-            .map(|&idx| self.lines[idx].content.len())
-            .max()
-            .unwrap_or(0)
-    }
-
-    /// Returns the count of active (filtered) lines.
-    pub fn get_active_lines_count(&self) -> usize {
-        self.active_lines.len()
-    }
-
     /// Returns the total count of log lines.
     pub fn get_total_lines_count(&self) -> usize {
         self.lines.len()
-    }
-
-    /// Returns a reference to the active lines (original indices of visible lines).
-    pub fn get_active_lines(&self) -> &[usize] {
-        &self.active_lines
     }
 
     /// Returns an iterator over all log lines without active line filtering.
@@ -284,48 +157,8 @@ impl LogBuffer {
         self.lines.iter()
     }
 
-    /// Returns the original log line index for an active line index.
-    ///
-    /// Returns `None` if the line_index is out of bounds.
-    pub fn viewport_to_log_index(&self, line_index: usize) -> Option<usize> {
-        if line_index >= self.active_lines.len() {
-            return None;
-        }
-        let actual_index = self.active_lines[line_index];
-        Some(self.lines[actual_index].index)
-    }
-
-    /// Finds the active line index for a given original log line index.
-    ///
-    /// Returns `None` if the line is not active.
-    pub fn find_line(&self, log_index: usize) -> Option<usize> {
-        self.active_lines
-            .iter()
-            .position(|&active_line_index| self.lines[active_line_index].index == log_index)
-    }
-
-    /// Finds the active line index closest to a target original log line index.
-    ///
-    /// Useful for maintaining cursor position when filters change.
-    /// Returns `None` if there are no active lines.
-    pub fn find_closest_line_by_index(&self, target_log_line_index: usize) -> Option<usize> {
-        if self.active_lines.is_empty() {
-            return None;
-        }
-
-        let mut best_match = 0;
-        let mut min_distance = usize::MAX;
-
-        for (active_lines_index, &lines_index) in self.active_lines.iter().enumerate() {
-            let log_line_index = self.lines[lines_index].index;
-            let distance = log_line_index.abs_diff(target_log_line_index);
-
-            if distance < min_distance {
-                min_distance = distance;
-                best_match = active_lines_index;
-            }
-        }
-
-        Some(best_match)
+    /// Returns all log lines as a slice
+    pub fn all_lines(&self) -> &[LogLine] {
+        &self.lines
     }
 }

@@ -47,12 +47,12 @@ impl Search {
     }
 
     /// Toggles case sensitivity.
-    pub fn toggle_case_sensitive(&mut self) {
+    pub fn toggle_case_sensitivity(&mut self) {
         self.case_sensitive = !self.case_sensitive;
     }
 
     /// Reset case sensitivity to false.
-    pub fn reset_case_sensitive(&mut self) {
+    pub fn reset_case_sensitivity(&mut self) {
         self.case_sensitive = false;
     }
 
@@ -224,7 +224,7 @@ mod tests {
     #[test]
     fn test_update_matches_case_sensitive() {
         let mut search = Search::default();
-        search.toggle_case_sensitive();
+        search.toggle_case_sensitivity();
         let lines = ["ERROR: foo", "error: bar", "Error: baz"];
         search.update_matches("error", lines.iter().copied());
         let (_, total) = search.get_match_info();

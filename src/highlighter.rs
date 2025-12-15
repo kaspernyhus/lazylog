@@ -141,8 +141,6 @@ impl PatternMatcher {
 /// Pattern with associated color for text highlighting.
 #[derive(Debug, Clone)]
 pub struct HighlightPattern {
-    /// Optional name to display
-    pub name: Option<String>,
     /// Matcher to identify text spans to highlight.
     pub matcher: PatternMatcher,
     /// Style to apply to matched text.
@@ -151,7 +149,7 @@ pub struct HighlightPattern {
 
 impl HighlightPattern {
     /// Creates a new highlight pattern.
-    pub fn new(pattern: &str, match_type: PatternMatchType, style: PatternStyle, name: Option<String>) -> Option<Self> {
+    pub fn new(pattern: &str, match_type: PatternMatchType, style: PatternStyle) -> Option<Self> {
         let matcher = match match_type {
             PatternMatchType::Plain(case_sensitive) => PatternMatcher::Plain(PlainMatch {
                 pattern: pattern.to_string(),
@@ -160,7 +158,7 @@ impl HighlightPattern {
             PatternMatchType::Regex => PatternMatcher::Regex(Regex::new(pattern).ok()?),
         };
 
-        Some(Self { name, matcher, style })
+        Some(Self { matcher, style })
     }
 }
 
@@ -230,18 +228,13 @@ impl Highlighter {
     /// Returns the style for the whole line if it matches any event pattern.
     ///
     /// Returns the first matching event's style, or `None` if no pattern matches.
-    pub fn get_line_style(&self, text: &str) -> Option<PatternStyle> {
+    pub fn is_event(&self, text: &str) -> Option<PatternStyle> {
         for event in &self.events {
             if event.matcher.matches(text) {
                 return Some(event.style);
             }
         }
         None
-    }
-
-    /// Returns a slice of all event patterns.
-    pub fn events(&self) -> &[HighlightPattern] {
-        &self.events
     }
 
     /// Invalidates the highlight cache by incrementing the version.
@@ -253,7 +246,6 @@ impl Highlighter {
     /// Adds a temporary highlight pattern to be applied on top of any other highlighting.
     pub fn add_temporary_highlight(&mut self, pattern: String, style: PatternStyle, case_sensitive: bool) {
         self.temporary_highlights.push(HighlightPattern {
-            name: None,
             matcher: PatternMatcher::Plain(PlainMatch {
                 pattern,
                 case_sensitive,
@@ -285,7 +277,7 @@ impl Highlighter {
         let mut ranges = Vec::new();
 
         if enable_colors {
-            if let Some(line_style) = self.get_line_style(line) {
+            if let Some(line_style) = self.is_event(line) {
                 ranges.push(StyledRange {
                     start: 0,
                     end: line.len(),

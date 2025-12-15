@@ -19,6 +19,7 @@ pub mod log_event;
 pub mod marking;
 pub mod options;
 pub mod persistence;
+pub mod resolver;
 pub mod search;
 pub mod timestamp;
 pub mod ui;

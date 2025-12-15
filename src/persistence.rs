@@ -81,7 +81,7 @@ impl PersistedState {
                 .collect(),
             marks: app
                 .marking
-                .get_all_marks()
+                .get_marks()
                 .iter()
                 .map(|m| MarkState {
                     line_index: m.line_index,
@@ -90,11 +90,11 @@ impl PersistedState {
                 .collect(),
             event_filters: app
                 .event_tracker
-                .get_event_filters()
+                .get_event_stats()
                 .iter()
-                .map(|ef| EventFilterState {
-                    name: ef.name.clone(),
-                    enabled: ef.enabled,
+                .map(|es| EventFilterState {
+                    name: es.0.clone(),
+                    enabled: es.1,
                 })
                 .collect(),
             options: app

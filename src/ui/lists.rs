@@ -39,7 +39,7 @@ impl App {
 
         let mut list_state = ListState::default();
         if !self.options.is_empty() {
-            list_state.select(Some(self.options.selected_index()));
+            list_state.select(Some(self.options_list_state.selected_index()));
         }
 
         let options_list = List::new(items)
@@ -97,9 +97,17 @@ impl App {
             })
             .collect();
 
+        // Set viewport height for scrolling
+        self.filter_list_state
+            .set_viewport_height(area.height.saturating_sub(2) as usize);
+
         let mut list_state = ListState::default();
         if !filter_patterns.is_empty() {
-            list_state.select(Some(self.filter.get_selected_pattern_index()));
+            let visible_offset = self.filter_list_state.viewport_offset();
+            let selected_idx = self.filter_list_state.selected_index();
+            if selected_idx >= visible_offset {
+                list_state.select(Some(selected_idx - visible_offset));
+            }
         }
 
         let filter_list = List::new(items)
@@ -150,10 +158,9 @@ impl App {
             .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(EVENT_LIST_BG));
 
-        // Get merged items or just events
-        let events = self.event_tracker.get_events();
-        let marks = self.marking.get_filtered_marks();
-        let list_items = EventMarkView::merge(&events, &marks, self.event_tracker.showing_marks());
+        let events = self.get_visible_events();
+        let visible_marks = self.get_visible_marks();
+        let list_items = EventMarkView::merge(&events, &visible_marks, self.event_tracker.showing_marks());
 
         if list_items.is_empty() {
             let popup = Paragraph::new("No events found")
@@ -211,8 +218,8 @@ impl App {
 
         let (list_area, _) = ScrollableList::new(items)
             .selection(
-                self.event_tracker.selected_index(),
-                self.event_tracker.viewport_offset(),
+                self.events_list_state.selected_index(),
+                self.events_list_state.viewport_offset(),
             )
             .total_count(list_items.len())
             .highlight_symbol(RIGHT_ARROW)
@@ -223,13 +230,13 @@ impl App {
             )
             .render(area, buf, block);
 
-        self.event_tracker.set_viewport_height(list_area.height as usize);
+        self.events_list_state.set_viewport_height(list_area.height as usize);
     }
 
     pub(super) fn render_event_filter_popup(&self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
 
-        let event_filters = self.event_tracker.get_event_filters();
+        let event_filters = self.event_tracker.get_event_stats();
 
         let block = Block::default()
             .title(" Event Filters ")
@@ -250,11 +257,11 @@ impl App {
         let list_items: Vec<Line> = event_filters
             .iter()
             .map(|filter| {
-                let checkbox = if filter.enabled { "[x]" } else { "[ ]" };
-                let count = self.event_tracker.get_event_count(&filter.name);
-                let content = format!("{} {} ({})", checkbox, filter.name, count);
+                let checkbox = if filter.1 { "[x]" } else { "[ ]" };
+                let count = self.event_tracker.get_event_count(&filter.0);
+                let content = format!("{} {} ({})", checkbox, filter.0, count);
 
-                if filter.enabled {
+                if filter.1 {
                     Line::from(content).style(Style::default().fg(FILTER_ENABLED_FG))
                 } else {
                     Line::from(content).style(Style::default().fg(FILTER_DISABLED_FG))
@@ -264,21 +271,20 @@ impl App {
 
         let (list_area, _) = ScrollableList::new(list_items)
             .selection(
-                self.event_tracker.get_filter_selected_index(),
-                self.event_tracker.get_filter_viewport_offset(),
+                self.event_filter_list_state.selected_index(),
+                self.event_filter_list_state.viewport_offset(),
             )
             .total_count(self.event_tracker.filter_count())
             .highlight_symbol(RIGHT_ARROW)
             .highlight_style(Style::default().add_modifier(Modifier::BOLD))
             .render(area, buf, block);
 
-        self.event_tracker.set_filter_viewport_height(list_area.height as usize);
+        self.event_filter_list_state
+            .set_viewport_height(list_area.height as usize);
     }
 
     pub(super) fn render_marks_list(&self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
-
-        let filtered_marks = self.marking.get_filtered_marks();
 
         let block = Block::default()
             .title(" Marked Lines ")
@@ -288,15 +294,16 @@ impl App {
             .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(MARK_MODE_BG));
 
-        if filtered_marks.is_empty() {
+        let marks = self.get_visible_marks();
+
+        if marks.is_empty() {
             let popup = Paragraph::new("No marked lines")
                 .block(block)
                 .alignment(Alignment::Center);
             popup.render(area, buf);
             return;
         }
-
-        let max_name_length = filtered_marks
+        let max_name_length = marks
             .iter()
             .filter_map(|m| m.name.as_ref().map(|n| n.len()))
             .max()
@@ -310,7 +317,7 @@ impl App {
             .saturating_sub(4)
             .max(20) as usize; // Minimum 20 characters
 
-        let items: Vec<Line> = filtered_marks
+        let items: Vec<Line> = marks
             .iter()
             .map(|mark| {
                 let log_line = self
@@ -354,13 +361,16 @@ impl App {
             .collect();
 
         let (list_area, _) = ScrollableList::new(items)
-            .selection(self.marking.selected_index(), self.marking.viewport_offset())
-            .total_count(filtered_marks.len())
+            .selection(
+                self.marking_list_state.selected_index(),
+                self.marking_list_state.viewport_offset(),
+            )
+            .total_count(marks.len())
             .highlight_symbol(RIGHT_ARROW)
             .highlight_style(Style::default().bg(MARK_LIST_HIGHLIGHT_BG).add_modifier(Modifier::BOLD))
             .render(area, buf, block);
 
-        self.marking.set_viewport_height(list_area.height as usize);
+        self.marking_list_state.set_viewport_height(list_area.height as usize);
     }
 
     pub(super) fn render_files_list(&self, area: Rect, buf: &mut Buffer) {
@@ -413,7 +423,7 @@ impl App {
 
         let mut list_state = ListState::default();
         if !self.file_manager.iter().collect::<Vec<_>>().is_empty() {
-            list_state.select(Some(self.file_manager.selected_index()));
+            list_state.select(Some(self.files_list_state.selected_index()));
         }
 
         let files_list = List::new(items)

@@ -1,4 +1,6 @@
-use crate::list_view_state::ListViewState;
+use std::{collections::HashSet, sync::Arc};
+
+use crate::{log::LogLine, resolver::VisibilityRule};
 
 /// Represents a single file in a multi-file session.
 #[derive(Debug, Clone)]
@@ -34,26 +36,17 @@ impl FileEntry {
 pub struct FileManager {
     /// List of file entries.
     files: Vec<FileEntry>,
-    /// View state for the file list.
-    view: ListViewState,
 }
 
 impl FileManager {
     pub fn new(file_paths: &[String]) -> Self {
-        let mut mgr = Self {
-            files: Vec::new(),
-            view: ListViewState::new(),
-        };
-
-        mgr.files = file_paths
-            .iter()
-            .enumerate()
-            .map(|(id, path)| FileEntry::new(path.clone(), id))
-            .collect();
-
-        mgr.view.set_item_count(mgr.count());
-
-        mgr
+        Self {
+            files: file_paths
+                .iter()
+                .enumerate()
+                .map(|(id, path)| FileEntry::new(path.clone(), id))
+                .collect(),
+        }
     }
 
     /// Returns the number of files.
@@ -85,56 +78,42 @@ impl FileManager {
         self.files.iter()
     }
 
-    /// Gets the currently selected index.
-    pub fn selected_index(&self) -> usize {
-        self.view.selected_index()
+    /// Gets a file entry by index.
+    pub fn get(&self, index: usize) -> Option<&FileEntry> {
+        self.files.get(index)
     }
 
-    /// Gets the viewport offset for scrolling.
-    pub fn viewport_offset(&self) -> usize {
-        self.view.viewport_offset()
-    }
-
-    /// Sets the viewport height (called from UI rendering).
-    pub fn set_viewport_height(&self, height: usize) {
-        self.view.set_viewport_height(height);
-    }
-
-    /// Moves selection up.
-    pub fn move_selection_up(&mut self) {
-        self.view.move_up();
-    }
-
-    /// Moves selection down.
-    pub fn move_selection_down(&mut self) {
-        self.view.move_down();
-    }
-
-    /// Moves selection up by half a page.
-    pub fn page_up(&mut self) {
-        self.view.page_up();
-    }
-
-    /// Moves selection down by half a page.
-    pub fn page_down(&mut self) {
-        self.view.page_down();
-    }
-
-    /// Toggles the enabled state of the currently selected file.
-    pub fn toggle_selected(&mut self) {
-        let selected = self.view.selected_index();
-        if selected < self.files.len() {
-            self.files[selected].enabled = !self.files[selected].enabled;
+    /// Toggles the enabled state of a file at the given index.
+    pub fn toggle_enabled(&mut self, index: usize) {
+        if let Some(file) = self.files.get_mut(index) {
+            file.enabled = !file.enabled;
         }
     }
 
-    /// Gets the selected file entry.
-    pub fn get_selected(&self) -> Option<&FileEntry> {
-        self.files.get(self.view.selected_index())
-    }
-
     /// Returns a vec of enabled file IDs (only relevant for multi-file filtering).
-    pub fn enabled_file_ids(&self) -> Vec<usize> {
+    pub fn enabled_file_ids(&self) -> HashSet<usize> {
         self.files.iter().filter(|f| f.enabled).map(|f| f.file_id).collect()
+    }
+}
+
+/// Rule that filters lines by file ID
+pub struct FileFilterRule {
+    enabled_file_ids: Arc<HashSet<usize>>,
+}
+
+impl FileFilterRule {
+    pub fn new(enabled_file_ids: Arc<HashSet<usize>>) -> Self {
+        Self { enabled_file_ids }
+    }
+}
+
+impl VisibilityRule for FileFilterRule {
+    fn is_visible(&self, line: &LogLine) -> bool {
+        if let Some(file_id) = line.log_file_id {
+            self.enabled_file_ids.contains(&file_id)
+        } else {
+            // Lines without file ID are always shown
+            true
+        }
     }
 }

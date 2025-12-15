@@ -45,7 +45,7 @@ impl Viewport {
         self.adjust_visible();
     }
 
-    /// Sets the total number of available lines.
+    /// Sets the number of available lines to show.
     pub fn set_total_lines(&mut self, total_lines: usize) {
         self.total_lines = total_lines;
     }
