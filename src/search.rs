@@ -11,8 +11,10 @@ pub struct Search {
     case_sensitive: bool,
     /// Index of the current match in match_indices.
     current_match_index: usize,
-    /// Line indices where matches were found.
+    /// Line indices where matches were found (in visible lines).
     match_indices: Vec<usize>,
+    /// Total number of matches including filtered-out lines.
+    total_match_count: usize,
     /// Search query history.
     pub history: History<String>,
 }
@@ -34,6 +36,7 @@ impl Search {
         self.active_pattern = None;
         self.match_indices.clear();
         self.current_match_index = 0;
+        self.total_match_count = 0;
     }
 
     /// Returns the active search pattern (submitted search).
@@ -160,15 +163,46 @@ impl Search {
         }
     }
 
-    /// Returns (current_match_number, total_matches).
+    /// Returns (current_match_number, visible_matches, total_matches).
     ///
-    /// Returns (0, 0) if there are no matches.
-    pub fn get_match_info(&self) -> (usize, usize) {
+    /// Returns (0, 0, 0) if there are no matches.
+    pub fn get_match_info(&self) -> (usize, usize, usize) {
         if self.match_indices.is_empty() {
-            (0, 0)
+            (0, 0, self.total_match_count)
         } else {
-            (self.current_match_index + 1, self.match_indices.len())
+            (
+                self.current_match_index + 1,
+                self.match_indices.len(),
+                self.total_match_count,
+            )
         }
+    }
+
+    /// Sets the total match count (including filtered-out lines).
+    pub fn set_total_match_count(&mut self, count: usize) {
+        self.total_match_count = count;
+    }
+
+    /// Counts matches in the given lines without storing indices.
+    pub fn count_matches<'a>(&self, pattern: &str, lines: impl Iterator<Item = &'a str>) -> usize {
+        if pattern.is_empty() {
+            return 0;
+        }
+
+        let lines_vec: Vec<&str> = lines.collect();
+        let case_sensitive = self.case_sensitive;
+        let pattern_str = pattern.to_string();
+
+        lines_vec
+            .par_iter()
+            .filter(|line| {
+                if case_sensitive {
+                    line.contains(&pattern_str)
+                } else {
+                    contains_ignore_case(line, &pattern_str)
+                }
+            })
+            .count()
     }
 }
 
@@ -198,8 +232,8 @@ mod tests {
         let mut search = Search::default();
         let lines = ["ERROR: foo", "INFO: bar", "ERROR: baz"];
         search.apply_pattern("ERROR", lines.iter().copied());
-        let (_current, total) = search.get_match_info();
-        assert_eq!(total, 2);
+        let (_current, visible, _total) = search.get_match_info();
+        assert_eq!(visible, 2);
     }
 
     #[test]
@@ -209,7 +243,7 @@ mod tests {
         search.apply_pattern("ERROR", lines.iter().copied());
         search.clear_matches();
         assert_eq!(search.get_active_pattern(), None);
-        assert_eq!(search.get_match_info(), (0, 0));
+        assert_eq!(search.get_match_info(), (0, 0, 0));
     }
 
     #[test]
@@ -217,8 +251,8 @@ mod tests {
         let mut search = Search::default();
         let lines = ["ERROR: foo", "error: bar", "Error: baz"];
         search.update_matches("error", lines.iter().copied());
-        let (_, total) = search.get_match_info();
-        assert_eq!(total, 3);
+        let (_, visible, _) = search.get_match_info();
+        assert_eq!(visible, 3);
     }
 
     #[test]
@@ -227,8 +261,8 @@ mod tests {
         search.toggle_case_sensitivity();
         let lines = ["ERROR: foo", "error: bar", "Error: baz"];
         search.update_matches("error", lines.iter().copied());
-        let (_, total) = search.get_match_info();
-        assert_eq!(total, 1);
+        let (_, visible, _) = search.get_match_info();
+        assert_eq!(visible, 1);
     }
 
     #[test]
@@ -237,9 +271,9 @@ mod tests {
         let lines = ["ERROR: foo", "INFO: bar", "ERROR: baz"];
         search.update_matches("ERROR", lines.iter().copied());
         search.next_match(0);
-        let (current, total) = search.get_match_info();
+        let (current, visible, _total) = search.get_match_info();
         assert_eq!(current, 2);
-        assert_eq!(total, 2);
+        assert_eq!(visible, 2);
     }
 
     #[test]

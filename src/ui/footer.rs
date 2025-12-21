@@ -108,11 +108,20 @@ impl App {
         let left = Line::from(left_parts.join(" "));
         let middle = Line::from("F1:View Help").centered();
 
-        let (current_match, total_matches) = self.search.get_match_info();
+        let (current_match, visible_matches, total_matches) = self.search.get_match_info();
         let progression_text = self.format_progression_text();
 
-        let right = if total_matches > 0 {
-            Line::from(format!("{}/{} | {} ", current_match, total_matches, progression_text)).right_aligned()
+        let right = if visible_matches > 0 {
+            let filtered_count = total_matches.saturating_sub(visible_matches);
+            if filtered_count > 0 {
+                Line::from(format!(
+                    "{}/{} ({}) | {} ",
+                    current_match, visible_matches, filtered_count, progression_text
+                ))
+                .right_aligned()
+            } else {
+                Line::from(format!("{}/{} | {} ", current_match, visible_matches, progression_text)).right_aligned()
+            }
         } else {
             Line::from(progression_text + " ").right_aligned()
         };

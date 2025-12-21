@@ -794,10 +794,29 @@ impl App {
                     let visible_iter = self.resolver.get_visible_lines_iter(all_lines);
                     let content_iter = visible_iter.map(|log_line| log_line.content());
 
-                    if let Some(matches) = self.search.apply_pattern(self.input.value(), content_iter)
+                    let visible_matches = self.search.apply_pattern(self.input.value(), content_iter);
+
+                    // Count total matches including filtered lines
+                    let all_lines = self.log_buffer.all_lines();
+                    let all_content_iter = all_lines.iter().map(|log_line| log_line.content());
+                    let total_matches = self.search.count_matches(self.input.value(), all_content_iter);
+                    self.search.set_total_match_count(total_matches);
+
+                    if let Some(matches) = visible_matches
                         && matches == 0
                     {
-                        self.show_message(format!("0 hits for '{}'", self.input.value()).as_str());
+                        if total_matches > 0 {
+                            self.show_message(
+                                format!(
+                                    "0 hits for '{}' ({} in filtered lines)",
+                                    self.input.value(),
+                                    total_matches
+                                )
+                                .as_str(),
+                            );
+                        } else {
+                            self.show_message(format!("0 hits for '{}'", self.input.value()).as_str());
+                        }
                         return;
                     }
 
@@ -1239,6 +1258,12 @@ impl App {
             let visible_iter = self.resolver.get_visible_lines_iter(all_lines);
             let content_iter = visible_iter.map(|log_line| log_line.content());
             self.search.update_matches(self.input.value(), content_iter);
+
+            // Update total match count
+            let all_lines = self.log_buffer.all_lines();
+            let all_content_iter = all_lines.iter().map(|log_line| log_line.content());
+            let total_matches = self.search.count_matches(self.input.value(), all_content_iter);
+            self.search.set_total_match_count(total_matches);
         }
 
         self.update_temporary_highlights();
