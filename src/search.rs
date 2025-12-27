@@ -20,14 +20,29 @@ pub struct Search {
 }
 
 impl Search {
-    /// Applies a search pattern and updates matches.
-    pub fn apply_pattern<'a>(&mut self, pattern: &str, lines: impl Iterator<Item = &'a str>) -> Option<usize> {
+    /// Returns whether a line matches the given pattern based on case sensitivity setting.
+    fn matches_pattern(&self, line: &str, pattern: &str) -> bool {
+        if self.case_sensitive {
+            line.contains(pattern)
+        } else {
+            contains_ignore_case(line, pattern)
+        }
+    }
+
+    /// Applies a search pattern and updates both visible matches and total count.
+    /// Returns the number of visible matches, or None if pattern is empty.
+    pub fn apply_pattern<'a>(
+        &mut self,
+        pattern: &str,
+        visible_lines: impl Iterator<Item = &'a str>,
+        all_lines: impl Iterator<Item = &'a str>,
+    ) -> Option<usize> {
         if pattern.is_empty() {
             return None;
         }
         self.active_pattern = Some(pattern.to_string());
         self.history.add(pattern.to_string());
-        self.update_matches(pattern, lines);
+        self.update_matches(pattern, visible_lines, all_lines);
         Some(self.match_indices.len())
     }
 
@@ -59,47 +74,59 @@ impl Search {
         self.case_sensitive = false;
     }
 
-    /// Updates the list of matching line indices for a given pattern without storing in search history.
-    pub fn update_matches<'a>(&mut self, pattern: &str, lines: impl Iterator<Item = &'a str>) {
+    /// Updates visible matches and total match count.
+    pub fn update_matches<'a>(
+        &mut self,
+        pattern: &str,
+        visible_lines: impl Iterator<Item = &'a str>,
+        all_lines: impl Iterator<Item = &'a str>,
+    ) {
         self.match_indices.clear();
         self.current_match_index = 0;
 
         if pattern.is_empty() {
+            self.total_match_count = 0;
             return;
         }
 
-        // Collect lines into a vector for parallel processing
-        let lines_vec: Vec<&str> = lines.collect();
+        let visible_vec: Vec<&str> = visible_lines.collect();
+        let all_vec: Vec<&str> = all_lines.collect();
         let case_sensitive = self.case_sensitive;
-        let pattern_str = pattern.to_string();
 
-        self.match_indices = lines_vec
+        // Update visible matches
+        self.match_indices = visible_vec
             .par_iter()
             .enumerate()
             .filter_map(|(line_index, line)| {
                 let matching = if case_sensitive {
-                    line.contains(&pattern_str)
+                    line.contains(pattern)
                 } else {
-                    contains_ignore_case(line, &pattern_str)
+                    contains_ignore_case(line, pattern)
                 };
 
                 if matching { Some(line_index) } else { None }
             })
             .collect();
+
+        // Count total matches
+        self.total_match_count = all_vec
+            .par_iter()
+            .filter(|line| {
+                if case_sensitive {
+                    line.contains(pattern)
+                } else {
+                    contains_ignore_case(line, pattern)
+                }
+            })
+            .count();
     }
 
     /// Appends a single line to matches if it matches the active pattern.
     pub fn append_line(&mut self, line_index: usize, line_content: &str) {
-        if let Some(pattern) = &self.active_pattern {
-            let matching = if self.case_sensitive {
-                line_content.contains(pattern)
-            } else {
-                contains_ignore_case(line_content, pattern)
-            };
-
-            if matching {
-                self.match_indices.push(line_index);
-            }
+        if let Some(pattern) = &self.active_pattern
+            && self.matches_pattern(line_content, pattern)
+        {
+            self.match_indices.push(line_index);
         }
     }
 
@@ -191,15 +218,14 @@ impl Search {
 
         let lines_vec: Vec<&str> = lines.collect();
         let case_sensitive = self.case_sensitive;
-        let pattern_str = pattern.to_string();
 
         lines_vec
             .par_iter()
             .filter(|line| {
                 if case_sensitive {
-                    line.contains(&pattern_str)
+                    line.contains(pattern)
                 } else {
-                    contains_ignore_case(line, &pattern_str)
+                    contains_ignore_case(line, pattern)
                 }
             })
             .count()
@@ -214,7 +240,7 @@ mod tests {
     fn test_apply_pattern_sets_active_pattern() {
         let mut search = Search::default();
         let lines = ["WARNING: baz", "ERROR: foo", "INFO: bar"];
-        search.apply_pattern("ERROR", lines.iter().copied());
+        search.apply_pattern("ERROR", lines.iter().copied(), lines.iter().copied());
         assert_eq!(search.get_active_pattern(), Some("ERROR"));
     }
 
@@ -222,7 +248,7 @@ mod tests {
     fn test_apply_pattern_adds_to_history() {
         let mut search = Search::default();
         let lines = ["ERROR: foo"];
-        search.apply_pattern("ERROR", lines.iter().copied());
+        search.apply_pattern("ERROR", lines.iter().copied(), lines.iter().copied());
         assert_eq!(search.history.get_history().len(), 1);
         assert_eq!(search.history.get_history()[0], "ERROR");
     }
@@ -231,16 +257,17 @@ mod tests {
     fn test_apply_pattern_finds_matches() {
         let mut search = Search::default();
         let lines = ["ERROR: foo", "INFO: bar", "ERROR: baz"];
-        search.apply_pattern("ERROR", lines.iter().copied());
-        let (_current, visible, _total) = search.get_match_info();
+        search.apply_pattern("ERROR", lines.iter().copied(), lines.iter().copied());
+        let (_current, visible, total) = search.get_match_info();
         assert_eq!(visible, 2);
+        assert_eq!(total, 2);
     }
 
     #[test]
     fn test_clear_matches_clears_pattern_and_matches() {
         let mut search = Search::default();
         let lines = ["ERROR: foo"];
-        search.apply_pattern("ERROR", lines.iter().copied());
+        search.apply_pattern("ERROR", lines.iter().copied(), lines.iter().copied());
         search.clear_matches();
         assert_eq!(search.get_active_pattern(), None);
         assert_eq!(search.get_match_info(), (0, 0, 0));
@@ -250,9 +277,10 @@ mod tests {
     fn test_update_matches_case_insensitive() {
         let mut search = Search::default();
         let lines = ["ERROR: foo", "error: bar", "Error: baz"];
-        search.update_matches("error", lines.iter().copied());
-        let (_, visible, _) = search.get_match_info();
+        search.update_matches("error", lines.iter().copied(), lines.iter().copied());
+        let (_, visible, total) = search.get_match_info();
         assert_eq!(visible, 3);
+        assert_eq!(total, 3);
     }
 
     #[test]
@@ -260,20 +288,22 @@ mod tests {
         let mut search = Search::default();
         search.toggle_case_sensitivity();
         let lines = ["ERROR: foo", "error: bar", "Error: baz"];
-        search.update_matches("error", lines.iter().copied());
-        let (_, visible, _) = search.get_match_info();
+        search.update_matches("error", lines.iter().copied(), lines.iter().copied());
+        let (_, visible, total) = search.get_match_info();
         assert_eq!(visible, 1);
+        assert_eq!(total, 1);
     }
 
     #[test]
     fn test_get_match_info_returns_correct_values() {
         let mut search = Search::default();
         let lines = ["ERROR: foo", "INFO: bar", "ERROR: baz"];
-        search.update_matches("ERROR", lines.iter().copied());
+        search.update_matches("ERROR", lines.iter().copied(), lines.iter().copied());
         search.next_match(0);
-        let (current, visible, _total) = search.get_match_info();
+        let (current, visible, total) = search.get_match_info();
         assert_eq!(current, 2);
         assert_eq!(visible, 2);
+        assert_eq!(total, 2);
     }
 
     #[test]

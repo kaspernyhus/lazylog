@@ -317,19 +317,14 @@ impl App {
         self.resolver.set_expanded_lines(self.expansion.get_all_expanded());
 
         let num_lines = {
-            let all_lines = self.log_buffer.all_lines();
-            let num_lines = self.resolver.visible_count(all_lines);
+            let visible_lines = self.resolver.get_visible_lines(all_lines);
+            let num_lines = visible_lines.len();
 
             // Update search matches if there's an active search
-            if let Some(pattern) = self.search.get_active_pattern().map(|p| p.to_string()) {
-                let visible_lines = self.resolver.get_visible_lines(all_lines);
-                let search_lines = visible_lines.iter().map(|v| all_lines[v.log_index].content());
-                self.search.update_matches(&pattern, search_lines);
-
-                // Update total match count including filtered lines
-                let all_content_iter = all_lines.iter().map(|log_line| log_line.content());
-                let total_matches = self.search.count_matches(&pattern, all_content_iter);
-                self.search.set_total_match_count(total_matches);
+            if let Some(pattern) = self.search.get_active_pattern().map(str::to_string) {
+                let visible_content = visible_lines.iter().map(|v| all_lines[v.log_index].content());
+                let all_content = all_lines.iter().map(|log_line| log_line.content());
+                self.search.update_matches(&pattern, visible_content, all_content);
             }
 
             num_lines
@@ -799,18 +794,16 @@ impl App {
                     let all_lines = self.log_buffer.all_lines();
                     let visible_lines = self.resolver.get_visible_lines(all_lines);
                     let content_iter = visible_lines.iter().map(|vl| all_lines[vl.log_index].content());
-
-                    let visible_matches = self.search.apply_pattern(self.input.value(), content_iter);
-
-                    // Count total matches including filtered lines
-                    let all_lines = self.log_buffer.all_lines();
                     let all_content_iter = all_lines.iter().map(|log_line| log_line.content());
-                    let total_matches = self.search.count_matches(self.input.value(), all_content_iter);
-                    self.search.set_total_match_count(total_matches);
+
+                    let visible_matches = self
+                        .search
+                        .apply_pattern(self.input.value(), content_iter, all_content_iter);
 
                     if let Some(matches) = visible_matches
                         && matches == 0
                     {
+                        let (_, _, total_matches) = self.search.get_match_info();
                         if total_matches > 0 {
                             self.show_message(
                                 format!(
@@ -1264,13 +1257,8 @@ impl App {
             let all_lines = self.log_buffer.all_lines();
             let visible_lines = self.resolver.get_visible_lines(all_lines);
             let content_iter = visible_lines.iter().map(|vl| all_lines[vl.log_index].content());
-            self.search.update_matches(self.input.value(), content_iter);
-
-            // Update total match count
-            let all_lines = self.log_buffer.all_lines();
             let all_content_iter = all_lines.iter().map(|log_line| log_line.content());
-            let total_matches = self.search.count_matches(self.input.value(), all_content_iter);
-            self.search.set_total_match_count(total_matches);
+            self.search.update_matches(self.input.value(), content_iter, all_content_iter);
         }
 
         self.update_temporary_highlights();
