@@ -6,6 +6,7 @@ pub mod config;
 pub mod debug_log;
 pub mod event;
 pub mod event_mark_view;
+pub mod expansion;
 pub mod file_manager;
 pub mod filter;
 pub mod help;

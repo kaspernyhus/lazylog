@@ -4,6 +4,8 @@ use ratatui::style::Color;
 pub const RIGHT_ARROW: &str = "▶";
 /// Three-quarters block for mark indicator.
 pub const MARK_INDICATOR: &str = "▊";
+/// Symbol used to indicate an expanded line
+pub const EXPANSION_PREFIX: &str = "│ ";
 
 /// Common colors
 pub const GRAY_COLOR: Color = Color::Indexed(237);
@@ -66,6 +68,9 @@ pub const MESSAGE_ERROR_FG: Color = Color::Red;
 
 // Selection colors
 pub const SELECTION_BG: Color = Color::LightBlue;
+
+// Expansion colors
+pub const EXPANDED_LINE_FG: Color = Color::DarkGray;
 
 // File ID colors
 pub const FILE_ID_COLORS: &[Color] = &[Color::Indexed(24), Color::Indexed(108), Color::Indexed(168)];

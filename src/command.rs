@@ -80,6 +80,10 @@ pub enum Command {
     ActivateFilesView,
     ToggleFile,
 
+    // Expansion
+    ToggleExpansion,
+    CollapseAll,
+
     // Streaming
     ToggleFollowMode,
     TogglePauseMode,
@@ -171,6 +175,10 @@ impl Command {
             Command::ActivateFilesView => "View files list",
             Command::ToggleFile => "Toggle file visibility",
 
+            // Expansion
+            Command::ToggleExpansion => "Expand/collapse hidden lines",
+            Command::CollapseAll => "Collapse all expansions",
+
             // Streaming
             Command::ToggleFollowMode => "Toggle follow mode (stdin)",
             Command::TogglePauseMode => "Toggle pause mode (stdin)",
@@ -261,6 +269,10 @@ impl Command {
             // Files
             Command::ActivateFilesView => app.activate_files_view(),
             Command::ToggleFile => app.toggle_file(),
+
+            // Expansion
+            Command::ToggleExpansion => app.toggle_expansion(),
+            Command::CollapseAll => app.collapse_all_expansions(),
 
             // Streaming
             Command::ToggleFollowMode => app.toggle_follow_mode(),

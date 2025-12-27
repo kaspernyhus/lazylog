@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 
-use super::colors::{FILE_ID_COLORS, MARK_INDICATOR, MARK_INDICATOR_COLOR, RIGHT_ARROW, SCROLLBAR_FG, SELECTION_BG};
+use super::colors::{
+    EXPANDED_LINE_FG, EXPANSION_PREFIX, FILE_ID_COLORS, MARK_INDICATOR, MARK_INDICATOR_COLOR, RIGHT_ARROW,
+    SCROLLBAR_FG, SELECTION_BG,
+};
 use crate::highlighter::HighlightedLine;
 use crate::options::AppOption;
 use crate::resolver::Tag;
@@ -119,15 +122,36 @@ impl App {
             Span::raw("")
         };
 
+        let is_expanded = tags.contains(&Tag::Expanded);
+
+        let expansion_indicator = if is_expanded {
+            Span::styled(EXPANSION_PREFIX, Style::default().fg(EXPANDED_LINE_FG))
+        } else {
+            Span::raw("")
+        };
+
         let mut line = if highlighted.segments.is_empty() {
-            let mut spans = vec![mark_indicator, file_id_indicator];
+            let mut spans = vec![mark_indicator, file_id_indicator, expansion_indicator];
             if !visible_text.is_empty() {
-                let text_style = Style::default();
+                let text_style = if is_expanded {
+                    Style::default().fg(EXPANDED_LINE_FG)
+                } else {
+                    Style::default()
+                };
                 spans.push(Span::styled(visible_text, text_style));
             }
             Line::from(spans)
         } else {
             let mut line = build_line_from_highlighted(visible_text, highlighted);
+            if is_expanded {
+                // Dim if the span has no explicit foreground color
+                for span in &mut line.spans {
+                    if span.style.fg.is_none() {
+                        span.style = span.style.fg(EXPANDED_LINE_FG);
+                    }
+                }
+            }
+            line.spans.insert(0, expansion_indicator);
             line.spans.insert(0, file_id_indicator);
             line.spans.insert(0, mark_indicator);
             line

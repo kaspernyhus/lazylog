@@ -8,6 +8,7 @@ use crate::{
     config::{Config, Filters},
     event::{AppEvent, Event, EventHandler},
     event_mark_view::{EventMarkView, EventOrMark},
+    expansion::Expansions,
     file_manager::FileManager,
     filter::{ActiveFilterMode, Filter, FilterPattern},
     help::Help,
@@ -19,7 +20,7 @@ use crate::{
     marking::Marking,
     options::{AppOption, AppOptions},
     persistence::{PersistedState, clear_all_state, load_state, save_state},
-    resolver::ViewportResolver,
+    resolver::{Tag, ViewportResolver},
     search::Search,
     ui::colors::{FILTER_MODE_BG, FILTER_MODE_FG, SEARCH_MODE_BG, SEARCH_MODE_FG},
     ui::popup_area,
@@ -128,6 +129,8 @@ pub struct App {
     pub options_list_state: ListViewState,
     /// Viewport resolver for determining visible lines
     pub resolver: ViewportResolver,
+    /// Expansion state for showing otherwise filtered lines
+    expansion: Expansions,
     /// Selection range for visual selection mode.
     selection_range: Option<(usize, usize)>,
     /// Timestamp when a message was shown.
@@ -228,6 +231,7 @@ impl App {
             files_list_state: ListViewState::new(),
             options_list_state: ListViewState::new(),
             resolver: ViewportResolver::new(),
+            expansion: Expansions::new(),
             selection_range: None,
             message_timestamp: None,
             completion: CompletionEngine::default(),
@@ -310,7 +314,8 @@ impl App {
 
         self.resolver.add_tag_rule(Box::new(MarkTagRule::new(marked_indices)));
 
-        // Scope the search updates to avoid holding all_lines across mutable calls
+        self.resolver.set_expanded_lines(self.expansion.get_all_expanded());
+
         let num_lines = {
             let all_lines = self.log_buffer.all_lines();
             let num_lines = self.resolver.visible_count(all_lines);
@@ -1143,6 +1148,7 @@ impl App {
     pub fn toggle_file(&mut self) {
         let selected_index = self.files_list_state.selected_index();
         self.file_manager.toggle_enabled(selected_index);
+        self.expansion.clear();
         self.update_view();
     }
 
@@ -1506,6 +1512,59 @@ impl App {
 
         let filter_count = self.event_tracker.filter_count();
         self.event_filter_list_state.set_item_count(filter_count);
+    }
+
+    pub fn toggle_expansion(&mut self) {
+        let all_lines = self.log_buffer.all_lines();
+
+        let Some(current_log_index) = self.resolver.viewport_to_log(self.viewport.selected_line, all_lines) else {
+            return;
+        };
+
+        let visible_lines = self.resolver.get_visible_lines(all_lines);
+        let current_viewport_index = self.viewport.selected_line;
+
+        // Check if the current line is an expanded line
+        if let Some(current_visible_line) = visible_lines.get(current_viewport_index)
+            && current_visible_line.tags.contains(&Tag::Expanded)
+        {
+            if let Some(parent_log_index) = self.expansion.find_parent(current_log_index) {
+                self.expansion.toggle(parent_log_index, Vec::new());
+                self.update_view();
+            }
+            return;
+        }
+
+        // If line is already expanded, collapse it
+        if self.expansion.is_expanded(current_log_index) {
+            self.expansion.toggle(current_log_index, Vec::new());
+            self.update_view();
+            return;
+        }
+
+        let next_log_index = if current_viewport_index + 1 < visible_lines.len() {
+            Some(visible_lines[current_viewport_index + 1].log_index)
+        } else {
+            None
+        };
+
+        let hidden_indices: Vec<usize> = if let Some(next_index) = next_log_index {
+            ((current_log_index + 1)..next_index).collect()
+        } else {
+            Vec::new()
+        };
+
+        if hidden_indices.is_empty() {
+            return;
+        }
+
+        self.expansion.toggle(current_log_index, hidden_indices);
+        self.update_view();
+    }
+
+    pub fn collapse_all_expansions(&mut self) {
+        self.expansion.clear();
+        self.update_view();
     }
 
     pub fn search_history_previous(&mut self) {

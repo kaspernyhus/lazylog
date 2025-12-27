@@ -1,7 +1,8 @@
 use crate::log::LogLine;
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
+use std::sync::Arc;
 
 /// Tags that can be attached to visible lines for rendering metadata
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -16,6 +17,8 @@ pub enum Tag {
     Event,
     /// Line belongs to an enabled file
     FileEnabled,
+    /// Line is shown due to expansion
+    Expanded,
 }
 
 /// Trait for rules that determine line visibility.
@@ -47,6 +50,12 @@ impl VisibleLine {
         }
     }
 
+    pub fn with_tag(&self, tag: Tag) -> Self {
+        let mut new = self.clone();
+        new.add_tag(tag);
+        new
+    }
+
     pub fn add_tag(&mut self, tag: Tag) {
         self.tags.insert(tag);
     }
@@ -66,6 +75,8 @@ pub struct ViewportResolver {
     visible_cache: RefCell<Option<Vec<VisibleLine>>>,
     /// Cache generation counter for invalidation
     cache_generation: u64,
+    /// Expanded lines: log index -> Vec<log_index>
+    expanded_lines: Arc<HashMap<usize, Vec<usize>>>,
 }
 
 impl Debug for ViewportResolver {
@@ -93,6 +104,7 @@ impl ViewportResolver {
             tag_rules: Vec::new(),
             visible_cache: RefCell::new(None),
             cache_generation: 0,
+            expanded_lines: Arc::new(HashMap::new()),
         }
     }
 
@@ -112,6 +124,13 @@ impl ViewportResolver {
     pub fn clear_rules(&mut self) {
         self.visibility_rules.clear();
         self.tag_rules.clear();
+        self.expanded_lines = Arc::new(HashMap::new());
+        self.invalidate_cache();
+    }
+
+    /// Set expanded line.
+    pub fn set_expanded_lines(&mut self, expanded_lines: Arc<HashMap<usize, Vec<usize>>>) {
+        self.expanded_lines = expanded_lines;
         self.invalidate_cache();
     }
 
@@ -148,7 +167,6 @@ impl ViewportResolver {
         let mut results = Vec::new();
 
         for (idx, line) in lines.iter().enumerate() {
-            // Step 1: Check visibility rules - ALL must return true
             let is_visible = if self.visibility_rules.is_empty() {
                 // No visibility rules means all lines visible
                 true
@@ -160,18 +178,32 @@ impl ViewportResolver {
                 continue;
             }
 
-            // Step 2: Line is visible, collect tags from tag rules
             let mut visible_line = VisibleLine::new(idx);
-            for tag_rule in &self.tag_rules {
-                if let Some(tag) = tag_rule.get_tags(line) {
-                    visible_line.add_tag(tag);
+            self.apply_tags(&mut visible_line, line);
+            results.push(visible_line);
+
+            // Inject expanded lines
+            if let Some(expanded_indices) = self.expanded_lines.get(&idx) {
+                for &log_idx in expanded_indices {
+                    if log_idx < lines.len() {
+                        let mut expanded_line = VisibleLine::new(log_idx).with_tag(Tag::Expanded);
+                        self.apply_tags(&mut expanded_line, &lines[log_idx]);
+                        results.push(expanded_line);
+                    }
                 }
             }
-
-            results.push(visible_line);
         }
 
         results
+    }
+
+    /// Apply tag rules to a visible line
+    fn apply_tags(&self, visible_line: &mut VisibleLine, line: &LogLine) {
+        for tag_rule in &self.tag_rules {
+            if let Some(tag) = tag_rule.get_tags(line) {
+                visible_line.add_tag(tag);
+            }
+        }
     }
 
     /// Convert viewport index to log index
@@ -191,7 +223,7 @@ impl ViewportResolver {
         self.get_visible_lines(lines).len()
     }
 
-    /// Update Tag::Marked on cached visible lines without full recomputation.
+    /// Update Tag::Marked on cached visible lines.
     pub fn update_mark_tags(&mut self, marked_indices: &HashSet<usize>) {
         let mut cache = self.visible_cache.borrow_mut();
         if let Some(visible_lines) = cache.as_mut() {
