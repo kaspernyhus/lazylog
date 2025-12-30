@@ -6,7 +6,7 @@ use super::colors::{
 use crate::event_mark_view::EventMarkView;
 use crate::filter::ActiveFilterMode;
 use crate::ui::MAX_PATH_LENGTH;
-use crate::ui::colors::{FILE_BORDER, FILE_DISABLED_FG, FILE_ENABLED_FG};
+use crate::ui::colors::{EVENT_NAME_CRITICAL_FG, FILE_BORDER, FILE_DISABLED_FG, FILE_ENABLED_FG, FILTER_CRITICAL_FG};
 use crate::ui::scrollable_list::ScrollableList;
 use crate::{app::App, ui::colors::MARK_INDICATOR_COLOR};
 use ratatui::{
@@ -197,6 +197,8 @@ impl App {
 
                 let (name_color, line_color) = if item.is_mark() {
                     (MARK_INDICATOR_COLOR, MARK_LINE_PREVIEW)
+                } else if self.event_tracker.is_critical_event(item.name()) {
+                    (EVENT_NAME_CRITICAL_FG, EVENT_LINE_PREVIEW)
                 } else {
                     (EVENT_NAME_FG, EVENT_LINE_PREVIEW)
                 };
@@ -257,14 +259,20 @@ impl App {
         let list_items: Vec<Line> = event_filters
             .iter()
             .map(|filter| {
-                let checkbox = if filter.1 { "[x]" } else { "[ ]" };
-                let count = self.event_tracker.get_event_count(&filter.0);
-                let content = format!("{} {} ({})", checkbox, filter.0, count);
+                let checkbox = if filter.enabled { "[x]" } else { "[ ]" };
+                let count = self.event_tracker.get_event_count(&filter.name);
+                let content = format!("{} {} ({})", checkbox, filter.name, count);
 
-                if filter.1 {
-                    Line::from(content).style(Style::default().fg(FILTER_ENABLED_FG))
+                let base_color = if filter.enabled {
+                    FILTER_ENABLED_FG
                 } else {
-                    Line::from(content).style(Style::default().fg(FILTER_DISABLED_FG))
+                    FILTER_DISABLED_FG
+                };
+
+                if self.event_tracker.is_critical_event(&filter.name) {
+                    Line::from(content).style(Style::default().fg(FILTER_CRITICAL_FG).add_modifier(Modifier::BOLD))
+                } else {
+                    Line::from(content).style(Style::default().fg(base_color))
                 }
             })
             .collect();

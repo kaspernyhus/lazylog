@@ -20,6 +20,7 @@ pub const FOOTER_BG: Color = GRAY_COLOR;
 pub const SCROLLBAR_FG: Color = GRAY_COLOR;
 pub const SCROLLBAR_SEARCH_INDICATOR: Color = SEARCH_MODE_BG;
 pub const SCROLLBAR_MARK_INDICATOR: Color = MARK_INDICATOR_COLOR;
+pub const SCROLLBAR_CRITICAL_EVENT_INDICATOR: Color = Color::Red;
 
 // Search colors
 pub const SEARCH_MODE_FG: Color = BLACK_COLOR;
@@ -31,6 +32,7 @@ pub const FILTER_MODE_BG: Color = Color::Cyan;
 pub const FILTER_LIST_HIGHLIGHT_BG: Color = GRAY_COLOR;
 pub const FILTER_ENABLED_FG: Color = Color::Green;
 pub const FILTER_DISABLED_FG: Color = Color::DarkGray;
+pub const FILTER_CRITICAL_FG: Color = Color::Red;
 
 // Events
 pub const DEFAULT_EVENT_FG: Color = WHITE_COLOR;
@@ -38,6 +40,7 @@ pub const DEFAULT_EVENT_BG: Color = Color::Blue;
 pub const EVENT_LIST_BG: Color = Color::Blue;
 pub const EVENT_LIST_HIGHLIGHT_BG: Color = GRAY_COLOR;
 pub const EVENT_NAME_FG: Color = Color::Yellow;
+pub const EVENT_NAME_CRITICAL_FG: Color = Color::Red;
 pub const EVENT_LINE_PREVIEW: Color = Color::Gray;
 
 // Marks

@@ -70,6 +70,9 @@ pub struct EventConfig {
     /// Style to use for the whole line. If None, default style is applied.
     #[serde(default)]
     pub style: Option<StyleConfig>,
+    /// Whether this event should be highlighted as critical (shown in scrollbar with red marker).
+    #[serde(default)]
+    pub critical: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -277,6 +280,7 @@ impl Config {
                     matcher: m,
                     enabled: true,
                     count: 0,
+                    critical: ev_config.critical,
                 })
             })
             .collect()

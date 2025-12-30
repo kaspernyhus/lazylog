@@ -2,7 +2,8 @@ use std::collections::HashSet;
 
 use super::colors::{
     EXPANDED_LINE_FG, EXPANSION_PREFIX, FILE_ID_COLORS, MARK_INDICATOR, MARK_INDICATOR_COLOR, RIGHT_ARROW,
-    SCROLLBAR_FG, SCROLLBAR_MARK_INDICATOR, SCROLLBAR_SEARCH_INDICATOR, SELECTION_BG,
+    SCROLLBAR_CRITICAL_EVENT_INDICATOR, SCROLLBAR_FG, SCROLLBAR_MARK_INDICATOR, SCROLLBAR_SEARCH_INDICATOR,
+    SELECTION_BG,
 };
 use crate::highlighter::HighlightedLine;
 use crate::options::AppOption;
@@ -88,6 +89,19 @@ impl App {
                 indicators.push(ScrollbarIndicator {
                     position,
                     color: SCROLLBAR_MARK_INDICATOR,
+                });
+            }
+        }
+
+        // Add critical event indicators
+        let critical_indices = self.event_tracker.get_critical_event_indices();
+        for &log_idx in &critical_indices {
+            // Find viewport index for this log index
+            if let Some(viewport_idx) = visible_lines.iter().position(|v| v.log_index == log_idx) {
+                let position = viewport_idx as f64 / total_viewport_lines as f64;
+                indicators.push(ScrollbarIndicator {
+                    position,
+                    color: SCROLLBAR_CRITICAL_EVENT_INDICATOR,
                 });
             }
         }

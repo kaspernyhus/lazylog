@@ -93,8 +93,8 @@ impl PersistedState {
                 .get_event_stats()
                 .iter()
                 .map(|es| EventFilterState {
-                    name: es.0.clone(),
-                    enabled: es.1,
+                    name: es.name.clone(),
+                    enabled: es.enabled,
                 })
                 .collect(),
             options: app

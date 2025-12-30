@@ -1258,7 +1258,8 @@ impl App {
             let visible_lines = self.resolver.get_visible_lines(all_lines);
             let content_iter = visible_lines.iter().map(|vl| all_lines[vl.log_index].content());
             let all_content_iter = all_lines.iter().map(|log_line| log_line.content());
-            self.search.update_matches(self.input.value(), content_iter, all_content_iter);
+            self.search
+                .update_matches(self.input.value(), content_iter, all_content_iter);
         }
 
         self.update_temporary_highlights();
@@ -1466,8 +1467,8 @@ impl App {
         let selected_index = self.event_filter_list_state.selected_index();
         let event_stats = self.event_tracker.get_event_stats();
 
-        if let Some((event_name, _, _)) = event_stats.get(selected_index) {
-            self.event_tracker.toggle_event_enabled(event_name);
+        if let Some(event_stat) = event_stats.get(selected_index) {
+            self.event_tracker.toggle_event_enabled(&event_stat.name);
             self.update_events_view_count();
 
             if let Some(line_index) = self.viewport_to_log_line_index(self.viewport.selected_line)

@@ -21,6 +21,15 @@ pub struct EventPattern {
     pub matcher: PatternMatcher,
     pub enabled: bool,
     pub count: usize,
+    /// Whether this event is critical (shown with special indicators).
+    pub critical: bool,
+}
+
+#[derive(Debug)]
+pub struct EventState {
+    pub name: String,
+    pub enabled: bool,
+    pub count: usize,
 }
 
 /// Manages log event tracking and scanning.
@@ -142,6 +151,27 @@ impl LogEventTracker {
         self.events.iter().map(|e| e.line_index).collect()
     }
 
+    /// Returns a set of line indices that contain critical events.
+    pub fn get_critical_event_indices(&self) -> HashSet<usize> {
+        let critical_names: HashSet<&str> = self
+            .patterns
+            .iter()
+            .filter(|p| p.critical)
+            .map(|p| p.name.as_str())
+            .collect();
+
+        self.events
+            .iter()
+            .filter(|e| critical_names.contains(e.name.as_str()))
+            .map(|e| e.line_index)
+            .collect()
+    }
+
+    /// Returns true if an event with the given name is marked as critical.
+    pub fn is_critical_event(&self, event_name: &str) -> bool {
+        self.patterns.iter().any(|p| p.name == event_name && p.critical)
+    }
+
     pub fn clear_all(&mut self) {
         self.events.clear();
         for pattern in &mut self.patterns {
@@ -170,18 +200,22 @@ impl LogEventTracker {
         self.show_marks
     }
 
-    /// Returns a list of events sorted by count.
-    pub fn get_event_stats(&self) -> Vec<(String, bool, usize)> {
-        let mut event_stats: Vec<(String, bool, usize)> = self
+    /// Returns a list of events sorted by count: (name, enabled, count).
+    pub fn get_event_stats(&self) -> Vec<EventState> {
+        let mut event_stats: Vec<EventState> = self
             .patterns
             .iter()
-            .map(|p| (p.name.clone(), p.enabled, p.count))
+            .map(|p| EventState {
+                name: p.name.clone(),
+                enabled: p.enabled,
+                count: p.count,
+            })
             .collect();
 
         // Sort by count (descending)
         event_stats.sort_by(|a, b| {
-            let count_a = self.get_event_count(&a.0);
-            let count_b = self.get_event_count(&b.0);
+            let count_a = a.count;
+            let count_b = b.count;
             count_b.cmp(&count_a)
         });
 
@@ -244,6 +278,7 @@ mod tests {
                 }),
                 enabled: true,
                 count: 0,
+                critical: false,
             },
             EventPattern {
                 name: "warning".to_string(),
@@ -253,6 +288,7 @@ mod tests {
                 }),
                 enabled: true,
                 count: 0,
+                critical: false,
             },
             EventPattern {
                 name: "info".to_string(),
@@ -262,6 +298,7 @@ mod tests {
                 }),
                 enabled: true,
                 count: 0,
+                critical: false,
             },
         ]
     }
@@ -321,14 +358,14 @@ mod tests {
         assert_eq!(stats.len(), 3);
 
         // Should be sorted by count descending
-        let counts: Vec<_> = stats.iter().map(|(_, _, count)| *count).collect();
+        let counts: Vec<_> = stats.iter().map(|s| s.count).collect();
         assert!(counts[0] >= counts[1]);
         assert!(counts[1] >= counts[2]);
 
         // error and info both have count 2, warning has 1
-        assert!(stats.iter().any(|(name, _, count)| name == "error" && *count == 2));
-        assert!(stats.iter().any(|(name, _, count)| name == "warning" && *count == 1));
-        assert!(stats.iter().any(|(name, _, count)| name == "info" && *count == 2));
+        assert!(stats.iter().any(|s| s.name == "error" && s.count == 2));
+        assert!(stats.iter().any(|s| s.name == "warning" && s.count == 1));
+        assert!(stats.iter().any(|s| s.name == "info" && s.count == 2));
     }
 
     #[test]
@@ -366,13 +403,13 @@ mod tests {
         tracker.toggle_all_filters();
 
         let stats = tracker.get_event_stats();
-        assert!(stats.iter().all(|(_, enabled, _)| !enabled));
+        assert!(stats.iter().all(|s| !s.enabled));
 
         // Toggle all back on
         tracker.toggle_all_filters();
 
         let stats = tracker.get_event_stats();
-        assert!(stats.iter().all(|(_, enabled, _)| *enabled));
+        assert!(stats.iter().all(|s| s.enabled));
     }
 
     #[test]
@@ -389,13 +426,13 @@ mod tests {
         tracker.restore_filter_states(&saved_states);
 
         let stats = tracker.get_event_stats();
-        let error_state = stats.iter().find(|(name, _, _)| name == "error").unwrap();
-        let warning_state = stats.iter().find(|(name, _, _)| name == "warning").unwrap();
-        let info_state = stats.iter().find(|(name, _, _)| name == "info").unwrap();
+        let error_state = stats.iter().find(|s| s.name == "error").unwrap();
+        let warning_state = stats.iter().find(|s| s.name == "warning").unwrap();
+        let info_state = stats.iter().find(|s| s.name == "info").unwrap();
 
-        assert!(!error_state.1);
-        assert!(warning_state.1);
-        assert!(!info_state.1);
+        assert!(!error_state.enabled);
+        assert!(warning_state.enabled);
+        assert!(!info_state.enabled);
     }
 
     #[test]

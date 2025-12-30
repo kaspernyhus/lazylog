@@ -18,16 +18,18 @@ highlights = [
 
 # Event patterns. If no style is specified, a default style is applied (fg=white, bg=lightgreen).
 # Style applies to the entire line containing the matched pattern.
+# The optional "critical" flag highlights the event in red in the scrollbar and event lists.
 # Events are evaluated from top to bottom, and the first match is used.
 # Event patterns are case-sensitive.
+# Set critical=true to highlight critical events with red markers in scrollbar and event lists.
 events = [
     # Log levels events
-    { name = "Error",    pattern = " ERROR ",    regex = false, style = { fg = "lightred", bold = true } },
-    { name = "Warning",  pattern = " WARNING ",  regex = false, style = { fg = "yellow" } },
-    { name = "Critical", pattern = " CRITICAL ", regex = false, style = { bg = "red" } },
-    { name = "Fatal",    pattern = " FATAL ",    regex = false, style = { fg = "black", bg = "lightred", bold = true } },
+    { name = "Error",    pattern = " ERROR ",                     regex = false, style = { fg = "lightred", bold = true } },
+    { name = "Warning",  pattern = " WARNING ",                   regex = false, style = { fg = "yellow" } },
+    { name = "Critical", pattern = " CRITICAL ", critical = true, regex = false, style = { bg = "red" } },
+    { name = "Fatal",    pattern = " FATAL ",    critical = true, regex = false, style = { fg = "black", bg = "lightred", bold = true } },
     # Custom events
-    { name = "Job Started", pattern = "Background job started", regex = false },
+    { name = "Job Started",         pattern = "Background job started",           regex = false },
     { name = "Application Started", pattern = "Application started successfully", regex = false },
 ]
 
@@ -39,5 +41,5 @@ default_event_bg_color_index = 18
 # Predefined filters.
 filters = [
     { pattern = "DEBUG", mode = "exclude", case_sensitive = false, enabled = true },
-    { pattern = "INFO", mode = "include", case_sensitive = true, enabled = false },
+    { pattern = "INFO",  mode = "include", case_sensitive = true,  enabled = false },
 ]
