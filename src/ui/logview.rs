@@ -102,7 +102,8 @@ impl App {
     ) -> Line<'a> {
         let highlighted = self
             .highlighter
-            .highlight_line(transformed_line, line_offset, enable_colors);
+            .highlight_line(log_line.index, transformed_line, enable_colors);
+        let highlighted = self.highlighter.adjust_for_viewport_offset(highlighted, line_offset);
 
         let mark_indicator = if tags.contains(&Tag::Marked) {
             Span::styled(MARK_INDICATOR, Style::default().fg(MARK_INDICATOR_COLOR))

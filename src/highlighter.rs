@@ -180,9 +180,6 @@ pub struct HighlightedLine {
     pub segments: Vec<StyledRange>,
 }
 
-/// Cache key for highlighted lines.
-type CacheKey = (String, usize, bool, u64);
-
 /// Manages text highlighting and line coloring based on configured patterns.
 pub struct Highlighter {
     /// Patterns for text highlighting.
@@ -192,9 +189,7 @@ pub struct Highlighter {
     /// Temporary highlights.
     temporary_highlights: Vec<HighlightPattern>,
     /// Cache of highlighted lines to avoid re-computation.
-    cache: RefCell<HashMap<CacheKey, HighlightedLine>>,
-    /// Cache version - incremented when patterns change to invalidate cache.
-    cache_version: u64,
+    cache: RefCell<HashMap<usize, HighlightedLine>>,
     /// Maximum cache size to prevent unbounded growth.
     max_cache_size: usize,
 }
@@ -205,7 +200,6 @@ impl std::fmt::Debug for Highlighter {
             .field("patterns", &self.patterns)
             .field("events", &self.events)
             .field("temporary_highlights", &self.temporary_highlights)
-            .field("cache_version", &self.cache_version)
             .field("max_cache_size", &self.max_cache_size)
             .field("cache_size", &self.cache.borrow().len())
             .finish()
@@ -220,7 +214,6 @@ impl Highlighter {
             events,
             temporary_highlights: Vec::new(),
             cache: RefCell::new(HashMap::new()),
-            cache_version: 0,
             max_cache_size: 500,
         }
     }
@@ -237,9 +230,8 @@ impl Highlighter {
         None
     }
 
-    /// Invalidates the highlight cache by incrementing the version.
+    /// Invalidates the highlight cache by clearing all entries.
     fn invalidate_cache(&mut self) {
-        self.cache_version = self.cache_version.wrapping_add(1);
         self.cache.borrow_mut().clear();
     }
 
@@ -261,14 +253,12 @@ impl Highlighter {
         self.invalidate_cache();
     }
 
-    /// Returns a HighlightedLine with all styling information ready to render.
-    pub fn highlight_line(&self, line: &str, horizontal_offset: usize, enable_colors: bool) -> HighlightedLine {
+    /// Returns a HighlightedLine with all styling information.
+    pub fn highlight_line(&self, log_index: usize, line: &str, enable_colors: bool) -> HighlightedLine {
         // Check cache first
-        let cache_key = (line.to_string(), horizontal_offset, enable_colors, self.cache_version);
-
         {
             let cache = self.cache.borrow();
-            if let Some(cached) = cache.get(&cache_key) {
+            if let Some(cached) = cache.get(&log_index) {
                 return cached.clone();
             }
         } // Ref goes out of scope here
@@ -306,8 +296,7 @@ impl Highlighter {
             }
         }
 
-        let styled_ranges = self.adjust_for_viewport_offset(ranges, horizontal_offset);
-        let segments = self.split_into_segments(styled_ranges);
+        let segments = self.split_into_segments(ranges);
 
         let result = HighlightedLine { segments };
 
@@ -321,8 +310,20 @@ impl Highlighter {
         result
     }
 
+    /// Adjusts a HighlightedLine for horizontal scrolling offset.
+    pub fn adjust_for_viewport_offset(&self, highlighted: HighlightedLine, offset: usize) -> HighlightedLine {
+        if offset == 0 {
+            return highlighted;
+        }
+
+        let adjusted_segments = self.adjust_ranges_for_offset(highlighted.segments, offset);
+        HighlightedLine {
+            segments: adjusted_segments,
+        }
+    }
+
     /// Adjusts ranges for horizontal scrolling offset.
-    fn adjust_for_viewport_offset(&self, ranges: Vec<StyledRange>, offset: usize) -> Vec<StyledRange> {
+    fn adjust_ranges_for_offset(&self, ranges: Vec<StyledRange>, offset: usize) -> Vec<StyledRange> {
         ranges
             .into_iter()
             .filter_map(|styled_range| {
