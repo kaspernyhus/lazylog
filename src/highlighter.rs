@@ -231,7 +231,7 @@ impl Highlighter {
     }
 
     /// Invalidates the highlight cache by clearing all entries.
-    fn invalidate_cache(&mut self) {
+    pub fn invalidate_cache(&mut self) {
         self.cache.borrow_mut().clear();
     }
 

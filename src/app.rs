@@ -1096,6 +1096,7 @@ impl App {
     pub fn toggle_option(&mut self) {
         let selected_index = self.options_list_state.selected_index();
         self.options.toggle_option(selected_index);
+        self.highlighter.invalidate_cache();
         self.update_view();
     }
 
@@ -1412,6 +1413,7 @@ impl App {
             self.log_buffer.clear_all();
             self.marking.clear_all();
             self.event_tracker.clear_all();
+            self.highlighter.invalidate_cache();
             self.viewport.reset_view();
             self.update_view();
         }
