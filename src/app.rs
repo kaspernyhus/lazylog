@@ -1212,6 +1212,21 @@ impl App {
                     }
                 }
             }
+        } else if self.view_state == ViewState::EventsView {
+            let line_index = if self.event_tracker.showing_marks() {
+                let (visible_marks, visible_events) = self.get_visible_marks_and_events();
+                let merged = EventMarkView::merge(&visible_events, &visible_marks, true);
+                let selected_idx = self.events_list_state.selected_index();
+                merged.get(selected_idx).map(|item| item.line_index())
+            } else {
+                let visible_events = self.get_visible_events();
+                visible_events
+                    .get(self.events_list_state.selected_index())
+                    .map(|event| event.line_index)
+            };
+            if let Some(idx) = line_index {
+                self.marking.toggle_mark(idx);
+            }
         } else if let Some(line_index) = self.viewport_to_log_line_index(self.viewport.selected_line) {
             self.marking.toggle_mark(line_index);
         }

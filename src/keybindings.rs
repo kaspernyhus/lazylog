@@ -342,6 +342,14 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::PageDown, Command::PageDown);
         self.bind_simple(context.clone(), KeyCode::Char(' '), Command::GotoSelectedEvent);
         self.bind_simple(context.clone(), KeyCode::Char('e'), Command::ActivateMarkNameMode);
+        self.bind_simple(context.clone(), KeyCode::Char('m'), Command::ToggleMark);
+        self.bind_simple(context.clone(), KeyCode::Char('t'), Command::ToggleFollowMode);
+        self.bind(
+            context.clone(),
+            KeyCode::Char('l'),
+            KeyModifiers::CONTROL,
+            Command::ClearLogBuffer,
+        );
     }
 
     fn register_event_filter_view_bindings(&mut self) {
