@@ -230,6 +230,11 @@ impl Search {
             })
             .count()
     }
+
+    /// Returns the indices of all search matches.
+    pub fn get_match_indices(&self) -> &[usize] {
+        &self.match_indices
+    }
 }
 
 #[cfg(test)]

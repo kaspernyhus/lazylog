@@ -18,6 +18,8 @@ pub const FOOTER_BG: Color = GRAY_COLOR;
 
 // Scrollbar
 pub const SCROLLBAR_FG: Color = GRAY_COLOR;
+pub const SCROLLBAR_SEARCH_INDICATOR: Color = SEARCH_MODE_BG;
+pub const SCROLLBAR_MARK_INDICATOR: Color = MARK_INDICATOR_COLOR;
 
 // Search colors
 pub const SEARCH_MODE_FG: Color = BLACK_COLOR;
@@ -40,7 +42,7 @@ pub const EVENT_LINE_PREVIEW: Color = Color::Gray;
 
 // Marks
 pub const MARK_MODE_FG: Color = Color::White;
-pub const MARK_MODE_BG: Color = Color::Indexed(29);
+pub const MARK_MODE_BG: Color = MARK_INDICATOR_COLOR;
 pub const MARK_LIST_HIGHLIGHT_BG: Color = GRAY_COLOR;
 pub const MARK_INDICATOR_COLOR: Color = Color::Indexed(29);
 pub const MARK_NAME_FG: Color = Color::Yellow;

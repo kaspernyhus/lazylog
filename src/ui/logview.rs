@@ -2,12 +2,13 @@ use std::collections::HashSet;
 
 use super::colors::{
     EXPANDED_LINE_FG, EXPANSION_PREFIX, FILE_ID_COLORS, MARK_INDICATOR, MARK_INDICATOR_COLOR, RIGHT_ARROW,
-    SCROLLBAR_FG, SELECTION_BG,
+    SCROLLBAR_FG, SCROLLBAR_MARK_INDICATOR, SCROLLBAR_SEARCH_INDICATOR, SELECTION_BG,
 };
 use crate::highlighter::HighlightedLine;
 use crate::options::AppOption;
 use crate::resolver::Tag;
 use crate::{app::App, log::LogLine};
+use ratatui::symbols::line::{VERTICAL, VERTICAL_LEFT};
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -15,6 +16,14 @@ use ratatui::{
     text::{Line, Span},
     widgets::{List, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget},
 };
+
+/// Represents an indicator to display on the scrollbar
+struct ScrollbarIndicator {
+    /// Position on scrollbar (0.0 to 1.0 representing top to bottom)
+    position: f64,
+    /// Color of the indicator
+    color: Color,
+}
 
 impl App {
     /// Renders the vertical scrollbar.
@@ -25,11 +34,68 @@ impl App {
 
         let scrollbar = Scrollbar::default()
             .orientation(ScrollbarOrientation::VerticalRight)
+            .track_symbol(Some(VERTICAL))
             .track_style(Style::default().fg(SCROLLBAR_FG))
+            .thumb_style(Style::new().bg(Color::Indexed(253)))
             .begin_symbol(None)
             .end_symbol(None);
 
         StatefulWidget::render(scrollbar, area, buf, &mut scrollbar_state);
+
+        for indicator in self.collect_scrollbar_indicators() {
+            let y_offset = (indicator.position * area.height as f64).round() as u16;
+            let y = area.y + y_offset;
+
+            if y >= area.y + area.height {
+                continue;
+            }
+
+            let indicator_x = area.x;
+            buf[(indicator_x, y)]
+                .set_symbol(VERTICAL_LEFT)
+                .set_style(Style::default().fg(indicator.color));
+        }
+    }
+
+    /// Collects all scrollbar indicators for search matches, marks, and events.
+    fn collect_scrollbar_indicators(&self) -> Vec<ScrollbarIndicator> {
+        let mut indicators = Vec::new();
+
+        let total_viewport_lines = self.viewport.total_lines;
+        if total_viewport_lines == 0 {
+            return indicators;
+        }
+
+        let all_lines = self.log_buffer.all_lines();
+        let visible_lines = self.resolver.get_visible_lines(all_lines);
+
+        // Add search match indicators
+        if self.search.get_active_pattern().is_some() {
+            for &match_idx in self.search.get_match_indices() {
+                let position = match_idx as f64 / total_viewport_lines as f64;
+                indicators.push(ScrollbarIndicator {
+                    position,
+                    color: SCROLLBAR_SEARCH_INDICATOR,
+                });
+            }
+        }
+
+        // Add mark indicators
+        for mark in self.marking.get_marks() {
+            // Find viewport index for this mark's log index
+            if let Some(viewport_idx) = visible_lines.iter().position(|v| v.log_index == mark.line_index) {
+                let position = viewport_idx as f64 / total_viewport_lines as f64;
+                indicators.push(ScrollbarIndicator {
+                    position,
+                    color: SCROLLBAR_MARK_INDICATOR,
+                });
+            }
+        }
+
+        // Sort by position
+        indicators.sort_by(|a, b| a.position.partial_cmp(&b.position).unwrap_or(std::cmp::Ordering::Equal));
+
+        indicators
     }
 
     /// Renders the main log view.
