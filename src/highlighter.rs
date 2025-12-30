@@ -254,7 +254,7 @@ impl Highlighter {
     }
 
     /// Returns a HighlightedLine with all styling information.
-    pub fn highlight_line(&self, log_index: usize, line: &str, enable_colors: bool) -> HighlightedLine {
+    pub fn highlight_line(&self, log_index: usize, line: &str) -> HighlightedLine {
         // Check cache first
         {
             let cache = self.cache.borrow();
@@ -264,28 +264,29 @@ impl Highlighter {
         } // Ref goes out of scope here
 
         // Cache miss
-        let mut ranges = Vec::new();
+        let mut ranges = Vec::with_capacity(10);
 
-        if enable_colors {
-            if let Some(line_style) = self.is_event(line) {
+        // Check for event line styling
+        if let Some(line_style) = self.is_event(line) {
+            ranges.push(StyledRange {
+                start: 0,
+                end: line.len(),
+                style: line_style,
+            });
+        }
+
+        // Apply configured highlight patterns
+        for pattern in &self.patterns {
+            for (start, end) in pattern.matcher.find_all(line) {
                 ranges.push(StyledRange {
-                    start: 0,
-                    end: line.len(),
-                    style: line_style,
+                    start,
+                    end,
+                    style: pattern.style,
                 });
-            }
-
-            for pattern in &self.patterns {
-                for (start, end) in pattern.matcher.find_all(line) {
-                    ranges.push(StyledRange {
-                        start,
-                        end,
-                        style: pattern.style,
-                    });
-                }
             }
         }
 
+        // Apply temporary highlights (e.g., search results)
         for highlight in &self.temporary_highlights {
             for (start, end) in highlight.matcher.find_all(line) {
                 ranges.push(StyledRange {
@@ -303,7 +304,7 @@ impl Highlighter {
         {
             let mut cache = self.cache.borrow_mut();
             if cache.len() < self.max_cache_size {
-                cache.insert(cache_key, result.clone());
+                cache.insert(log_index, result.clone());
             }
         } // Ref goes out of scope here
 

@@ -77,12 +77,12 @@ fn perf_highlight_line_cache_hit() {
     let highlighter = Highlighter::new(patterns, vec![]);
 
     // Pre-warm cache
-    highlighter.highlight_line(0, SAMPLE_LOG_LINE, true);
+    highlighter.highlight_line(0, SAMPLE_LOG_LINE);
 
     let iterations = 10000;
     let avg_time_max = 800;
 
-    let avg_time = measure_time(iterations, || highlighter.highlight_line(0, SAMPLE_LOG_LINE, true));
+    let avg_time = measure_time(iterations, || highlighter.highlight_line(0, SAMPLE_LOG_LINE));
 
     println!("Highlight line (cache hit): {} ns/iteration", avg_time);
 
@@ -119,7 +119,7 @@ fn perf_highlight_line_cache_miss() {
     let mut counter = 0;
     let avg_time = measure_time(iterations, || {
         counter += 1;
-        highlighter.highlight_line(counter, SAMPLE_LOG_LINE, true)
+        highlighter.highlight_line(counter, SAMPLE_LOG_LINE)
     });
 
     println!("Highlight line (cache miss): {} ns/iteration", avg_time);
@@ -243,7 +243,7 @@ fn perf_highlight_multiple_patterns() {
     let mut counter = 0;
     let avg_time = measure_time(iterations, || {
         counter += 1;
-        highlighter.highlight_line(counter, SAMPLE_LOG_LINE, true)
+        highlighter.highlight_line(counter, SAMPLE_LOG_LINE)
     });
 
     println!("Highlight with 6 patterns: {} ns/iteration", avg_time);

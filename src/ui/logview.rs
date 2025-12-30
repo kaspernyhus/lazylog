@@ -100,9 +100,7 @@ impl App {
         tags: &HashSet<Tag>,
         enable_colors: bool,
     ) -> Line<'a> {
-        let highlighted = self
-            .highlighter
-            .highlight_line(log_line.index, transformed_line, enable_colors);
+        let highlighted = self.highlighter.highlight_line(log_line.index, transformed_line);
         let highlighted = self.highlighter.adjust_for_viewport_offset(highlighted, line_offset);
 
         let mark_indicator = if tags.contains(&Tag::Marked) {
@@ -143,7 +141,7 @@ impl App {
             }
             Line::from(spans)
         } else {
-            let mut line = build_line_from_highlighted(visible_text, highlighted);
+            let mut line = build_line_from_highlighted(visible_text, highlighted, enable_colors);
             if is_expanded {
                 // Dim if the span has no explicit foreground color
                 for span in &mut line.spans {
@@ -167,7 +165,15 @@ impl App {
 }
 
 /// Builds a styled Line from a HighlightedLine.
-pub(super) fn build_line_from_highlighted<'a>(content: &'a str, highlighted: HighlightedLine) -> Line<'a> {
+pub(super) fn build_line_from_highlighted<'a>(
+    content: &'a str,
+    highlighted: HighlightedLine,
+    enable_colors: bool,
+) -> Line<'a> {
+    if !enable_colors {
+        return Line::raw(content);
+    }
+
     // Build spans from segments
     let mut spans = Vec::new();
     let mut pos = 0;
