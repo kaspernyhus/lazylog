@@ -2,6 +2,7 @@ use crate::log::LogLine;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
+use std::rc::Rc;
 use std::sync::Arc;
 
 /// Tags that can be attached to visible lines for rendering metadata
@@ -71,10 +72,8 @@ pub struct ViewportResolver {
     visibility_rules: Vec<Box<dyn VisibilityRule>>,
     /// Tag rules (marks, events) - add metadata to visible lines
     tag_rules: Vec<Box<dyn TagRule>>,
-    /// Cached visible lines
-    visible_cache: RefCell<Option<Vec<VisibleLine>>>,
-    /// Cache generation counter for invalidation
-    cache_generation: u64,
+    /// Cached visible lines.
+    visible_cache: RefCell<Option<Rc<Vec<VisibleLine>>>>,
     /// Expanded lines: log index -> Vec<log_index>
     expanded_lines: Arc<HashMap<usize, Vec<usize>>>,
 }
@@ -84,7 +83,6 @@ impl Debug for ViewportResolver {
         f.debug_struct("ViewportResolver")
             .field("visibility_rules_count", &self.visibility_rules.len())
             .field("tag_rules_count", &self.tag_rules.len())
-            .field("cache_generation", &self.cache_generation)
             .field("has_cache", &self.visible_cache.borrow().is_some())
             .finish()
     }
@@ -103,7 +101,6 @@ impl ViewportResolver {
             visibility_rules: Vec::new(),
             tag_rules: Vec::new(),
             visible_cache: RefCell::new(None),
-            cache_generation: 0,
             expanded_lines: Arc::new(HashMap::new()),
         }
     }
@@ -137,29 +134,22 @@ impl ViewportResolver {
     /// Invalidate the cache, forcing recomputation on next access
     pub fn invalidate_cache(&mut self) {
         *self.visible_cache.borrow_mut() = None;
-        self.cache_generation += 1;
     }
 
     /// Get the visible lines (cached or compute)
-    /// Returns a clone of the cached visible lines to avoid borrowing issues
-    pub fn get_visible_lines(&self, lines: &[LogLine]) -> Vec<VisibleLine> {
+    pub fn get_visible_lines(&self, lines: &[LogLine]) -> Rc<Vec<VisibleLine>> {
         // Check cache first
         let cache = self.visible_cache.borrow();
         if let Some(cached) = cache.as_ref() {
-            return cached.clone();
+            return Rc::clone(cached);
         }
         drop(cache);
 
         // Compute and cache
         let visible = self.compute_visible_lines(lines);
-        *self.visible_cache.borrow_mut() = Some(visible.clone());
-        visible
-    }
-
-    /// Get an iterator over visible log line references
-    pub fn get_visible_lines_iter<'a>(&self, lines: &'a [LogLine]) -> impl Iterator<Item = &'a LogLine> {
-        let visible_lines = self.get_visible_lines(lines);
-        visible_lines.into_iter().map(move |vl| &lines[vl.log_index])
+        let rc_visible = Rc::new(visible);
+        *self.visible_cache.borrow_mut() = Some(Rc::clone(&rc_visible));
+        rc_visible
     }
 
     /// Compute visible lines by applying all rules
@@ -226,7 +216,8 @@ impl ViewportResolver {
     /// Update Tag::Marked on cached visible lines.
     pub fn update_mark_tags(&mut self, marked_indices: &HashSet<usize>) {
         let mut cache = self.visible_cache.borrow_mut();
-        if let Some(visible_lines) = cache.as_mut() {
+        if let Some(rc_visible) = cache.as_mut() {
+            let visible_lines = Rc::make_mut(rc_visible);
             for visible_line in visible_lines.iter_mut() {
                 let line_index = visible_line.log_index;
                 if marked_indices.contains(&line_index) {

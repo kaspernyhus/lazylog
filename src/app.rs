@@ -425,7 +425,8 @@ impl App {
 
     fn update_completion_words(&mut self) {
         let all_lines = self.log_buffer.all_lines();
-        let visible_iter = self.resolver.get_visible_lines_iter(all_lines);
+        let visible_lines = self.resolver.get_visible_lines(all_lines);
+        let visible_iter = visible_lines.iter().map(|vl| &all_lines[vl.log_index]);
         self.completion.update(visible_iter);
     }
 
@@ -796,8 +797,8 @@ impl App {
                     self.search.clear_matches();
                 } else {
                     let all_lines = self.log_buffer.all_lines();
-                    let visible_iter = self.resolver.get_visible_lines_iter(all_lines);
-                    let content_iter = visible_iter.map(|log_line| log_line.content());
+                    let visible_lines = self.resolver.get_visible_lines(all_lines);
+                    let content_iter = visible_lines.iter().map(|vl| all_lines[vl.log_index].content());
 
                     let visible_matches = self.search.apply_pattern(self.input.value(), content_iter);
 
@@ -1261,8 +1262,8 @@ impl App {
 
         if self.view_state == ViewState::ActiveSearchMode {
             let all_lines = self.log_buffer.all_lines();
-            let visible_iter = self.resolver.get_visible_lines_iter(all_lines);
-            let content_iter = visible_iter.map(|log_line| log_line.content());
+            let visible_lines = self.resolver.get_visible_lines(all_lines);
+            let content_iter = visible_lines.iter().map(|vl| all_lines[vl.log_index].content());
             self.search.update_matches(self.input.value(), content_iter);
 
             // Update total match count
