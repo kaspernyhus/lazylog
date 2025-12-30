@@ -4,7 +4,7 @@ use ratatui::{
     Terminal, backend,
     crossterm::{execute, terminal::*},
 };
-use std::io::stderr;
+use std::io::{LineWriter, stderr};
 use tracing::info;
 
 #[tokio::main]
@@ -23,7 +23,9 @@ async fn main() -> color_eyre::Result<()> {
     execute!(stderr(), EnterAlternateScreen)?;
     enable_raw_mode()?;
 
-    let backend = backend::CrosstermBackend::new(stderr());
+    // Use line-buffered stderr for better terminal I/O performance
+    // LineWriter flushes on newlines, which matches terminal escape sequence behavior
+    let backend = backend::CrosstermBackend::new(LineWriter::new(stderr()));
     let mut terminal = Terminal::new(backend)?;
     terminal.clear()?;
 
