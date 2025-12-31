@@ -93,6 +93,10 @@ pub enum Command {
     // Selection
     StartSelection,
     CopySelection,
+    SelectToEventNext,
+    SelectToEventPrevious,
+    SelectToMarkNext,
+    SelectToMarkPrevious,
 }
 
 impl Command {
@@ -188,6 +192,10 @@ impl Command {
             // Selection
             Command::StartSelection => "Start visual selection",
             Command::CopySelection => "Copy selection to clipboard",
+            Command::SelectToEventNext => "Select to next event",
+            Command::SelectToEventPrevious => "Select to previous event",
+            Command::SelectToMarkNext => "Select to next mark",
+            Command::SelectToMarkPrevious => "Select to previous mark",
         }
     }
 
@@ -283,6 +291,10 @@ impl Command {
             // Selection
             Command::StartSelection => app.start_selection(),
             Command::CopySelection => app.copy_selection_to_clipboard(),
+            Command::SelectToEventNext => app.select_to_event_next(),
+            Command::SelectToEventPrevious => app.select_to_event_previous(),
+            Command::SelectToMarkNext => app.select_to_mark_next(),
+            Command::SelectToMarkPrevious => app.select_to_mark_previous(),
         }
         Ok(())
     }

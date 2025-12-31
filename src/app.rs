@@ -1343,6 +1343,54 @@ impl App {
         }
     }
 
+    pub fn select_to_event_next(&mut self) {
+        if let Some(line_index) = self.viewport_to_log_line_index(self.viewport.selected_line)
+            && let Some(next_event_line) = self.get_next_event_line(line_index)
+        {
+            let all_lines = self.log_buffer.all_lines();
+            if let Some(viewport_idx) = self.resolver.log_to_viewport(next_event_line, all_lines) {
+                self.viewport.goto_line(viewport_idx, false);
+                self.update_selection_end();
+            }
+        }
+    }
+
+    pub fn select_to_event_previous(&mut self) {
+        if let Some(line_index) = self.viewport_to_log_line_index(self.viewport.selected_line)
+            && let Some(prev_event_line) = self.get_previous_event_line(line_index)
+        {
+            let all_lines = self.log_buffer.all_lines();
+            if let Some(viewport_idx) = self.resolver.log_to_viewport(prev_event_line, all_lines) {
+                self.viewport.goto_line(viewport_idx, false);
+                self.update_selection_end();
+            }
+        }
+    }
+
+    pub fn select_to_mark_next(&mut self) {
+        if let Some(line_index) = self.viewport_to_log_line_index(self.viewport.selected_line)
+            && let Some(next_mark_line) = self.get_next_mark(line_index)
+        {
+            let all_lines = self.log_buffer.all_lines();
+            if let Some(viewport_idx) = self.resolver.log_to_viewport(next_mark_line, all_lines) {
+                self.viewport.goto_line(viewport_idx, false);
+                self.update_selection_end();
+            }
+        }
+    }
+
+    pub fn select_to_mark_previous(&mut self) {
+        if let Some(line_index) = self.viewport_to_log_line_index(self.viewport.selected_line)
+            && let Some(prev_mark_line) = self.get_previous_mark(line_index)
+        {
+            let all_lines = self.log_buffer.all_lines();
+            if let Some(viewport_idx) = self.resolver.log_to_viewport(prev_mark_line, all_lines) {
+                self.viewport.goto_line(viewport_idx, false);
+                self.update_selection_end();
+            }
+        }
+    }
+
     /// Helper to go to a log line by its log line index. If the line is not visible, it does nothing.
     pub fn goto_line(&mut self, log_index: usize, center: bool) {
         let all_lines = self.log_buffer.all_lines();

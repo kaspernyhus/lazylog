@@ -249,6 +249,10 @@ impl KeybindingRegistry {
         self.bind_shift(context.clone(), 'G', Command::GotoBottom);
         self.bind_simple(context.clone(), KeyCode::Char('y'), Command::CopySelection);
         self.bind_simple(context.clone(), KeyCode::Char(' '), Command::ToggleMark);
+        self.bind_simple(context.clone(), KeyCode::Char(']'), Command::SelectToMarkNext);
+        self.bind_simple(context.clone(), KeyCode::Char('['), Command::SelectToMarkPrevious);
+        self.bind_simple(context.clone(), KeyCode::Char('}'), Command::SelectToEventNext);
+        self.bind_simple(context.clone(), KeyCode::Char('{'), Command::SelectToEventPrevious);
     }
 
     fn register_search_mode_bindings(&mut self) {
