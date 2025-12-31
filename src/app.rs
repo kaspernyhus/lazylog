@@ -139,8 +139,6 @@ pub struct App {
     completion: CompletionEngine,
     /// Keybinding registry for all keybindings.
     keybindings: KeybindingRegistry,
-    /// Indicates whether the screen needs to be redrawn.
-    needs_redraw: bool,
     /// Whether persistence is enabled.
     persist_enabled: bool,
     /// Whether to only show marked lines
@@ -236,7 +234,6 @@ impl App {
             message_timestamp: None,
             completion: CompletionEngine::default(),
             keybindings,
-            needs_redraw: true,
             persist_enabled: !args.no_persist,
             show_marked_lines_only: false,
         };
@@ -386,7 +383,6 @@ impl App {
         self.view_state = view;
         self.overlay = None;
         self.update_temporary_highlights();
-        self.mark_dirty();
     }
 
     /// Shows a message overlay.
@@ -404,18 +400,11 @@ impl App {
             self.message_timestamp = Some(std::time::Instant::now());
         }
         self.overlay = Some(overlay);
-        self.mark_dirty();
     }
 
     pub fn close_overlay(&mut self) {
         self.overlay = None;
         self.message_timestamp = None;
-        self.mark_dirty();
-    }
-
-    /// Marks the screen as needing a redraw.
-    fn mark_dirty(&mut self) {
-        self.needs_redraw = true;
     }
 
     fn update_completion_words(&mut self) {
@@ -514,56 +503,50 @@ impl App {
         self.viewport.scroll_margin = 2;
 
         while self.running {
-            if self.needs_redraw {
-                terminal.draw(|frame| {
-                    frame.render_widget(&self, frame.area());
+            terminal.draw(|frame| {
+                frame.render_widget(&self, frame.area());
 
-                    // Set cursor position for text input modes
-                    let cursor_pos = if self.help.is_visible() {
-                        None
-                    } else if self.is_input_view() {
-                        // Footer-based input modes
-                        let footer_y = frame.area().height.saturating_sub(1);
-                        let prefix_width = self.get_input_prefix().len();
-                        let cursor_x = (prefix_width + self.input.visual_cursor()) as u16;
-                        Some((cursor_x, footer_y))
-                    } else if matches!(
-                        self.overlay,
-                        Some(Overlay::EditFilter) | Some(Overlay::MarkName) | Some(Overlay::SaveToFile)
-                    ) {
-                        // Popup-based input modes (cursor at x=1+visual_cursor, y=1, accounting for border)
-                        let popup_rect = popup_area(frame.area(), 60, 3);
-                        let cursor_x = popup_rect.x + 1 + self.input.visual_cursor() as u16;
-                        let cursor_y = popup_rect.y + 1;
-                        Some((cursor_x, cursor_y))
-                    } else {
-                        None
-                    };
+                // Set cursor position for text input modes
+                let cursor_pos = if self.help.is_visible() {
+                    None
+                } else if self.is_input_view() {
+                    // Footer-based input modes
+                    let footer_y = frame.area().height.saturating_sub(1);
+                    let prefix_width = self.get_input_prefix().len();
+                    let cursor_x = (prefix_width + self.input.visual_cursor()) as u16;
+                    Some((cursor_x, footer_y))
+                } else if matches!(
+                    self.overlay,
+                    Some(Overlay::EditFilter) | Some(Overlay::MarkName) | Some(Overlay::SaveToFile)
+                ) {
+                    // Popup-based input modes (cursor at x=1+visual_cursor, y=1, accounting for border)
+                    let popup_rect = popup_area(frame.area(), 60, 3);
+                    let cursor_x = popup_rect.x + 1 + self.input.visual_cursor() as u16;
+                    let cursor_y = popup_rect.y + 1;
+                    Some((cursor_x, cursor_y))
+                } else {
+                    None
+                };
 
-                    if let Some((x, y)) = cursor_pos {
-                        frame.set_cursor_position((x, y));
-                    }
-                })?;
-                self.needs_redraw = false;
-            }
+                if let Some((x, y)) = cursor_pos {
+                    frame.set_cursor_position((x, y));
+                }
+            })?;
 
             match self.events.next().await? {
                 Event::Tick => self.tick(),
                 Event::Crossterm(event) => match event {
                     Key(key_event) => {
                         self.handle_key_events(key_event)?;
-                        self.mark_dirty();
                     }
                     crossterm::event::Event::Resize(x, y) => {
                         self.viewport
                             .resize(x.saturating_sub(1) as usize, y.saturating_sub(2) as usize);
-                        self.mark_dirty();
                     }
                     _ => {}
                 },
                 Event::App(app_event) => {
                     self.handle_app_event(app_event)?;
-                    self.mark_dirty();
                 }
             }
         }
