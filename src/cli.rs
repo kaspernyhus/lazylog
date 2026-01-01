@@ -2,7 +2,7 @@ use clap::Parser;
 use std::io::IsTerminal;
 
 #[derive(Parser, Debug)]
-#[command(version)]
+#[command(version, long_version = crate::version::long_version())]
 pub struct Cli {
     /// Log file path(s). If not provided, reads from stdin.
     pub files: Vec<String>,

@@ -5,6 +5,7 @@ description = "Log Viewer"
 authors = ["Kasper Nyhus <kanyhus@gmail.com>"]
 license = "MIT"
 edition = "2024"
+build = "build.rs"
 
 [dependencies]
 crossterm = { version = "0.28.1", features = ["event-stream"] }
@@ -33,3 +34,7 @@ num-format = "0.4.4"
 arboard = { version = "3.4.1", features = ["wayland-data-control"] }
 tui-input = "0.14.0"
 chrono = "0.4"
+shadow-rs = "1.5.0"
+
+[build-dependencies]
+shadow-rs = "1.5.0"

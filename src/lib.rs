@@ -1,3 +1,5 @@
+shadow_rs::shadow!(build);
+
 pub mod app;
 pub mod cli;
 pub mod command;
@@ -25,4 +27,5 @@ pub mod search;
 pub mod timestamp;
 pub mod ui;
 pub mod utils;
+pub mod version;
 pub mod viewport;
