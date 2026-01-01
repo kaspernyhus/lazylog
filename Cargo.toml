@@ -1,6 +1,6 @@
 [package]
 name = "lazylog"
-version = "0.1.9"
+version = "0.1.10"
 description = "Log Viewer"
 authors = ["Kasper Nyhus <kanyhus@gmail.com>"]
 license = "MIT"
