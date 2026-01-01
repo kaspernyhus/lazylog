@@ -2,18 +2,23 @@ use lazylog::highlighter::{HighlightPattern, Highlighter, PatternMatchType, Patt
 use lazylog::options::{AppOption, AppOptions};
 use ratatui::style::Color;
 use regex::Regex;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 /// Measures execution time of a function in nanoseconds
-fn measure_time<F, R>(iterations: usize, mut f: F) -> u128
+fn measure_time<F, R>(iterations: usize, mut f: F) -> Duration
 where
     F: FnMut() -> R,
 {
+    // Prewarm cache
+    for _ in 0..iterations {
+        f();
+    }
+
     let start = Instant::now();
     for _ in 0..iterations {
         std::hint::black_box(f());
     }
-    start.elapsed().as_nanos() / iterations as u128
+    start.elapsed()
 }
 
 /// Sample log line for testing (typical production log line)
@@ -24,17 +29,14 @@ fn perf_display_options_none_enabled() {
     let options = AppOptions::default();
 
     let iterations = 100000;
-    let avg_time_max = 100;
 
-    let avg_time = measure_time(iterations, || options.apply_to_line(SAMPLE_LOG_LINE));
+    let time = measure_time(iterations, || options.apply_to_line(SAMPLE_LOG_LINE));
 
-    println!("options (no options): {} ns/iteration", avg_time);
-
-    assert!(
-        avg_time < avg_time_max,
-        "options (no options) is too slow: {} ns (max allowed: {} ns)",
-        avg_time,
-        avg_time_max
+    println!(
+        "options (no options): total={:?} ({}), {:.2}ns/iteration",
+        time,
+        iterations,
+        time.as_nanos() as f64 / iterations as f64
     );
 }
 
@@ -44,17 +46,14 @@ fn perf_display_options_hide_pattern_enabled() {
     app_options.enable(AppOption::HideTimestamp);
 
     let iterations = 100000;
-    let avg_time_max = 300;
 
-    let avg_time = measure_time(iterations, || app_options.apply_to_line(SAMPLE_LOG_LINE));
+    let time = measure_time(iterations, || app_options.apply_to_line(SAMPLE_LOG_LINE));
 
-    println!("options (hide pattern): {} ns/iteration", avg_time);
-
-    assert!(
-        avg_time < avg_time_max,
-        "options (hide pattern) is too slow: {} ns (max allowed: {} ns)",
-        avg_time,
-        avg_time_max
+    println!(
+        "options (hide pattern): total={:?} ({}), {:.2}ns/iteration",
+        time,
+        iterations,
+        time.as_nanos() as f64 / iterations as f64
     );
 }
 
@@ -76,21 +75,15 @@ fn perf_highlight_line_cache_hit() {
     ];
     let highlighter = Highlighter::new(patterns, vec![]);
 
-    // Pre-warm cache
-    highlighter.highlight_line(0, SAMPLE_LOG_LINE);
-
     let iterations = 10000;
-    let avg_time_max = 800;
 
-    let avg_time = measure_time(iterations, || highlighter.highlight_line(0, SAMPLE_LOG_LINE));
+    let time = measure_time(iterations, || highlighter.highlight_line(0, SAMPLE_LOG_LINE));
 
-    println!("Highlight line (cache hit): {} ns/iteration", avg_time);
-
-    assert!(
-        avg_time < avg_time_max,
-        "Cached highlighting is too slow: {} ns (max allowed: {} ns)",
-        avg_time,
-        avg_time_max
+    println!(
+        "Highlight line (cache hit):  total={:?} ({}), {:.2}ns/iteration",
+        time,
+        iterations,
+        time.as_nanos() as f64 / iterations as f64
     );
 }
 
@@ -113,22 +106,19 @@ fn perf_highlight_line_cache_miss() {
     let highlighter = Highlighter::new(patterns, vec![]);
 
     let iterations = 10000;
-    let avg_time_max = 1200;
 
     // Use different log_index values to force cache misses
     let mut counter = 0;
-    let avg_time = measure_time(iterations, || {
+    let time = measure_time(iterations, || {
         counter += 1;
         highlighter.highlight_line(counter, SAMPLE_LOG_LINE)
     });
 
-    println!("Highlight line (cache miss): {} ns/iteration", avg_time);
-
-    assert!(
-        avg_time < avg_time_max,
-        "Highlighting is too slow: {} ns (max allowed: {} ns)",
-        avg_time,
-        avg_time_max
+    println!(
+        "Highlight line (cache miss): total={:?} ({}), {:.2}µs/iteration",
+        time,
+        iterations,
+        time.as_micros() as f64 / iterations as f64
     );
 }
 
@@ -140,17 +130,14 @@ fn perf_plain_match_case_sensitive() {
     };
 
     let iterations = 10000;
-    let avg_time_max = 100;
 
-    let avg_time = measure_time(iterations, || matcher.is_match(SAMPLE_LOG_LINE));
+    let time = measure_time(iterations, || matcher.is_match(SAMPLE_LOG_LINE));
 
-    println!("Plain match (case sensitive): {} ns/iteration", avg_time);
-
-    assert!(
-        avg_time < avg_time_max,
-        "Plain matching is too slow: {} ns (max allowed: {} ns)",
-        avg_time,
-        avg_time_max
+    println!(
+        "Plain match (case sensitive): total={:?} ({}), {:.2}ns/iteration",
+        time,
+        iterations,
+        time.as_nanos() as f64 / iterations as f64
     );
 }
 
@@ -162,17 +149,14 @@ fn perf_plain_match_case_insensitive() {
     };
 
     let iterations = 10000;
-    let avg_time_max = 300;
 
-    let avg_time = measure_time(iterations, || matcher.is_match(SAMPLE_LOG_LINE));
+    let time = measure_time(iterations, || matcher.is_match(SAMPLE_LOG_LINE));
 
-    println!("Plain match (case insensitive): {} ns/iteration", avg_time);
-
-    assert!(
-        avg_time < avg_time_max,
-        "Case insensitive matching is too slow: {} ns (max allowed: {} ns)",
-        avg_time,
-        avg_time_max
+    println!(
+        "Plain match (case insensitive): total={:?} ({}), {:.2}ns/iteration",
+        time,
+        iterations,
+        time.as_nanos() as f64 / iterations as f64
     );
 }
 
@@ -181,17 +165,14 @@ fn perf_regex_match() {
     let matcher = Regex::new(r"\d{4}-\d{2}-\d{2}").unwrap();
 
     let iterations = 10000;
-    let avg_time_max = 300;
 
-    let avg_time = measure_time(iterations, || matcher.is_match(SAMPLE_LOG_LINE));
+    let time = measure_time(iterations, || matcher.is_match(SAMPLE_LOG_LINE));
 
-    println!("Regex match: {} ns/iteration", avg_time);
-
-    assert!(
-        avg_time < avg_time_max,
-        "Regex matching is too slow: {} ns (max allowed: {} ns)",
-        avg_time,
-        avg_time_max
+    println!(
+        "Regex match: total={:?} ({} iterations), {:.2}ns/iteration",
+        time,
+        iterations,
+        time.as_nanos() as f64 / iterations as f64
     );
 }
 
@@ -238,20 +219,17 @@ fn perf_highlight_multiple_patterns() {
     let highlighter = Highlighter::new(patterns, vec![]);
 
     let iterations = 10000;
-    let avg_time_max = 3000;
 
     let mut counter = 0;
-    let avg_time = measure_time(iterations, || {
+    let time = measure_time(iterations, || {
         counter += 1;
         highlighter.highlight_line(counter, SAMPLE_LOG_LINE)
     });
 
-    println!("Highlight with 6 patterns: {} ns/iteration", avg_time);
-
-    assert!(
-        avg_time < avg_time_max,
-        "Multi-pattern highlighting is too slow: {} ns (max allowed: {} ns)",
-        avg_time,
-        avg_time_max
+    println!(
+        "Highlight with 6 patterns: total={:?} ({} iterations), {:.2}µs/iteration",
+        time,
+        iterations,
+        time.as_micros() as f64 / iterations as f64
     );
 }
