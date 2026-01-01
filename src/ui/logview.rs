@@ -1,4 +1,6 @@
 use std::collections::HashSet;
+use std::time::Instant;
+use tracing::trace;
 
 use super::colors::{
     EXPANDED_LINE_FG, EXPANSION_PREFIX, FILE_ID_COLORS, MARK_INDICATOR, MARK_INDICATOR_COLOR, RIGHT_ARROW,
@@ -180,8 +182,10 @@ impl App {
         tags: &HashSet<Tag>,
         enable_colors: bool,
     ) -> Line<'a> {
+        let highlight_start = Instant::now();
         let highlighted = self.highlighter.highlight_line(log_line.index, transformed_line);
         let highlighted = self.highlighter.adjust_for_viewport_offset(highlighted, line_offset);
+        trace!("highlight_line took: {:?}", highlight_start.elapsed());
 
         let mark_indicator = if tags.contains(&Tag::Marked) {
             Span::styled(MARK_INDICATOR, Style::default().fg(MARK_INDICATOR_COLOR))

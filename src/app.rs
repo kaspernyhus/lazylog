@@ -34,6 +34,8 @@ use ratatui::{
 };
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::time::Instant;
+use tracing::trace;
 use tui_input::{Input, InputRequest, backend::crossterm::EventHandler as TuiEventHandler};
 
 /// Represents the main views.
@@ -288,6 +290,8 @@ impl App {
     }
 
     fn update_view(&mut self) {
+        let update_start = Instant::now();
+
         let all_lines = self.log_buffer.all_lines();
         let log_line_index = self.resolver.viewport_to_log(self.viewport.selected_line, all_lines);
 
@@ -365,6 +369,7 @@ impl App {
 
             self.viewport.goto_line(new_selected_line, false);
         }
+        trace!("update_view took: {:?}", update_start.elapsed());
     }
 
     fn update_processor_context(&self) {
@@ -503,6 +508,7 @@ impl App {
         self.viewport.scroll_margin = 2;
 
         while self.running {
+            let draw_start = Instant::now();
             terminal.draw(|frame| {
                 frame.render_widget(&self, frame.area());
 
@@ -532,6 +538,8 @@ impl App {
                     frame.set_cursor_position((x, y));
                 }
             })?;
+            let draw_elapsed = draw_start.elapsed();
+            trace!("Screen draw took: {:?}", draw_elapsed);
 
             match self.events.next().await? {
                 Event::Tick => self.tick(),
