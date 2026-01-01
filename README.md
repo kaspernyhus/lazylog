@@ -14,10 +14,15 @@ A terminal-based log viewer with search, filtering, and streaming capabilities.
 - **Save streams** - Export stdin streams to files
 
 ## Installation
-Installs to `/usr/local/bin/`
+Download a precompiled binary for linux [here](https://github.com/kaspernyhus/lazylog/releases)
+
+or build from source by running the install script:
 ```bash
 ./install.sh
 ```
+Note: installs to `/usr/local/bin/`.
+
+For this you need the stable version of the rust toolchain, instructions can be found [here](https://rust-lang.org/tools/install/).
 
 ## Usage
 
@@ -68,15 +73,7 @@ If no `style` is specified for highlights, a unique color is auto-assigned.
 events = [
     { name = "Error", pattern = " ERROR ", regex = false, style = { fg = "lightred", bold = true } },
     { name = "Warning", pattern = " WARN", regex = false, style = { fg = "yellow" } },
-    { name = "Critical", pattern = " CRITICAL ", regex = false, style = { bg = "red" } },
-]
-```
-
-**Filters** - Predefined filters.
-```toml
-filters = [
-    { pattern = "DEBUG", mode = "exclude", case_sensitive = false, enabled = true },
-    { pattern = "INFO", mode = "include", case_sensitive = true, enabled = false },
+    { name = "Critical", pattern = " CRITICAL ", critical = true, regex = false, style = { bg = "red" } },
 ]
 ```
 
@@ -97,7 +94,7 @@ Run unit tests:
 ```bash
 cargo test -- --skip perf
 ```
-Run performance tests:
+Run performance measurements:
 ```bash
 cargo test --release --test perf -- --nocapture --test-threads=1
 ```
