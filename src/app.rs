@@ -1397,7 +1397,7 @@ impl App {
         }
     }
 
-    pub fn scroll_right(&mut self) {
+    pub fn scroll_right(&mut self, small_increment: bool) {
         let (start, end) = self.viewport.visible();
 
         let all_lines = self.log_buffer.all_lines();
@@ -1415,7 +1415,11 @@ impl App {
             0
         };
 
-        self.viewport.scroll_right(max_line_length);
+        if small_increment {
+            self.viewport.scroll_right_small(max_line_length);
+        } else {
+            self.viewport.scroll_right(max_line_length);
+        }
     }
 
     pub fn toggle_follow_mode(&mut self) {

@@ -190,6 +190,20 @@ impl Viewport {
         }
     }
 
+    /// Scrolls left horizontally by a small fixed amount.
+    pub fn scroll_left_small(&mut self) {
+        let scroll_amount = 5;
+        self.horizontal_offset = self.horizontal_offset.saturating_sub(scroll_amount);
+    }
+
+    /// Scrolls right horizontally by a small fixed amount.
+    pub fn scroll_right_small(&mut self, max_line_length: usize) {
+        if max_line_length > self.width {
+            let scroll_amount = 5;
+            self.horizontal_offset = (self.horizontal_offset + scroll_amount).min(max_line_length - self.width / 2);
+        }
+    }
+
     /// Resets horizontal scroll.
     pub fn reset_horizontal(&mut self) {
         self.horizontal_offset = 0;

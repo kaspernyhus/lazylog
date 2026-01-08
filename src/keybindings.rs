@@ -184,6 +184,18 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::Char('z'), Command::CenterSelected);
         self.bind_simple(context.clone(), KeyCode::Left, Command::ScrollLeft);
         self.bind_simple(context.clone(), KeyCode::Right, Command::ScrollRight);
+        self.bind(
+            context.clone(),
+            KeyCode::Left,
+            KeyModifiers::SHIFT,
+            Command::ScrollLeftSmall,
+        );
+        self.bind(
+            context.clone(),
+            KeyCode::Right,
+            KeyModifiers::SHIFT,
+            Command::ScrollRightSmall,
+        );
         self.bind_simple(context.clone(), KeyCode::Char('h'), Command::ScrollLeft);
         self.bind_simple(context.clone(), KeyCode::Char('l'), Command::ScrollRight);
         self.bind_simple(context.clone(), KeyCode::Char('0'), Command::ResetHorizontal);
