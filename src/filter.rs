@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::log::LogLine;
@@ -268,16 +269,23 @@ pub fn apply_filters(content: &str, filter_patterns: &[FilterPattern]) -> bool {
 /// Rule that applies text filtering
 pub struct FilterRule {
     patterns: Arc<Vec<FilterPattern>>,
+    always_visible: Arc<HashSet<usize>>,
 }
 
 impl FilterRule {
-    pub fn new(patterns: Arc<Vec<FilterPattern>>) -> Self {
-        Self { patterns }
+    pub fn new(patterns: Arc<Vec<FilterPattern>>, always_visible: Arc<HashSet<usize>>) -> Self {
+        Self {
+            patterns,
+            always_visible,
+        }
     }
 }
 
 impl VisibilityRule for FilterRule {
     fn is_visible(&self, line: &LogLine) -> bool {
+        if self.always_visible.contains(&line.index) {
+            return true;
+        }
         if self.patterns.is_empty() {
             true
         } else {

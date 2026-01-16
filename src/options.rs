@@ -7,6 +7,7 @@ pub enum AppOption {
     DisableColors,
     SearchDisableJumping,
     AlwaysShowMarkedLines,
+    AlwaysShowCriticalEvents,
 }
 
 #[derive(Debug, Clone)]
@@ -64,6 +65,7 @@ impl Default for AppOptions {
                 AppOptionDef::new_toggle(AppOption::DisableColors, "Disable Colors"),
                 AppOptionDef::new_toggle(AppOption::SearchDisableJumping, "Search: Disable jumping to match"),
                 AppOptionDef::new_toggle(AppOption::AlwaysShowMarkedLines, "Always show marked lines"),
+                AppOptionDef::new_toggle(AppOption::AlwaysShowCriticalEvents, "Always show critical events"),
             ],
         }
     }

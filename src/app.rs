@@ -304,9 +304,20 @@ impl App {
         }
 
         let patterns = Arc::new(self.filter.get_filter_patterns().to_vec());
-        self.resolver.add_visibility_rule(Box::new(FilterRule::new(patterns)));
 
-        let marked_indices = Arc::new(self.marking.get_marked_indices());
+        let mut always_visible = HashSet::new();
+        let marked_indices = self.marking.get_marked_indices();
+        if self.options.is_enabled(AppOption::AlwaysShowMarkedLines) {
+            always_visible.extend(&marked_indices);
+        }
+        if self.options.is_enabled(AppOption::AlwaysShowCriticalEvents) {
+            always_visible.extend(self.event_tracker.get_critical_event_indices());
+        }
+
+        self.resolver
+            .add_visibility_rule(Box::new(FilterRule::new(patterns, Arc::new(always_visible))));
+
+        let marked_indices = Arc::new(marked_indices);
 
         if self.show_marked_lines_only {
             self.resolver
