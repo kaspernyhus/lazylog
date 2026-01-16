@@ -650,15 +650,16 @@ impl App {
                 let mut should_select = false;
                 for pl in processed_lines {
                     let log_line_index = self.log_buffer.append_line(pl.line_content);
-                    let lines = self.log_buffer.all_lines();
+                    let log_line = self.log_buffer.get_line(log_line_index).unwrap();
+
+                    let active_event = self.event_tracker.scan_single_line(log_line);
+                    if active_event && self.viewport.follow_mode {
+                        should_select = true;
+                    }
 
                     if pl.passes_filter {
+                        let lines = self.log_buffer.all_lines();
                         let viewport_index = self.resolver.log_to_viewport(log_line_index, lines).unwrap_or(0);
-                        let log_line = self.log_buffer.get_line(log_line_index).unwrap();
-                        let active_event = self.event_tracker.scan_single_line(log_line);
-                        if active_event && self.viewport.follow_mode {
-                            should_select = true;
-                        }
                         self.completion.append_line(log_line);
                         self.search.append_line(viewport_index, log_line.content());
                     }
