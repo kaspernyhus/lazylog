@@ -52,6 +52,7 @@ impl KeybindingRegistry {
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::EventsFilter));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::MarkName));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::SaveToFile));
+        registry.register_global_bindings(KeybindingContext::Overlay(Overlay::AddCustomEvent));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::Message(String::new())));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::Error(String::new())));
 
@@ -360,6 +361,9 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::Char('e'), Command::ActivateMarkNameMode);
         self.bind_simple(context.clone(), KeyCode::Char('m'), Command::ToggleMark);
         self.bind_simple(context.clone(), KeyCode::Char('t'), Command::ToggleFollowMode);
+        self.bind_simple(context.clone(), KeyCode::Char('a'), Command::ActivateAddCustomEventMode);
+        self.bind_simple(context.clone(), KeyCode::Char('d'), Command::RemoveCustomEvent);
+        self.bind_simple(context.clone(), KeyCode::Delete, Command::RemoveCustomEvent);
         self.bind(
             context.clone(),
             KeyCode::Char('l'),
@@ -380,6 +384,8 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::PageDown, Command::PageDown);
         self.bind_simple(context.clone(), KeyCode::Char(' '), Command::ToggleEventFilter);
         self.bind_simple(context.clone(), KeyCode::Char('a'), Command::ToggleAllEventFilters);
+        self.bind_simple(context.clone(), KeyCode::Char('d'), Command::RemoveCustomEvent);
+        self.bind_simple(context.clone(), KeyCode::Delete, Command::RemoveCustomEvent);
     }
 
     fn register_marks_view_bindings(&mut self) {

@@ -257,6 +257,7 @@ impl Help {
                 Overlay::EventsFilter => KeybindingContext::Overlay(Overlay::EventsFilter),
                 Overlay::MarkName => KeybindingContext::Overlay(Overlay::MarkName),
                 Overlay::SaveToFile => KeybindingContext::Overlay(Overlay::SaveToFile),
+                Overlay::AddCustomEvent => KeybindingContext::Overlay(Overlay::AddCustomEvent),
                 Overlay::Message(_) => KeybindingContext::Overlay(Overlay::Message(String::new())),
                 Overlay::Error(_) => KeybindingContext::Overlay(Overlay::Error(String::new())),
             };

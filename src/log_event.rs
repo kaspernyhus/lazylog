@@ -1,4 +1,4 @@
-use crate::highlighter::PatternMatcher;
+use crate::highlighter::{PatternMatcher, PlainMatch};
 use crate::log::{LogBuffer, LogLine};
 use rayon::prelude::*;
 use std::collections::HashSet;
@@ -23,6 +23,8 @@ pub struct EventPattern {
     pub count: usize,
     /// Whether this event is critical (shown with special indicators).
     pub critical: bool,
+    /// Whether this is a custom event.
+    pub is_custom: bool,
 }
 
 #[derive(Debug)]
@@ -172,6 +174,11 @@ impl LogEventTracker {
         self.patterns.iter().any(|p| p.name == event_name && p.critical)
     }
 
+    /// Returns true if an event with the given name is a custom event.
+    pub fn is_custom_event(&self, event_name: &str) -> bool {
+        self.patterns.iter().any(|p| p.name == event_name && p.is_custom)
+    }
+
     pub fn clear_all(&mut self) {
         self.events.clear();
         for pattern in &mut self.patterns {
@@ -260,6 +267,83 @@ impl LogEventTracker {
             }
         }
     }
+
+    /// Adds a custom event pattern. Returns false if the pattern already exists.
+    pub fn add_custom_event(&mut self, pattern: &str) -> bool {
+        if pattern.is_empty() {
+            return false;
+        }
+
+        // Check if pattern already exists (either as custom or config event)
+        let pattern_exists = self.patterns.iter().any(|p| {
+            if let PatternMatcher::Plain(plain) = &p.matcher {
+                plain.pattern == pattern
+            } else {
+                false
+            }
+        });
+
+        if pattern_exists {
+            return false;
+        }
+
+        // Create name from pattern, capped at 16 characters
+        let name = if pattern.len() > 16 {
+            format!("{}...", &pattern[..13])
+        } else {
+            pattern.to_string()
+        };
+
+        let event_pattern = EventPattern {
+            name,
+            matcher: PatternMatcher::Plain(PlainMatch {
+                pattern: pattern.to_string(),
+                case_sensitive: true,
+            }),
+            enabled: true,
+            count: 0,
+            critical: false,
+            is_custom: true,
+        };
+
+        self.patterns.push(event_pattern);
+        true
+    }
+
+    /// Returns the patterns of all custom events (for persistence).
+    pub fn get_custom_event_patterns(&self) -> Vec<&str> {
+        self.patterns
+            .iter()
+            .filter(|p| p.is_custom)
+            .filter_map(|p| {
+                if let PatternMatcher::Plain(plain) = &p.matcher {
+                    Some(plain.pattern.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    /// Removes a custom event by name. Returns the pattern string if found.
+    pub fn remove_custom_event(&mut self, name: &str) -> Option<String> {
+        let pattern_str = self
+            .patterns
+            .iter()
+            .find(|p| p.is_custom && p.name == name)
+            .and_then(|p| {
+                if let PatternMatcher::Plain(plain) = &p.matcher {
+                    Some(plain.pattern.clone())
+                } else {
+                    None
+                }
+            });
+
+        self.patterns.retain(|p| !(p.is_custom && p.name == name));
+        self.events.retain(|e| e.name != name);
+
+        pattern_str
+    }
 }
 
 #[cfg(test)]
@@ -279,6 +363,7 @@ mod tests {
                 enabled: true,
                 count: 0,
                 critical: false,
+                is_custom: false,
             },
             EventPattern {
                 name: "warning".to_string(),
@@ -289,6 +374,7 @@ mod tests {
                 enabled: true,
                 count: 0,
                 critical: false,
+                is_custom: false,
             },
             EventPattern {
                 name: "info".to_string(),
@@ -299,6 +385,7 @@ mod tests {
                 enabled: true,
                 count: 0,
                 critical: false,
+                is_custom: false,
             },
         ]
     }

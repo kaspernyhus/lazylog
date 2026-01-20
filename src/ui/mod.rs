@@ -78,22 +78,23 @@ impl Widget for &App {
 
         // Overlays
         if let Some(ref overlay) = self.overlay {
+            let overlay_area = overlay.popup_size().map(|(w, h)| popup_area(area, w, h));
+
             match overlay {
                 Overlay::EditFilter => {
-                    let edit_area = popup_area(area, 60, 3);
-                    self.render_edit_filter_popup(edit_area, buf);
+                    self.render_edit_filter_popup(overlay_area.unwrap(), buf);
                 }
                 Overlay::EventsFilter => {
-                    let event_filter_area = popup_area(area, 50, 25);
-                    self.render_event_filter_popup(event_filter_area, buf);
+                    self.render_event_filter_popup(overlay_area.unwrap(), buf);
                 }
                 Overlay::MarkName => {
-                    let name_input_area = popup_area(area, 60, 3);
-                    self.render_mark_name_input_popup(name_input_area, buf);
+                    self.render_mark_name_input_popup(overlay_area.unwrap(), buf);
                 }
                 Overlay::SaveToFile => {
-                    let save_area = popup_area(area, 60, 3);
-                    self.render_save_to_file_popup(save_area, buf);
+                    self.render_save_to_file_popup(overlay_area.unwrap(), buf);
+                }
+                Overlay::AddCustomEvent => {
+                    self.render_add_custom_event_popup(overlay_area.unwrap(), buf);
                 }
                 Overlay::Message(message) => {
                     self.render_message_popup(message, area, buf);

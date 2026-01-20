@@ -236,10 +236,10 @@ impl Highlighter {
     }
 
     /// Adds a temporary highlight pattern to be applied on top of any other highlighting.
-    pub fn add_temporary_highlight(&mut self, pattern: String, style: PatternStyle, case_sensitive: bool) {
+    pub fn add_temporary_highlight(&mut self, pattern: &str, style: PatternStyle, case_sensitive: bool) {
         self.temporary_highlights.push(HighlightPattern {
             matcher: PatternMatcher::Plain(PlainMatch {
-                pattern,
+                pattern: pattern.to_string(),
                 case_sensitive,
             }),
             style,
@@ -250,6 +250,30 @@ impl Highlighter {
     /// Clears all temporary highlights.
     pub fn clear_temporary_highlights(&mut self) {
         self.temporary_highlights.clear();
+        self.invalidate_cache();
+    }
+
+    /// Adds a custom event highlight pattern.
+    pub fn add_custom_event(&mut self, pattern: &str, style: PatternStyle) {
+        self.events.push(HighlightPattern {
+            matcher: PatternMatcher::Plain(PlainMatch {
+                pattern: pattern.to_string(),
+                case_sensitive: true,
+            }),
+            style,
+        });
+        self.invalidate_cache();
+    }
+
+    /// Removes a custom event highlight pattern by its pattern string.
+    pub fn remove_custom_event(&mut self, pattern: &str) {
+        self.events.retain(|event| {
+            if let PatternMatcher::Plain(plain) = &event.matcher {
+                plain.pattern != pattern
+            } else {
+                true
+            }
+        });
         self.invalidate_cache();
     }
 

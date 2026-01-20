@@ -23,7 +23,6 @@ use crate::{
     resolver::{Tag, ViewportResolver},
     search::Search,
     ui::colors::{FILTER_MODE_BG, FILTER_MODE_FG, SEARCH_MODE_BG, SEARCH_MODE_FG},
-    ui::popup_area,
     viewport::Viewport,
 };
 use crossterm::event::Event::Key;
@@ -74,10 +73,29 @@ pub enum Overlay {
     MarkName,
     /// Active mode for entering a file name for saving the current log buffer to a file.
     SaveToFile,
+    /// Active mode for entering a custom event pattern.
+    AddCustomEvent,
     /// Display a message to the user.
     Message(String),
     /// Display an error message to the user.
     Error(String),
+}
+
+impl Overlay {
+    pub fn popup_size(&self) -> Option<(u16, u16)> {
+        match self {
+            Overlay::EditFilter | Overlay::MarkName | Overlay::SaveToFile | Overlay::AddCustomEvent => Some((60, 3)),
+            Overlay::EventsFilter => Some((50, 25)),
+            Overlay::Message(_) | Overlay::Error(_) => None,
+        }
+    }
+
+    pub fn has_text_input(&self) -> bool {
+        matches!(
+            self,
+            Overlay::EditFilter | Overlay::MarkName | Overlay::SaveToFile | Overlay::AddCustomEvent
+        )
+    }
 }
 
 /// Application.
@@ -160,7 +178,10 @@ impl App {
     fn has_input_overlay(&self) -> bool {
         matches!(
             self.overlay,
-            Some(Overlay::EditFilter) | Some(Overlay::MarkName) | Some(Overlay::SaveToFile)
+            Some(Overlay::EditFilter)
+                | Some(Overlay::MarkName)
+                | Some(Overlay::SaveToFile)
+                | Some(Overlay::AddCustomEvent)
         )
     }
 
@@ -481,7 +502,7 @@ impl App {
             && self.input.value().chars().count() >= 2
         {
             self.highlighter.add_temporary_highlight(
-                self.input.value().to_string(),
+                self.input.value(),
                 PatternStyle::new(Some(FILTER_MODE_FG), Some(FILTER_MODE_BG), true),
                 self.filter.is_case_sensitive(),
             );
@@ -490,7 +511,7 @@ impl App {
         // Add search mode preview highlight
         if self.view_state == ViewState::ActiveSearchMode && self.input.value().chars().count() >= 2 {
             self.highlighter.add_temporary_highlight(
-                self.input.value().to_string(),
+                self.input.value(),
                 PatternStyle::new(Some(SEARCH_MODE_FG), Some(SEARCH_MODE_BG), true),
                 self.search.is_case_sensitive(),
             );
@@ -502,10 +523,30 @@ impl App {
             && self.view_state != ViewState::ActiveSearchMode
         {
             self.highlighter.add_temporary_highlight(
-                pattern.to_string(),
+                pattern,
                 PatternStyle::new(Some(SEARCH_MODE_FG), Some(SEARCH_MODE_BG), false),
                 self.search.is_case_sensitive(),
             );
+        }
+    }
+
+    fn calculate_cursor_pos(&self, width: u16, height: u16) -> Option<(u16, u16)> {
+        if self.help.is_visible() {
+            None
+        } else if self.is_input_view() {
+            let footer_y = height.saturating_sub(1);
+            let prefix_width = self.get_input_prefix().len();
+            let cursor_x = (prefix_width + self.input.visual_cursor()) as u16;
+            Some((cursor_x, footer_y))
+        } else if let Some(overlay) = &self.overlay
+            && overlay.has_text_input()
+            && let Some((popup_width, popup_height)) = overlay.popup_size()
+        {
+            let cursor_x = (width - popup_width) / 2 + 1 + self.input.visual_cursor() as u16;
+            let cursor_y = (height - popup_height) / 2 + 1;
+            Some((cursor_x, cursor_y))
+        } else {
+            None
         }
     }
 
@@ -522,30 +563,7 @@ impl App {
             let draw_start = Instant::now();
             terminal.draw(|frame| {
                 frame.render_widget(&self, frame.area());
-
-                // Set cursor position for text input modes
-                let cursor_pos = if self.help.is_visible() {
-                    None
-                } else if self.is_input_view() {
-                    // Footer-based input modes
-                    let footer_y = frame.area().height.saturating_sub(1);
-                    let prefix_width = self.get_input_prefix().len();
-                    let cursor_x = (prefix_width + self.input.visual_cursor()) as u16;
-                    Some((cursor_x, footer_y))
-                } else if matches!(
-                    self.overlay,
-                    Some(Overlay::EditFilter) | Some(Overlay::MarkName) | Some(Overlay::SaveToFile)
-                ) {
-                    // Popup-based input modes (cursor at x=1+visual_cursor, y=1, accounting for border)
-                    let popup_rect = popup_area(frame.area(), 60, 3);
-                    let cursor_x = popup_rect.x + 1 + self.input.visual_cursor() as u16;
-                    let cursor_y = popup_rect.y + 1;
-                    Some((cursor_x, cursor_y))
-                } else {
-                    None
-                };
-
-                if let Some((x, y)) = cursor_pos {
+                if let Some((x, y)) = self.calculate_cursor_pos(frame.area().width, frame.area().height) {
                     frame.set_cursor_position((x, y));
                 }
             })?;
@@ -624,6 +642,18 @@ impl App {
                     self.marking.set_mark_name(line_index, name);
                 }
             }
+        }
+
+        for custom_event in state.custom_events() {
+            let pattern = custom_event.pattern();
+            self.event_tracker.add_custom_event(pattern);
+
+            let style = PatternStyle {
+                fg_color: None,
+                bg_color: Some(self.config.custom_event_bg_color()),
+                bold: false,
+            };
+            self.highlighter.add_custom_event(pattern, style);
         }
 
         let event_filter_states: Vec<(String, bool)> = state
@@ -781,6 +811,24 @@ impl App {
                     self.close_overlay();
                     return;
                 }
+                Overlay::AddCustomEvent => {
+                    if !self.input.value().is_empty() {
+                        let pattern = self.input.value().to_string();
+                        if self.event_tracker.add_custom_event(&pattern) {
+                            let style = PatternStyle {
+                                fg_color: None,
+                                bg_color: Some(self.config.custom_event_bg_color()),
+                                bold: false,
+                            };
+                            self.highlighter.add_custom_event(&pattern, style);
+
+                            self.event_tracker.scan_all_lines(&self.log_buffer);
+                            self.update_events_view_count();
+                        }
+                    }
+                    self.close_overlay();
+                    return;
+                }
                 Overlay::Message(_) => {
                     self.close_overlay();
                     return;
@@ -887,6 +935,9 @@ impl App {
                 }
                 Overlay::SaveToFile => {
                     self.set_view_state(ViewState::LogView);
+                }
+                Overlay::AddCustomEvent => {
+                    self.close_overlay();
                 }
                 Overlay::Message(_) => {
                     self.set_view_state(ViewState::LogView);
@@ -1186,6 +1237,53 @@ impl App {
         if self.log_buffer.streaming {
             self.input.reset();
             self.show_overlay(Overlay::SaveToFile);
+        }
+    }
+
+    pub fn activate_add_custom_event_mode(&mut self) {
+        if self.view_state == ViewState::EventsView {
+            self.input.reset();
+            self.show_overlay(Overlay::AddCustomEvent);
+        }
+    }
+
+    pub fn remove_custom_event(&mut self) {
+        let event_name = if self.overlay == Some(Overlay::EventsFilter) {
+            let event_stats = self.event_tracker.get_event_stats();
+            event_stats
+                .get(self.event_filter_list_state.selected_index())
+                .map(|es| es.name.clone())
+        } else if self.view_state == ViewState::EventsView {
+            if self.event_tracker.showing_marks() {
+                let (visible_marks, visible_events) = self.get_visible_marks_and_events();
+                let merged = EventMarkView::merge(&visible_events, &visible_marks, true);
+                let selected_idx = self.events_list_state.selected_index();
+                if let Some(EventOrMark::Event(event)) = merged.get(selected_idx) {
+                    Some(event.name.clone())
+                } else {
+                    None
+                }
+            } else {
+                let visible_events = self.get_visible_events();
+                visible_events
+                    .get(self.events_list_state.selected_index())
+                    .map(|event| event.name.clone())
+            }
+        } else {
+            // Not in EventsFilter or EventsView mode
+            return;
+        };
+
+        if let Some(name) = event_name {
+            if !self.event_tracker.is_custom_event(&name) {
+                return;
+            }
+
+            if let Some(pattern) = self.event_tracker.remove_custom_event(&name) {
+                self.highlighter.remove_custom_event(&pattern);
+            }
+
+            self.update_events_view_count();
         }
     }
 

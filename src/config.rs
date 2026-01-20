@@ -2,6 +2,7 @@ use crate::filter::{ActiveFilterMode, FilterPattern};
 use crate::highlighter::{HighlightPattern, PatternMatchType, PatternStyle};
 use crate::highlighter::{PatternMatcher, PlainMatch};
 use crate::log_event::EventPattern;
+use crate::ui::colors::EVENT_NAME_CUSTOM_DEFAULT_FG;
 use ratatui::style::Color;
 use regex::Regex;
 use serde::Deserialize;
@@ -21,6 +22,7 @@ pub struct Config {
     pub filters: Vec<FilterConfig>,
     pub default_event_fg_color_index: Option<u8>,
     pub default_event_bg_color_index: Option<u8>,
+    pub default_custom_event_bg_color_index: Option<u8>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -172,6 +174,13 @@ impl Config {
         self.path.as_ref()
     }
 
+    /// Returns the background color for custom events.
+    pub fn custom_event_bg_color(&self) -> Color {
+        self.default_custom_event_bg_color_index
+            .map(Color::Indexed)
+            .unwrap_or(EVENT_NAME_CUSTOM_DEFAULT_FG)
+    }
+
     fn default_config_dir() -> PathBuf {
         if let Some(config_dir) = dirs::config_dir() {
             let config_path = config_dir.join("lazylog").join("config.toml");
@@ -281,6 +290,7 @@ impl Config {
                     enabled: true,
                     count: 0,
                     critical: ev_config.critical,
+                    is_custom: false,
                 })
             })
             .collect()

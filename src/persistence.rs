@@ -18,6 +18,8 @@ pub struct PersistedState {
     filters: Vec<FilterPatternState>,
     marks: Vec<MarkState>,
     event_filters: Vec<EventFilterState>,
+    #[serde(default)]
+    custom_events: Vec<CustomEventState>,
     options: Vec<OptionState>,
 }
 
@@ -53,6 +55,11 @@ pub struct MarkState {
 pub struct EventFilterState {
     name: String,
     enabled: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CustomEventState {
+    pattern: String,
 }
 
 impl PersistedState {
@@ -95,6 +102,14 @@ impl PersistedState {
                 .map(|es| EventFilterState {
                     name: es.name.clone(),
                     enabled: es.enabled,
+                })
+                .collect(),
+            custom_events: app
+                .event_tracker
+                .get_custom_event_patterns()
+                .iter()
+                .map(|pattern| CustomEventState {
+                    pattern: pattern.to_string(),
                 })
                 .collect(),
             options: app
@@ -281,6 +296,10 @@ impl PersistedState {
         &self.event_filters
     }
 
+    pub fn custom_events(&self) -> &[CustomEventState] {
+        &self.custom_events
+    }
+
     pub fn options(&self) -> Vec<(AppOption, bool)> {
         self.options
             .iter()
@@ -324,5 +343,11 @@ impl EventFilterState {
 
     pub fn enabled(&self) -> bool {
         self.enabled
+    }
+}
+
+impl CustomEventState {
+    pub fn pattern(&self) -> &str {
+        &self.pattern
     }
 }

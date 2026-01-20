@@ -60,6 +60,8 @@ pub enum Command {
     // Events
     ActivateEventsView,
     ActivateEventFilterView,
+    ActivateAddCustomEventMode,
+    RemoveCustomEvent,
     GotoSelectedEvent,
     ToggleEventFilter,
     ToggleAllEventFilters,
@@ -161,6 +163,8 @@ impl Command {
             // Events
             Command::ActivateEventsView => "View log events",
             Command::ActivateEventFilterView => "Filter events",
+            Command::ActivateAddCustomEventMode => "Add custom event",
+            Command::RemoveCustomEvent => "Remove custom event",
             Command::GotoSelectedEvent => "Go to selected event",
             Command::ToggleEventFilter => "Toggle event filter",
             Command::ToggleAllEventFilters => "Toggle all event filters",
@@ -262,6 +266,8 @@ impl Command {
             // Events
             Command::ActivateEventsView => app.activate_events_view(),
             Command::ActivateEventFilterView => app.activate_event_filter_view(),
+            Command::ActivateAddCustomEventMode => app.activate_add_custom_event_mode(),
+            Command::RemoveCustomEvent => app.remove_custom_event(),
             Command::GotoSelectedEvent => app.goto_selected_event(false),
             Command::ToggleEventFilter => app.toggle_event_filter(),
             Command::ToggleAllEventFilters => app.toggle_all_event_filters(),

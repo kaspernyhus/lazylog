@@ -37,6 +37,7 @@ events = [
 # https://ratatui.rs/examples/style/colors/
 default_event_fg_color_index = 255
 default_event_bg_color_index = 18
+default_custom_event_bg_color_index = 64
 
 # Predefined filters.
 filters = [

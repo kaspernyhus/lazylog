@@ -41,6 +41,7 @@ pub const EVENT_LIST_BG: Color = Color::Blue;
 pub const EVENT_LIST_HIGHLIGHT_BG: Color = GRAY_COLOR;
 pub const EVENT_NAME_FG: Color = Color::Yellow;
 pub const EVENT_NAME_CRITICAL_FG: Color = Color::Red;
+pub const EVENT_NAME_CUSTOM_DEFAULT_FG: Color = Color::Green;
 pub const EVENT_LINE_PREVIEW: Color = Color::Gray;
 
 // Marks

@@ -6,13 +6,16 @@ use super::colors::{
 use crate::event_mark_view::EventMarkView;
 use crate::filter::ActiveFilterMode;
 use crate::ui::MAX_PATH_LENGTH;
-use crate::ui::colors::{EVENT_NAME_CRITICAL_FG, FILE_BORDER, FILE_DISABLED_FG, FILE_ENABLED_FG, FILTER_CRITICAL_FG};
+use crate::ui::colors::{
+    EVENT_NAME_CRITICAL_FG, EVENT_NAME_CUSTOM_DEFAULT_FG, FILE_BORDER, FILE_DISABLED_FG, FILE_ENABLED_FG,
+    FILTER_CRITICAL_FG,
+};
 use crate::ui::scrollable_list::ScrollableList;
 use crate::{app::App, ui::colors::MARK_INDICATOR_COLOR};
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Rect},
-    style::{Modifier, Style, Stylize},
+    style::{Color, Modifier, Style, Stylize},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, List, ListState, Paragraph, StatefulWidget, Widget},
 };
@@ -199,6 +202,13 @@ impl App {
                     (MARK_INDICATOR_COLOR, MARK_LINE_PREVIEW)
                 } else if self.event_tracker.is_critical_event(item.name()) {
                     (EVENT_NAME_CRITICAL_FG, EVENT_LINE_PREVIEW)
+                } else if self.event_tracker.is_custom_event(item.name()) {
+                    let custom_event_color = self
+                        .config
+                        .default_custom_event_bg_color_index
+                        .map(Color::Indexed)
+                        .unwrap_or(EVENT_NAME_CUSTOM_DEFAULT_FG);
+                    (custom_event_color, EVENT_LINE_PREVIEW)
                 } else {
                     (EVENT_NAME_FG, EVENT_LINE_PREVIEW)
                 };
@@ -454,6 +464,25 @@ impl App {
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded)
                     .border_style(Style::default().fg(MARK_MODE_BG)),
+            )
+            .style(Style::default().fg(WHITE_COLOR))
+            .alignment(Alignment::Left);
+
+        popup.render(area, buf);
+    }
+
+    pub(super) fn render_add_custom_event_popup(&self, area: Rect, buf: &mut Buffer) {
+        Clear.render(area, buf);
+
+        let input_text = self.input.value();
+        let popup = Paragraph::new(input_text)
+            .block(
+                Block::default()
+                    .title(" Add Custom Event ")
+                    .title_alignment(Alignment::Center)
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .border_style(Style::default().fg(Color::Green)),
             )
             .style(Style::default().fg(WHITE_COLOR))
             .alignment(Alignment::Left);
