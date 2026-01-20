@@ -169,6 +169,22 @@ impl LogEventTracker {
             .collect()
     }
 
+    /// Returns a set of line indices that contain custom events.
+    pub fn get_custom_event_indices(&self) -> HashSet<usize> {
+        let custom_names: HashSet<&str> = self
+            .patterns
+            .iter()
+            .filter(|p| p.is_custom)
+            .map(|p| p.name.as_str())
+            .collect();
+
+        self.events
+            .iter()
+            .filter(|e| custom_names.contains(e.name.as_str()))
+            .map(|e| e.line_index)
+            .collect()
+    }
+
     /// Returns true if an event with the given name is marked as critical.
     pub fn is_critical_event(&self, event_name: &str) -> bool {
         self.patterns.iter().any(|p| p.name == event_name && p.critical)

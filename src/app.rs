@@ -334,6 +334,9 @@ impl App {
         if self.options.is_enabled(AppOption::AlwaysShowCriticalEvents) {
             always_visible.extend(self.event_tracker.get_critical_event_indices());
         }
+        if self.options.is_enabled(AppOption::AlwaysShowCustomEvents) {
+            always_visible.extend(self.event_tracker.get_custom_event_indices());
+        }
 
         self.resolver
             .add_visibility_rule(Box::new(FilterRule::new(patterns, Arc::new(always_visible))));
