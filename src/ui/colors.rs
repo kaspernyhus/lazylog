@@ -79,4 +79,11 @@ pub const SELECTION_BG: Color = Color::LightBlue;
 pub const EXPANDED_LINE_FG: Color = Color::DarkGray;
 
 // File ID colors
-pub const FILE_ID_COLORS: &[Color] = &[Color::Indexed(24), Color::Indexed(108), Color::Indexed(168)];
+pub const FILE_ID_COLORS: &[Color] = &[
+    Color::Indexed(24),
+    Color::Indexed(108),
+    Color::Indexed(168),
+    Color::Indexed(106),
+    Color::Indexed(208),
+    Color::Indexed(56),
+];
