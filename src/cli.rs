@@ -8,11 +8,11 @@ pub struct Cli {
     pub files: Vec<String>,
 
     /// Path to config file
-    #[arg(short, long)]
+    #[arg(short, long, value_name = "FILE")]
     pub config: Option<String>,
 
     /// Path to filters file (TOML file containing predefined filters)
-    #[arg(short, long)]
+    #[arg(short, long, value_name = "FILE")]
     pub filters: Option<String>,
 
     /// Clear all persisted state files
@@ -23,8 +23,8 @@ pub struct Cli {
     #[arg(long)]
     pub no_persist: bool,
 
-    /// Enable debug logging to file
-    #[arg(long)]
+    /// Enable debug logging to file. Use RUST_LOG= to set log level
+    #[arg(long, value_name = "FILE")]
     pub debug: Option<String>,
 }
 
