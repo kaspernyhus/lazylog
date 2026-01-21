@@ -17,7 +17,7 @@ use ratatui::{
 };
 
 /// Maximum length for file path display in footer.
-const MAX_PATH_LENGTH: usize = 60;
+const MAX_PATH_LENGTH: usize = 90;
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
@@ -70,7 +70,7 @@ impl Widget for &App {
                 self.render_marks_list(marks_area, buf);
             }
             ViewState::FilesView => {
-                let files_area = popup_area(area, 70, 8);
+                let files_area = popup_area(area, 100, 8);
                 self.render_files_list(files_area, buf);
             }
             _ => {}
