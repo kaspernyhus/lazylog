@@ -138,11 +138,7 @@ impl App {
             .map(|(offset, vl)| {
                 let log_line = &all_lines[vl.log_index];
                 let viewport_line = self.options.apply_to_line(log_line.content());
-                let text = if horizontal_offset >= viewport_line.len() {
-                    ""
-                } else {
-                    &viewport_line[horizontal_offset..]
-                };
+                let text = viewport_line.get(horizontal_offset..).unwrap_or("");
 
                 let viewport_line_index = start + offset;
                 let is_selected = if let Some((sel_start, sel_end)) = selection_range {
