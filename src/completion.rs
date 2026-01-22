@@ -96,15 +96,15 @@ mod tests {
         let mut engine = CompletionEngine::new();
 
         // Initial batch
-        let line1 = LogLine::new("Processing request".to_string(), 0);
-        let line2 = LogLine::new("Error occurred".to_string(), 1);
+        let line1 = LogLine::new("Processing request", 0);
+        let line2 = LogLine::new("Error occurred", 1);
         engine.update([&line1, &line2].into_iter());
 
         assert_eq!(engine.find_completion("Pro"), Some("cessing".to_string()));
 
         // Add more lines incrementally (streaming mode)
-        let line3 = LogLine::new("Program started".to_string(), 2);
-        let line4 = LogLine::new("Profile loaded".to_string(), 3);
+        let line3 = LogLine::new("Program started", 2);
+        let line4 = LogLine::new("Profile loaded", 3);
         engine.update([&line3, &line4].into_iter());
 
         // Should now have multiple matches starting with "Pro"
@@ -117,8 +117,8 @@ mod tests {
     #[test]
     fn test_case_sensitive_completion() {
         let mut engine = CompletionEngine::new();
-        let line1 = LogLine::new("ERROR message".to_string(), 0);
-        let line2 = LogLine::new("error occurred".to_string(), 1);
+        let line1 = LogLine::new("ERROR message", 0);
+        let line2 = LogLine::new("error occurred", 1);
         engine.update([&line1, &line2].into_iter());
 
         // Case sensitive - should only match "ERROR"

@@ -229,10 +229,10 @@ mod tests {
     #[test]
     fn test_create_marks_from_pattern_case_insensitive() {
         let log_lines = [
-            LogLine::new("ERROR in caps".to_string(), 10),
-            LogLine::new("error in lower".to_string(), 20),
-            LogLine::new("Error in mixed".to_string(), 30),
-            LogLine::new("info message".to_string(), 40),
+            LogLine::new("ERROR in caps", 10),
+            LogLine::new("error in lower", 20),
+            LogLine::new("Error in mixed", 30),
+            LogLine::new("info message", 40),
         ];
 
         let mut marking = Marking::default();
@@ -249,10 +249,10 @@ mod tests {
     #[test]
     fn test_create_marks_from_pattern_uses_original_indices() {
         let log_lines = [
-            LogLine::new("ERROR in module A".to_string(), 5),
-            LogLine::new("info message".to_string(), 12),
-            LogLine::new("Error in module B".to_string(), 23),
-            LogLine::new("debug output".to_string(), 45),
+            LogLine::new("ERROR in module A", 5),
+            LogLine::new("info message", 12),
+            LogLine::new("Error in module B", 23),
+            LogLine::new("debug output", 45),
         ];
 
         let mut marking = Marking::default();
