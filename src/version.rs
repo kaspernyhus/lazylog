@@ -4,7 +4,15 @@ use crate::build;
 pub fn long_version() -> String {
     let version = build::PKG_VERSION;
     let git_sha = build::COMMIT_HASH;
-    let git_branch = build::BRANCH;
+    #[allow(clippy::const_is_empty)]
+    let git_branch = {
+        let branch = build::BRANCH;
+        if branch.is_empty() {
+            option_env!("GITHUB_REF_NAME").unwrap_or("unknown")
+        } else {
+            branch
+        }
+    };
     let git_dirty = if build::GIT_CLEAN { "clean" } else { "dirty" };
 
     let build_time = build::BUILD_TIME;

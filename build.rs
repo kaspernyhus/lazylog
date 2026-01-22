@@ -11,5 +11,10 @@ fn main() -> shadow_rs::SdResult<()> {
         println!("cargo:rustc-env=GIT_COMMIT_MESSAGE={}", commit_msg.trim());
     }
 
+    // Capture GitHub ref name for CI builds (tag or branch name)
+    if let Ok(ref_name) = std::env::var("GITHUB_REF_NAME") {
+        println!("cargo:rustc-env=GITHUB_REF_NAME={}", ref_name);
+    }
+
     Ok(())
 }
