@@ -384,6 +384,7 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::PageDown, Command::PageDown);
         self.bind_simple(context.clone(), KeyCode::Char(' '), Command::ToggleEventFilter);
         self.bind_simple(context.clone(), KeyCode::Char('a'), Command::ToggleAllEventFilters);
+        self.bind_simple(context.clone(), KeyCode::Char('s'), Command::SoloEventFilter);
         self.bind_simple(context.clone(), KeyCode::Char('d'), Command::RemoveCustomEvent);
         self.bind_simple(context.clone(), KeyCode::Delete, Command::RemoveCustomEvent);
     }

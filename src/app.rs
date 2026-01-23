@@ -1655,6 +1655,22 @@ impl App {
         }
     }
 
+    pub fn solo_event_filter(&mut self) {
+        let selected_index = self.event_filter_list_state.selected_index();
+        let event_stats = self.event_tracker.get_event_stats();
+
+        if let Some(event_stat) = event_stats.get(selected_index) {
+            self.event_tracker.solo_event_filter(&event_stat.name);
+            self.update_events_view_count();
+
+            if let Some(line_index) = self.viewport_to_log_line_index(self.viewport.selected_line)
+                && let Some(nearest_index) = self.find_nearest_event(line_index)
+            {
+                self.events_list_state.select_index(nearest_index);
+            }
+        }
+    }
+
     pub fn toggle_events_show_marks(&mut self) {
         self.event_tracker.toggle_show_marks();
         self.update_events_view_count();

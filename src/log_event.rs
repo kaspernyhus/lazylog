@@ -275,6 +275,13 @@ impl LogEventTracker {
         }
     }
 
+    /// Enables only the specified event filter, disabling all others.
+    pub fn solo_event_filter(&mut self, event_name: &str) {
+        for pattern in &mut self.patterns {
+            pattern.enabled = pattern.name == event_name;
+        }
+    }
+
     /// Restores event filter states from persisted state.
     pub fn restore_filter_states(&mut self, filter_states: &[(String, bool)]) {
         for (name, enabled) in filter_states {
