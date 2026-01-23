@@ -772,6 +772,7 @@ impl App {
                     if !self.input.value().is_empty() {
                         let selected_index = self.filter_list_state.selected_index();
                         self.filter.update_pattern(selected_index, self.input.value());
+                        self.expansion.clear();
                         self.update_view();
                     }
                     self.close_overlay();
@@ -887,6 +888,7 @@ impl App {
                 if !self.input.value().is_empty() {
                     self.filter.add_filter_from_pattern(self.input.value());
                     self.filter_list_state.set_item_count(self.filter.count());
+                    self.expansion.clear();
                     self.update_view();
                 }
                 self.set_view_state(ViewState::LogView);
@@ -1604,6 +1606,7 @@ impl App {
     pub fn toggle_filter_pattern_active(&mut self) {
         let selected_index = self.filter_list_state.selected_index();
         self.filter.toggle_pattern_enabled(selected_index);
+        self.expansion.clear();
         self.update_view();
     }
 
@@ -1611,23 +1614,27 @@ impl App {
         let selected_index = self.filter_list_state.selected_index();
         self.filter.remove_pattern(selected_index);
         self.filter_list_state.set_item_count(self.filter.count());
+        self.expansion.clear();
         self.update_view();
     }
 
     pub fn toggle_filter_pattern_case_sensitive(&mut self) {
         let selected_index = self.filter_list_state.selected_index();
         self.filter.toggle_pattern_case_sensitivity(selected_index);
+        self.expansion.clear();
         self.update_view();
     }
 
     pub fn toggle_filter_pattern_mode(&mut self) {
         let selected_index = self.filter_list_state.selected_index();
         self.filter.toggle_pattern_mode(selected_index);
+        self.expansion.clear();
         self.update_view();
     }
 
     pub fn toggle_all_filter_patterns(&mut self) {
         self.filter.toggle_all_patterns_enabled();
+        self.expansion.clear();
         self.update_view();
     }
 
