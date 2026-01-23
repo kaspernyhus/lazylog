@@ -168,6 +168,18 @@ impl Help {
             &KeybindingContext::View(ViewState::EventsView),
         );
 
+        // Timeline View section
+        help_items.push(HelpItem::new_empty());
+        help_items.push(HelpItem::new_header(
+            "Timeline View",
+            Some(KeybindingContext::View(ViewState::TimelineView)),
+        ));
+        self.add_context_bindings(
+            &mut help_items,
+            registry,
+            &KeybindingContext::View(ViewState::TimelineView),
+        );
+
         // Event Filters section
         help_items.push(HelpItem::new_empty());
         help_items.push(HelpItem::new_header(

@@ -70,6 +70,18 @@ pub enum Command {
     EventNext,
     EventPrevious,
 
+    // Timeline
+    ActivateTimelineView,
+    TimelineCursorLeft,
+    TimelineCursorRight,
+    TimelineCursorStart,
+    TimelineCursorEnd,
+    TimelineCursorPageLeft,
+    TimelineCursorPageRight,
+    TimelineEventUp,
+    TimelineEventDown,
+    GotoTimelineEvent,
+
     // Marks
     ToggleMark,
     ActivateMarksView,
@@ -173,6 +185,18 @@ impl Command {
             Command::ToggleEventsShowMarks => "Toggle showing marks in events view",
             Command::EventNext => "Go to next event",
             Command::EventPrevious => "Go to previous event",
+
+            // Timeline
+            Command::ActivateTimelineView => "View event timeline",
+            Command::TimelineCursorLeft => "Move cursor left",
+            Command::TimelineCursorRight => "Move cursor right",
+            Command::TimelineCursorStart => "Go to start",
+            Command::TimelineCursorEnd => "Go to end",
+            Command::TimelineCursorPageLeft => "Page left",
+            Command::TimelineCursorPageRight => "Page right",
+            Command::TimelineEventUp => "Select previous event",
+            Command::TimelineEventDown => "Select next event",
+            Command::GotoTimelineEvent => "Go to selected event",
 
             // Marks
             Command::ToggleMark => "Toggle mark on line",
@@ -288,6 +312,18 @@ impl Command {
             Command::ToggleEventsShowMarks => app.toggle_events_show_marks(),
             Command::EventNext => app.event_next(),
             Command::EventPrevious => app.event_previous(),
+
+            // Timeline
+            Command::ActivateTimelineView => app.activate_timeline_view(),
+            Command::TimelineCursorLeft => app.timeline_cursor_left(),
+            Command::TimelineCursorRight => app.timeline_cursor_right(),
+            Command::TimelineCursorStart => app.timeline_cursor_start(),
+            Command::TimelineCursorEnd => app.timeline_cursor_end(),
+            Command::TimelineCursorPageLeft => app.timeline_cursor_page_left(),
+            Command::TimelineCursorPageRight => app.timeline_cursor_page_right(),
+            Command::TimelineEventUp => app.timeline_event_up(),
+            Command::TimelineEventDown => app.timeline_event_down(),
+            Command::GotoTimelineEvent => app.goto_timeline_event(),
 
             // Marks
             Command::ToggleMark => app.toggle_mark(),

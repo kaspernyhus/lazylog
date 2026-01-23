@@ -32,6 +32,7 @@ impl KeybindingRegistry {
         registry.register_event_filter_view_bindings();
         registry.register_marks_view_bindings();
         registry.register_files_view_bindings();
+        registry.register_timeline_view_bindings();
         registry.register_message_state_bindings();
         registry.register_error_state_bindings();
 
@@ -46,6 +47,7 @@ impl KeybindingRegistry {
         registry.register_global_bindings(KeybindingContext::View(ViewState::MarksView));
         registry.register_global_bindings(KeybindingContext::View(ViewState::FilesView));
         registry.register_global_bindings(KeybindingContext::View(ViewState::GotoLineMode));
+        registry.register_global_bindings(KeybindingContext::View(ViewState::TimelineView));
 
         // Register global bindings for all overlay types
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::EditFilter));
@@ -246,6 +248,7 @@ impl KeybindingRegistry {
         );
         self.bind_simple(context.clone(), KeyCode::Tab, Command::HistoryForward);
         self.bind_shift(context.clone(), 'V', Command::StartSelection);
+        self.bind_shift(context.clone(), 'T', Command::ActivateTimelineView);
     }
 
     fn register_selection_mode_bindings(&mut self) {
@@ -418,6 +421,25 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::PageUp, Command::PageUp);
         self.bind_simple(context.clone(), KeyCode::PageDown, Command::PageDown);
         self.bind_simple(context.clone(), KeyCode::Char(' '), Command::ToggleFile);
+    }
+
+    fn register_timeline_view_bindings(&mut self) {
+        let context = KeybindingContext::View(ViewState::TimelineView);
+
+        self.bind_simple(context.clone(), KeyCode::Char('q'), Command::Quit);
+        self.bind_simple(context.clone(), KeyCode::Left, Command::TimelineCursorLeft);
+        self.bind_simple(context.clone(), KeyCode::Right, Command::TimelineCursorRight);
+        self.bind_simple(context.clone(), KeyCode::Char('h'), Command::TimelineCursorLeft);
+        self.bind_simple(context.clone(), KeyCode::Char('l'), Command::TimelineCursorRight);
+        self.bind_simple(context.clone(), KeyCode::Char('g'), Command::TimelineCursorStart);
+        self.bind_shift(context.clone(), 'G', Command::TimelineCursorEnd);
+        self.bind_simple(context.clone(), KeyCode::PageUp, Command::TimelineCursorPageLeft);
+        self.bind_simple(context.clone(), KeyCode::PageDown, Command::TimelineCursorPageRight);
+        self.bind_simple(context.clone(), KeyCode::Up, Command::TimelineEventUp);
+        self.bind_simple(context.clone(), KeyCode::Down, Command::TimelineEventDown);
+        self.bind_simple(context.clone(), KeyCode::Char('k'), Command::TimelineEventUp);
+        self.bind_simple(context.clone(), KeyCode::Char('j'), Command::TimelineEventDown);
+        self.bind_simple(context, KeyCode::Enter, Command::GotoTimelineEvent);
     }
 
     fn register_message_state_bindings(&mut self) {

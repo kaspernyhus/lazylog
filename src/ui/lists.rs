@@ -1,10 +1,13 @@
 use super::colors::{
     EVENT_LINE_PREVIEW, EVENT_LIST_BG, EVENT_LIST_HIGHLIGHT_BG, EVENT_NAME_FG, FILTER_DISABLED_FG, FILTER_ENABLED_FG,
     FILTER_LIST_HIGHLIGHT_BG, FILTER_MODE_BG, MARK_LINE_PREVIEW, MARK_LIST_HIGHLIGHT_BG, MARK_MODE_BG, MARK_NAME_FG,
-    OPTION_DISABLED_FG, OPTION_ENABLED_FG, RIGHT_ARROW, WHITE_COLOR,
+    OPTION_DISABLED_FG, OPTION_ENABLED_FG, RIGHT_ARROW, TIMELINE_CURSOR_BG, TIMELINE_EMPTY_FG,
+    TIMELINE_HEATMAP_FG,
+    TIMELINE_LABEL_FG, WHITE_COLOR,
 };
 use crate::event_mark_view::EventMarkView;
 use crate::filter::ActiveFilterMode;
+use crate::timeline::TimelineData;
 use crate::ui::MAX_PATH_LENGTH;
 use crate::ui::colors::{
     EVENT_NAME_CRITICAL_FG, EVENT_NAME_CUSTOM_DEFAULT_FG, FILE_BORDER, FILE_DISABLED_FG, FILE_ENABLED_FG,
@@ -488,5 +491,240 @@ impl App {
             .alignment(Alignment::Left);
 
         popup.render(area, buf);
+    }
+
+    pub(super) fn render_timeline(&self, area: Rect, buf: &mut Buffer) {
+        let top_padding = 1u16;
+        let header_height = 2u16;
+
+        let Some(ref timeline_data) = self.timeline_data else {
+            let msg = Paragraph::new("No timestamp data available")
+                .alignment(Alignment::Center)
+                .style(Style::default().fg(WHITE_COLOR));
+            let centered_area = Rect {
+                x: area.x,
+                y: area.y + area.height / 2,
+                width: area.width,
+                height: 1,
+            };
+            msg.render(centered_area, buf);
+            return;
+        };
+
+        if timeline_data.event_names.is_empty() {
+            let msg = Paragraph::new("No events found")
+                .alignment(Alignment::Center)
+                .style(Style::default().fg(WHITE_COLOR));
+            let centered_area = Rect {
+                x: area.x,
+                y: area.y + area.height / 2,
+                width: area.width,
+                height: 1,
+            };
+            msg.render(centered_area, buf);
+            return;
+        }
+
+        let heatmap_rows = timeline_data.event_names.len() as u16;
+        let heatmap_total_height = top_padding + header_height + heatmap_rows;
+        let events_box_height = area.height.saturating_sub(heatmap_total_height + 1);
+
+        let content_area = Rect {
+            x: area.x,
+            y: area.y + top_padding,
+            width: area.width,
+            height: header_height + heatmap_rows,
+        };
+
+        let events_box_area = Rect {
+            x: area.x,
+            y: area.y + heatmap_total_height + 1,
+            width: area.width,
+            height: events_box_height,
+        };
+
+        let max_label_len = timeline_data
+            .event_names
+            .iter()
+            .map(|n| n.chars().count())
+            .max()
+            .unwrap_or(0)
+            .min(20);
+
+        let label_col_width = max_label_len + 2;
+        let heatmap_start_x = content_area.x + label_col_width as u16;
+        let heatmap_width = content_area.width.saturating_sub(label_col_width as u16) as usize;
+
+        if heatmap_width == 0 {
+            return;
+        }
+
+        let event_count = timeline_data.event_names.len();
+
+        if let Some((start, end)) = timeline_data.time_range {
+            let start_str = start.format("%H:%M:%S").to_string();
+            let end_str = end.format("%H:%M:%S").to_string();
+
+            buf.set_string(
+                heatmap_start_x,
+                content_area.y,
+                &start_str,
+                Style::default().fg(TIMELINE_EMPTY_FG),
+            );
+
+            let end_x = heatmap_start_x + heatmap_width as u16;
+            let end_str_x = end_x.saturating_sub(end_str.len() as u16);
+            buf.set_string(
+                end_str_x,
+                content_area.y,
+                &end_str,
+                Style::default().fg(TIMELINE_EMPTY_FG),
+            );
+
+            for x in heatmap_start_x..heatmap_start_x + heatmap_width as u16 {
+                buf.set_string(x, content_area.y + 1, "─", Style::default().fg(TIMELINE_EMPTY_FG));
+            }
+        }
+
+        let rows_start_y = content_area.y + header_height;
+        let slot_count = timeline_data.slots.len();
+        let cursor_col = if slot_count > 0 && heatmap_width > 0 {
+            (self.timeline_cursor * heatmap_width / slot_count).min(heatmap_width - 1)
+        } else {
+            0
+        };
+
+        for (row_idx, event_name) in timeline_data.event_names.iter().take(event_count).enumerate() {
+            let y = rows_start_y + row_idx as u16;
+
+            let event_chars: Vec<char> = event_name.chars().collect();
+            let (truncated_name, display_len) = if event_chars.len() > max_label_len {
+                let truncated: String = event_chars[..max_label_len - 1].iter().collect();
+                (format!("{}…", truncated), max_label_len)
+            } else {
+                (event_name.clone(), event_chars.len())
+            };
+
+            let padding = max_label_len.saturating_sub(display_len);
+            let label = format!("{}{} │", " ".repeat(padding), truncated_name);
+
+            buf.set_string(
+                content_area.x,
+                y,
+                &label,
+                Style::default().fg(TIMELINE_LABEL_FG),
+            );
+
+            for col_idx in 0..heatmap_width {
+                let slot_idx = if slot_count > 0 {
+                    (col_idx * slot_count / heatmap_width).min(slot_count - 1)
+                } else {
+                    0
+                };
+
+                let count = if slot_idx < timeline_data.slots.len() {
+                    timeline_data.slots[slot_idx]
+                        .event_counts
+                        .get(event_name)
+                        .copied()
+                        .unwrap_or(0)
+                } else {
+                    0
+                };
+
+                let ch = TimelineData::intensity_char(count, timeline_data.max_count);
+                let fg_color = if count == 0 {
+                    TIMELINE_EMPTY_FG
+                } else {
+                    TIMELINE_HEATMAP_FG
+                };
+
+                let style = if col_idx == cursor_col {
+                    Style::default().fg(fg_color).bg(TIMELINE_CURSOR_BG)
+                } else {
+                    Style::default().fg(fg_color)
+                };
+
+                let x = heatmap_start_x + col_idx as u16;
+                buf.set_string(x, y, ch.to_string(), style);
+            }
+        }
+
+        let displayed_slot_idx = if slot_count > 0 && heatmap_width > 0 {
+            (cursor_col * slot_count / heatmap_width).min(slot_count - 1)
+        } else {
+            0
+        };
+        let selected_slot = &timeline_data.slots[displayed_slot_idx];
+        let slot_time = selected_slot.start_time.format("%H:%M:%S").to_string();
+        let event_count = self.timeline_slot_events.len();
+        let title = format!(" Events at {} ({}) ", slot_time, event_count);
+
+        let block = Block::default()
+            .title(title)
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(TIMELINE_LABEL_FG));
+
+        let inner_area = block.inner(events_box_area);
+        block.render(events_box_area, buf);
+
+        if self.timeline_slot_events.is_empty() {
+            buf.set_string(
+                inner_area.x + 1,
+                inner_area.y,
+                "No events in this time slot",
+                Style::default().fg(TIMELINE_EMPTY_FG),
+            );
+        } else {
+            let visible_height = inner_area.height as usize;
+            let selected = self.timeline_event_selected;
+            let scroll_offset = if selected >= visible_height {
+                selected - visible_height + 1
+            } else {
+                0
+            };
+
+            for (idx, (line_index, event_name)) in self
+                .timeline_slot_events
+                .iter()
+                .skip(scroll_offset)
+                .take(visible_height)
+                .enumerate()
+            {
+                let actual_idx = scroll_offset + idx;
+                let is_selected = actual_idx == selected;
+
+                let line_content = self
+                    .log_buffer
+                    .get_line(*line_index)
+                    .map(|l| l.content.as_str())
+                    .unwrap_or("");
+
+                let display_width = inner_area.width.saturating_sub(2) as usize;
+                let truncated: String = line_content.chars().take(display_width).collect();
+
+                let style = if is_selected {
+                    Style::default().fg(WHITE_COLOR).bg(TIMELINE_CURSOR_BG)
+                } else {
+                    Style::default().fg(TIMELINE_EMPTY_FG)
+                };
+
+                let prefix = format!("{:<12} ", event_name);
+                let prefix_style = if is_selected {
+                    Style::default().fg(TIMELINE_LABEL_FG).bg(TIMELINE_CURSOR_BG)
+                } else {
+                    Style::default().fg(TIMELINE_LABEL_FG)
+                };
+
+                buf.set_string(inner_area.x + 1, inner_area.y + idx as u16, &prefix, prefix_style);
+                buf.set_string(
+                    inner_area.x + 1 + prefix.len() as u16,
+                    inner_area.y + idx as u16,
+                    &truncated,
+                    style,
+                );
+            }
+        }
     }
 }

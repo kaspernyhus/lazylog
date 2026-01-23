@@ -78,6 +78,13 @@ pub const SELECTION_BG: Color = Color::LightBlue;
 // Expansion colors
 pub const EXPANDED_LINE_FG: Color = Color::DarkGray;
 
+// Timeline
+pub const TIMELINE_BORDER: Color = Color::Yellow;
+pub const TIMELINE_LABEL_FG: Color = Color::Yellow;
+pub const TIMELINE_HEATMAP_FG: Color = Color::Blue;
+pub const TIMELINE_EMPTY_FG: Color = Color::DarkGray;
+pub const TIMELINE_CURSOR_BG: Color = Color::Rgb(60, 60, 60);
+
 // File ID colors
 pub const FILE_ID_COLORS: &[Color] = &[
     Color::Indexed(24),

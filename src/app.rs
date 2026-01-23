@@ -2,6 +2,7 @@ use crate::file_manager::FileFilterRule;
 use crate::filter::FilterRule;
 use crate::list_view_state::ListViewState;
 use crate::marking::{Mark, MarkOnlyVisibilityRule, MarkTagRule};
+use crate::timeline::TimelineData;
 use crate::{
     cli::Cli,
     completion::CompletionEngine,
@@ -60,6 +61,8 @@ pub enum ViewState {
     FilesView,
     /// Visual selection mode for selecting a range of lines.
     SelectionMode,
+    /// Timeline view showing event density over time.
+    TimelineView,
 }
 
 /// Represents an overlay/modal that appears on top of the current view.
@@ -163,6 +166,14 @@ pub struct App {
     persist_enabled: bool,
     /// Whether to only show marked lines
     pub show_marked_lines_only: bool,
+    /// Timeline data for the timeline view
+    pub timeline_data: Option<TimelineData>,
+    /// Selected slot index in the timeline view
+    pub timeline_cursor: usize,
+    /// Events in the currently selected timeline slot
+    pub timeline_slot_events: Vec<(usize, String)>,
+    /// Selected event index within the timeline slot
+    pub timeline_event_selected: usize,
 }
 
 impl App {
@@ -259,6 +270,10 @@ impl App {
             keybindings,
             persist_enabled: !args.no_persist,
             show_marked_lines_only: false,
+            timeline_data: None,
+            timeline_cursor: 0,
+            timeline_slot_events: Vec::new(),
+            timeline_event_selected: 0,
         };
 
         // Set item counts for list states
@@ -973,7 +988,8 @@ impl App {
             | ViewState::OptionsView
             | ViewState::EventsView
             | ViewState::MarksView
-            | ViewState::FilesView => {
+            | ViewState::FilesView
+            | ViewState::TimelineView => {
                 self.set_view_state(ViewState::LogView);
             }
         }
@@ -1181,6 +1197,250 @@ impl App {
     pub fn activate_files_view(&mut self) {
         if self.file_manager.is_multi_file() {
             self.set_view_state(ViewState::FilesView);
+        }
+    }
+
+    pub fn activate_timeline_view(&mut self) {
+        let slot_count = self.viewport.width.saturating_sub(20);
+        self.timeline_data = TimelineData::compute(&self.log_buffer, &self.event_tracker, slot_count);
+
+        self.timeline_cursor = 0;
+
+        // Get the log line index first to avoid borrow conflicts
+        let log_line_idx = self.viewport_to_log_line_index(self.viewport.selected_line);
+
+        if let Some(ref data) = self.timeline_data {
+            if let Some((min_time, max_time)) = data.time_range {
+                if let Some(log_line_idx) = log_line_idx {
+                    if let Some(log_line) = self.log_buffer.get_line(log_line_idx) {
+                        let ts = log_line
+                            .timestamp
+                            .or_else(|| crate::timestamp::parse_timestamp(&log_line.content));
+
+                        if let Some(ts) = ts {
+                            let slot_count = data.slots.len();
+                            if slot_count > 0 {
+                                if let Some(time_range_nanos) = (max_time - min_time).num_nanoseconds() {
+                                    let slot_duration_nanos = time_range_nanos / slot_count as i64;
+                                    if slot_duration_nanos > 0 {
+                                        let offset_nanos = (ts - min_time).num_nanoseconds().unwrap_or(0);
+                                        let target_slot =
+                                            ((offset_nanos / slot_duration_nanos) as usize).min(slot_count - 1);
+
+                                        // Find timeline_cursor that results in displayed_slot_idx == target_slot
+                                        self.timeline_cursor = self.find_cursor_for_slot(target_slot);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        self.update_timeline_slot_events();
+        self.set_view_state(ViewState::TimelineView);
+    }
+
+    fn find_cursor_for_slot(&self, target_slot: usize) -> usize {
+        let Some(ref data) = self.timeline_data else {
+            return 0;
+        };
+
+        let slot_count = data.slots.len();
+        if slot_count == 0 {
+            return 0;
+        }
+
+        let max_label_len = data
+            .event_names
+            .iter()
+            .map(|n| n.chars().count())
+            .max()
+            .unwrap_or(0)
+            .min(20);
+        let label_col_width = max_label_len + 2;
+        let heatmap_width = (self.viewport.width as usize).saturating_sub(label_col_width);
+
+        if heatmap_width == 0 {
+            return target_slot;
+        }
+
+        // Search for a cursor value that gives us the target displayed slot
+        for cursor in 0..slot_count {
+            let cursor_col = (cursor * heatmap_width / slot_count).min(heatmap_width.saturating_sub(1));
+            let displayed = (cursor_col * slot_count / heatmap_width).min(slot_count.saturating_sub(1));
+            if displayed == target_slot {
+                return cursor;
+            }
+        }
+
+        target_slot
+    }
+
+    fn get_displayed_slot_idx(&self) -> usize {
+        let Some(ref data) = self.timeline_data else {
+            return 0;
+        };
+
+        let slot_count = data.slots.len();
+        if slot_count == 0 {
+            return 0;
+        }
+
+        let max_label_len = data
+            .event_names
+            .iter()
+            .map(|n| n.chars().count())
+            .max()
+            .unwrap_or(0)
+            .min(20);
+        let label_col_width = max_label_len + 2;
+        let heatmap_width = (self.viewport.width as usize).saturating_sub(label_col_width);
+
+        if heatmap_width == 0 {
+            return 0;
+        }
+
+        let cursor_col = (self.timeline_cursor * heatmap_width / slot_count).min(heatmap_width - 1);
+        (cursor_col * slot_count / heatmap_width).min(slot_count - 1)
+    }
+
+    fn update_timeline_slot_events(&mut self) {
+        self.timeline_slot_events.clear();
+        self.timeline_event_selected = 0;
+
+        let Some(ref data) = self.timeline_data else {
+            return;
+        };
+
+        if data.slots.is_empty() {
+            return;
+        }
+
+        let slot_idx = self.get_displayed_slot_idx();
+        let slot = &data.slots[slot_idx];
+        let slot_start = slot.start_time;
+        let slot_end = slot.end_time;
+
+        for event in self.event_tracker.get_events() {
+            if let Some(log_line) = self.log_buffer.get_line(event.line_index) {
+                let ts = log_line
+                    .timestamp
+                    .or_else(|| crate::timestamp::parse_timestamp(&log_line.content));
+                if let Some(ts) = ts {
+                    if ts >= slot_start && ts <= slot_end {
+                        self.timeline_slot_events.push((event.line_index, event.name.clone()));
+                    }
+                }
+            }
+        }
+
+        self.timeline_slot_events.sort_by_key(|(line_idx, _)| *line_idx);
+    }
+
+    fn timeline_slot_to_col(&self, slot: usize) -> usize {
+        if let Some(ref data) = self.timeline_data {
+            let slot_count = data.slots.len();
+            let heatmap_width = self.viewport.width.saturating_sub(22);
+            if slot_count > 0 && heatmap_width > 0 {
+                return (slot * heatmap_width / slot_count).min(heatmap_width - 1);
+            }
+        }
+        0
+    }
+
+    pub fn timeline_cursor_left(&mut self) {
+        if self.timeline_cursor == 0 {
+            return;
+        }
+        let current_col = self.timeline_slot_to_col(self.timeline_cursor);
+        let mut new_cursor = self.timeline_cursor.saturating_sub(1);
+        while new_cursor > 0 && self.timeline_slot_to_col(new_cursor) == current_col {
+            new_cursor -= 1;
+        }
+        self.timeline_cursor = new_cursor;
+        self.update_timeline_slot_events();
+    }
+
+    pub fn timeline_cursor_right(&mut self) {
+        if let Some(ref data) = self.timeline_data {
+            let max_cursor = data.slots.len().saturating_sub(1);
+            if self.timeline_cursor >= max_cursor {
+                return;
+            }
+            let current_col = self.timeline_slot_to_col(self.timeline_cursor);
+            let mut new_cursor = self.timeline_cursor + 1;
+            while new_cursor < max_cursor && self.timeline_slot_to_col(new_cursor) == current_col {
+                new_cursor += 1;
+            }
+            self.timeline_cursor = new_cursor;
+            self.update_timeline_slot_events();
+        }
+    }
+
+    pub fn timeline_cursor_start(&mut self) {
+        self.timeline_cursor = 0;
+        self.update_timeline_slot_events();
+    }
+
+    pub fn timeline_cursor_end(&mut self) {
+        if let Some(ref data) = self.timeline_data {
+            self.timeline_cursor = data.slots.len().saturating_sub(1);
+        }
+        self.update_timeline_slot_events();
+    }
+
+    pub fn timeline_cursor_page_left(&mut self) {
+        for _ in 0..10 {
+            let current_col = self.timeline_slot_to_col(self.timeline_cursor);
+            if self.timeline_cursor == 0 {
+                break;
+            }
+            let mut new_cursor = self.timeline_cursor.saturating_sub(1);
+            while new_cursor > 0 && self.timeline_slot_to_col(new_cursor) == current_col {
+                new_cursor -= 1;
+            }
+            self.timeline_cursor = new_cursor;
+        }
+        self.update_timeline_slot_events();
+    }
+
+    pub fn timeline_cursor_page_right(&mut self) {
+        if let Some(ref data) = self.timeline_data {
+            let max_cursor = data.slots.len().saturating_sub(1);
+            for _ in 0..10 {
+                if self.timeline_cursor >= max_cursor {
+                    break;
+                }
+                let current_col = self.timeline_slot_to_col(self.timeline_cursor);
+                let mut new_cursor = self.timeline_cursor + 1;
+                while new_cursor < max_cursor && self.timeline_slot_to_col(new_cursor) == current_col {
+                    new_cursor += 1;
+                }
+                self.timeline_cursor = new_cursor;
+            }
+        }
+        self.update_timeline_slot_events();
+    }
+
+    pub fn timeline_event_up(&mut self) {
+        if self.timeline_event_selected > 0 {
+            self.timeline_event_selected -= 1;
+        }
+    }
+
+    pub fn timeline_event_down(&mut self) {
+        if self.timeline_event_selected + 1 < self.timeline_slot_events.len() {
+            self.timeline_event_selected += 1;
+        }
+    }
+
+    pub fn goto_timeline_event(&mut self) {
+        if let Some((line_index, _)) = self.timeline_slot_events.get(self.timeline_event_selected) {
+            let line_index = *line_index;
+            self.set_view_state(ViewState::LogView);
+            self.goto_line(line_index, true);
         }
     }
 

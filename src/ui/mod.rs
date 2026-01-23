@@ -39,8 +39,12 @@ impl Widget for &App {
         title.render(top, buf);
 
         // Main view
-        self.render_log_view(log_view_area, buf);
-        self.render_scrollbar(scrollbar_area, buf);
+        if self.view_state == ViewState::TimelineView {
+            self.render_timeline(log_view_area, buf);
+        } else {
+            self.render_log_view(log_view_area, buf);
+            self.render_scrollbar(scrollbar_area, buf);
+        }
 
         // Footer
         match (&self.view_state, &self.overlay) {
