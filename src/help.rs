@@ -267,7 +267,7 @@ impl Help {
                     && let Some(ref item_context) = item.context
                     && item_context == &target_context
                 {
-                    self.selected_index = index;
+                    self.selected_index = self.find_next_selectable(index, 1).unwrap_or(index);
                     let viewport_height = self.viewport_height.get();
                     let max_offset = self.help_items.len().saturating_sub(viewport_height);
                     self.viewport_offset = index.min(max_offset);
@@ -283,7 +283,7 @@ impl Help {
                 && let Some(ref item_context) = item.context
                 && item_context == &target_context
             {
-                self.selected_index = index;
+                self.selected_index = self.find_next_selectable(index, 1).unwrap_or(index);
                 let viewport_height = self.viewport_height.get();
                 let max_offset = self.help_items.len().saturating_sub(viewport_height);
                 self.viewport_offset = index.min(max_offset);
@@ -372,7 +372,8 @@ impl Help {
 
     /// Resets selection to the first selectable item.
     pub fn reset(&mut self) {
-        self.selected_index = 1;
+        self.selected_index = self.find_next_selectable(0, 1).unwrap_or(0);
+        self.viewport_offset = 0;
     }
 
     /// Returns formatted display lines for rendering.
