@@ -921,11 +921,6 @@ impl App {
     }
 
     pub fn cancel(&mut self) {
-        if self.help.is_visible() {
-            self.help.toggle_visibility();
-            return;
-        }
-
         // Handle overlays first
         if let Some(ref overlay) = self.overlay {
             match overlay {
@@ -985,11 +980,6 @@ impl App {
     }
 
     pub fn move_up(&mut self) {
-        if self.help.is_visible() {
-            self.help.move_up();
-            return;
-        }
-
         // Handle overlay-specific navigation
         if let Some(Overlay::EventsFilter) = self.overlay {
             self.event_filter_list_state.move_up_wrap();
@@ -1023,11 +1013,6 @@ impl App {
     }
 
     pub fn move_down(&mut self) {
-        if self.help.is_visible() {
-            self.help.move_down();
-            return;
-        }
-
         // Handle overlay-specific navigation
         if let Some(Overlay::EventsFilter) = self.overlay {
             self.event_filter_list_state.move_down_wrap();

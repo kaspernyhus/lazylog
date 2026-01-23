@@ -209,6 +209,17 @@ impl Command {
 
     /// Executes this command on the given application.
     pub fn execute(&self, app: &mut App) -> Result<()> {
+        if app.help.is_visible() {
+            match self {
+                Command::Quit => app.quit(),
+                Command::ToggleHelp | Command::Cancel => app.help.toggle_visibility(),
+                Command::MoveUp => app.help.move_up(),
+                Command::MoveDown => app.help.move_down(),
+                _ => {}
+            }
+            return Ok(());
+        }
+
         match self {
             // Navigation
             Command::MoveUp => app.move_up(),
