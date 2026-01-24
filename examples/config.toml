@@ -22,14 +22,17 @@ highlights = [
 # Events are evaluated from top to bottom, and the first match is used.
 # Event patterns are case-sensitive.
 # Set critical=true to highlight critical events with red markers in scrollbar and event lists.
+# Set group="GroupName" to group related events together on the same row in the timeline view.
 events = [
     # Log levels events
     { name = "Error",    pattern = " ERROR ",                     regex = false, style = { fg = "lightred", bold = true } },
     { name = "Warning",  pattern = " WARNING ",                   regex = false, style = { fg = "yellow" } },
     { name = "Critical", pattern = " CRITICAL ", critical = true, regex = false, style = { bg = "red" } },
     { name = "Fatal",    pattern = " FATAL ",    critical = true, regex = false, style = { fg = "black", bg = "lightred", bold = true } },
-    # Custom events
-    { name = "Job Started",         pattern = "Background job started",           regex = false },
+    # Custom events with grouping - these will appear on the same row in the timeline view
+    { name = "Job Started",   pattern = "Background job started",   regex = false, group = "Background Job" },
+    { name = "Job Completed", pattern = "Background job completed", regex = false, group = "Background Job" },
+    # Ungrouped events appear on their own row
     { name = "Application Started", pattern = "Application started successfully", regex = false },
 ]
 

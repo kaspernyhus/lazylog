@@ -25,6 +25,8 @@ pub struct EventPattern {
     pub critical: bool,
     /// Whether this is a custom event.
     pub is_custom: bool,
+    /// Optional group name for timeline view. Events with the same group are shown on the same row.
+    pub group: Option<String>,
 }
 
 #[derive(Debug)]
@@ -195,6 +197,44 @@ impl LogEventTracker {
         self.patterns.iter().any(|p| p.name == event_name && p.is_custom)
     }
 
+    /// Returns the group name for an event, if it has one.
+    pub fn get_event_group(&self, event_name: &str) -> Option<&str> {
+        self.patterns
+            .iter()
+            .find(|p| p.name == event_name)
+            .and_then(|p| p.group.as_deref())
+    }
+
+    /// Returns all unique group names and ungrouped event names for timeline display.
+    /// Returns tuples of (display_name, is_group, event_names_in_group)
+    pub fn get_timeline_rows(&self) -> Vec<(String, bool, Vec<String>)> {
+        let mut groups: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        let mut ungrouped: Vec<String> = Vec::new();
+
+        for pattern in &self.patterns {
+            if pattern.count > 0 {
+                if let Some(ref group) = pattern.group {
+                    groups.entry(group.clone()).or_default().push(pattern.name.clone());
+                } else {
+                    ungrouped.push(pattern.name.clone());
+                }
+            }
+        }
+
+        let mut result: Vec<(String, bool, Vec<String>)> = Vec::new();
+
+        for (group_name, event_names) in groups {
+            result.push((group_name, true, event_names));
+        }
+
+        for event_name in ungrouped {
+            result.push((event_name.clone(), false, vec![event_name]));
+        }
+
+        result.sort_by(|a, b| a.0.cmp(&b.0));
+        result
+    }
+
     pub fn clear_all(&mut self) {
         self.events.clear();
         for pattern in &mut self.patterns {
@@ -327,6 +367,7 @@ impl LogEventTracker {
             count: 0,
             critical: false,
             is_custom: true,
+            group: None,
         };
 
         self.patterns.push(event_pattern);
@@ -387,6 +428,7 @@ mod tests {
                 count: 0,
                 critical: false,
                 is_custom: false,
+                group: None,
             },
             EventPattern {
                 name: "warning".to_string(),
@@ -398,6 +440,7 @@ mod tests {
                 count: 0,
                 critical: false,
                 is_custom: false,
+                group: None,
             },
             EventPattern {
                 name: "info".to_string(),
@@ -409,6 +452,7 @@ mod tests {
                 count: 0,
                 critical: false,
                 is_custom: false,
+                group: None,
             },
         ]
     }

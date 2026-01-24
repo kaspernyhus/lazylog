@@ -75,6 +75,9 @@ pub struct EventConfig {
     /// Whether this event should be highlighted as critical (shown in scrollbar with red marker).
     #[serde(default)]
     pub critical: bool,
+    /// Optional group name for timeline view. Events with the same group are shown on the same row.
+    #[serde(default)]
+    pub group: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -291,6 +294,7 @@ impl Config {
                     count: 0,
                     critical: ev_config.critical,
                     is_custom: false,
+                    group: ev_config.group.clone(),
                 })
             })
             .collect()

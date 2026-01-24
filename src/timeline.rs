@@ -8,12 +8,27 @@ use std::collections::HashMap;
 pub struct TimeSlot {
     pub start_time: DateTime<Utc>,
     pub end_time: DateTime<Utc>,
+    /// Counts keyed by row name (group name or event name)
     pub event_counts: HashMap<String, usize>,
+}
+
+/// Represents a row in the timeline (either a group or a single event)
+#[derive(Debug, Clone)]
+pub struct TimelineRow {
+    /// Display name (group name or event name)
+    pub name: String,
+    /// Whether this is a group (true) or individual event (false)
+    pub is_group: bool,
+    /// Event names that belong to this row
+    pub event_names: Vec<String>,
 }
 
 #[derive(Debug)]
 pub struct TimelineData {
     pub slots: Vec<TimeSlot>,
+    /// Timeline rows (groups or individual events)
+    pub rows: Vec<TimelineRow>,
+    /// For backwards compatibility
     pub event_names: Vec<String>,
     pub max_count: usize,
     pub time_range: Option<(DateTime<Utc>, DateTime<Utc>)>,
@@ -51,20 +66,32 @@ impl TimelineData {
         }
 
         let events = event_tracker.get_events();
-        let event_names: Vec<String> = {
-            let mut names: Vec<String> = event_tracker
-                .get_event_stats()
-                .iter()
-                .filter(|s| s.count > 0)
-                .map(|s| s.name.clone())
-                .collect();
-            names.sort();
-            names
-        };
 
-        if event_names.is_empty() {
+        // Build timeline rows from groups and ungrouped events
+        let timeline_row_data = event_tracker.get_timeline_rows();
+        if timeline_row_data.is_empty() {
             return None;
         }
+
+        let rows: Vec<TimelineRow> = timeline_row_data
+            .into_iter()
+            .map(|(name, is_group, event_names)| TimelineRow {
+                name,
+                is_group,
+                event_names,
+            })
+            .collect();
+
+        // Build a lookup from event name to row name
+        let mut event_to_row: HashMap<String, String> = HashMap::new();
+        for row in &rows {
+            for event_name in &row.event_names {
+                event_to_row.insert(event_name.clone(), row.name.clone());
+            }
+        }
+
+        // For backwards compatibility
+        let event_names: Vec<String> = rows.iter().map(|r| r.name.clone()).collect();
 
         let mut slots: Vec<TimeSlot> = (0..slot_count)
             .map(|i| {
@@ -91,10 +118,10 @@ impl TimelineData {
                 let offset_nanos = (ts - min_time).num_nanoseconds().unwrap_or(0);
                 let slot_idx = ((offset_nanos / slot_duration_nanos) as usize).min(slot_count - 1);
 
-                let count = slots[slot_idx]
-                    .event_counts
-                    .entry(event.name.clone())
-                    .or_insert(0);
+                // Get the row name for this event (could be a group name or the event name itself)
+                let row_name = event_to_row.get(&event.name).cloned().unwrap_or_else(|| event.name.clone());
+
+                let count = slots[slot_idx].event_counts.entry(row_name).or_insert(0);
                 *count += 1;
                 max_count = max_count.max(*count);
             }
@@ -102,6 +129,7 @@ impl TimelineData {
 
         Some(TimelineData {
             slots,
+            rows,
             event_names,
             max_count,
             time_range: Some((min_time, max_time)),

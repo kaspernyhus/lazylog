@@ -525,7 +525,7 @@ impl App {
             return;
         }
 
-        let heatmap_rows = timeline_data.event_names.len() as u16;
+        let heatmap_rows = timeline_data.rows.len() as u16;
         let heatmap_total_height = top_padding + header_height + heatmap_rows;
         let events_box_height = area.height.saturating_sub(heatmap_total_height + 1);
 
@@ -544,14 +544,14 @@ impl App {
         };
 
         let max_label_len = timeline_data
-            .event_names
+            .rows
             .iter()
-            .map(|n| n.chars().count())
+            .map(|r| r.name.chars().count())
             .max()
             .unwrap_or(0)
             .min(20);
 
-        let label_col_width = max_label_len + 2;
+        let label_col_width = max_label_len + 3; // +1 for group indicator, +2 for " │"
         let heatmap_start_x = content_area.x + label_col_width as u16;
         let heatmap_width = content_area.width.saturating_sub(label_col_width as u16) as usize;
 
@@ -559,7 +559,7 @@ impl App {
             return;
         }
 
-        let event_count = timeline_data.event_names.len();
+        let row_count = timeline_data.rows.len();
 
         if let Some((start, end)) = timeline_data.time_range {
             let start_str = start.format("%H:%M:%S").to_string();
@@ -594,19 +594,21 @@ impl App {
             0
         };
 
-        for (row_idx, event_name) in timeline_data.event_names.iter().take(event_count).enumerate() {
+        for (row_idx, row) in timeline_data.rows.iter().take(row_count).enumerate() {
             let y = rows_start_y + row_idx as u16;
 
-            let event_chars: Vec<char> = event_name.chars().collect();
-            let (truncated_name, display_len) = if event_chars.len() > max_label_len {
-                let truncated: String = event_chars[..max_label_len - 1].iter().collect();
+            let row_chars: Vec<char> = row.name.chars().collect();
+            let (truncated_name, display_len) = if row_chars.len() > max_label_len {
+                let truncated: String = row_chars[..max_label_len - 1].iter().collect();
                 (format!("{}…", truncated), max_label_len)
             } else {
-                (event_name.clone(), event_chars.len())
+                (row.name.clone(), row_chars.len())
             };
 
             let padding = max_label_len.saturating_sub(display_len);
-            let label = format!("{}{} │", " ".repeat(padding), truncated_name);
+            // Show group indicator for grouped rows
+            let group_indicator = if row.is_group { "▸" } else { " " };
+            let label = format!("{}{}{} │", group_indicator, " ".repeat(padding), truncated_name);
 
             buf.set_string(
                 content_area.x,
@@ -625,7 +627,7 @@ impl App {
                 let count = if slot_idx < timeline_data.slots.len() {
                     timeline_data.slots[slot_idx]
                         .event_counts
-                        .get(event_name)
+                        .get(&row.name)
                         .copied()
                         .unwrap_or(0)
                 } else {

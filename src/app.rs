@@ -1253,13 +1253,13 @@ impl App {
         }
 
         let max_label_len = data
-            .event_names
+            .rows
             .iter()
-            .map(|n| n.chars().count())
+            .map(|r| r.name.chars().count())
             .max()
             .unwrap_or(0)
             .min(20);
-        let label_col_width = max_label_len + 2;
+        let label_col_width = max_label_len + 3; // +1 for group indicator, +2 for " │"
         let heatmap_width = (self.viewport.width as usize).saturating_sub(label_col_width);
 
         if heatmap_width == 0 {
@@ -1289,13 +1289,13 @@ impl App {
         }
 
         let max_label_len = data
-            .event_names
+            .rows
             .iter()
-            .map(|n| n.chars().count())
+            .map(|r| r.name.chars().count())
             .max()
             .unwrap_or(0)
             .min(20);
-        let label_col_width = max_label_len + 2;
+        let label_col_width = max_label_len + 3; // +1 for group indicator, +2 for " │"
         let heatmap_width = (self.viewport.width as usize).saturating_sub(label_col_width);
 
         if heatmap_width == 0 {
