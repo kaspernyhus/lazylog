@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub enum AppOption {
     HideTimestamp,
     DisableColors,
+    HideFileIds,
     SearchDisableJumping,
     AlwaysShowMarkedLines,
     AlwaysShowCriticalEvents,
@@ -64,6 +65,7 @@ impl Default for AppOptions {
                         Regex::new(r"^(?:\w{3}\s+\d{2}\s+\d{2}:\d{2}:\d{2}\s+\S+\s+|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{4}\s+)").unwrap()
                     )),
                 AppOptionDef::new_toggle(AppOption::DisableColors, "Disable Colors"),
+                AppOptionDef::new_toggle(AppOption::HideFileIds, "Hide File Indicator"),
                 AppOptionDef::new_toggle(AppOption::SearchDisableJumping, "Search: Disable jumping to match"),
                 AppOptionDef::new_toggle(AppOption::AlwaysShowMarkedLines, "Always show marked lines"),
                 AppOptionDef::new_toggle(AppOption::AlwaysShowCriticalEvents, "Always show critical events"),
