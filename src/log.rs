@@ -82,7 +82,8 @@ impl LogBuffer {
 
         // Single file: skip timestamp parsing and sorting
         if paths.len() == 1 {
-            let content = std::fs::read_to_string(paths[0])?;
+            let bytes = std::fs::read(paths[0])?;
+            let content = String::from_utf8_lossy(&bytes);
             self.lines = content
                 .lines()
                 .enumerate()
@@ -95,7 +96,8 @@ impl LogBuffer {
         let mut total_lines_skipped = 0;
 
         for (file_id, path) in paths.iter().enumerate() {
-            let content = std::fs::read_to_string(path)?;
+            let bytes = std::fs::read(path)?;
+            let content = String::from_utf8_lossy(&bytes);
             let mut file_lines: Vec<LogLine> = content
                 .lines()
                 .enumerate()
