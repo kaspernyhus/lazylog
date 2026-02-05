@@ -53,8 +53,11 @@ impl KeybindingRegistry {
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::MarkName));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::SaveToFile));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::AddCustomEvent));
+        registry.register_global_bindings(KeybindingContext::Overlay(Overlay::TimeFilter));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::Message(String::new())));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::Error(String::new())));
+
+        registry.register_time_filter_bindings();
 
         registry
     }
@@ -246,6 +249,7 @@ impl KeybindingRegistry {
         );
         self.bind_simple(context.clone(), KeyCode::Tab, Command::HistoryForward);
         self.bind_shift(context.clone(), 'V', Command::StartSelection);
+        self.bind_shift(context.clone(), 'T', Command::ActivateTimeFilterMode);
     }
 
     fn register_selection_mode_bindings(&mut self) {
@@ -343,6 +347,10 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::Char('k'), Command::MoveUp);
         self.bind_simple(context.clone(), KeyCode::Char('j'), Command::MoveDown);
         self.bind_simple(context.clone(), KeyCode::Char(' '), Command::ToggleOption);
+        self.bind_simple(context.clone(), KeyCode::Right, Command::IncrementOption);
+        self.bind_simple(context.clone(), KeyCode::Left, Command::DecrementOption);
+        self.bind_simple(context.clone(), KeyCode::Char('+'), Command::IncrementOption);
+        self.bind_simple(context.clone(), KeyCode::Char('-'), Command::DecrementOption);
     }
 
     fn register_events_view_bindings(&mut self) {
@@ -430,5 +438,11 @@ impl KeybindingRegistry {
         let context = KeybindingContext::Overlay(Overlay::Error(String::new()));
 
         self.bind_simple(context, KeyCode::Char('q'), Command::Quit);
+    }
+
+    fn register_time_filter_bindings(&mut self) {
+        let context = KeybindingContext::Overlay(Overlay::TimeFilter);
+
+        self.bind_simple(context, KeyCode::Tab, Command::TimeFilterFocusNext);
     }
 }

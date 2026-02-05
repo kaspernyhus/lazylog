@@ -23,6 +23,12 @@ pub struct Config {
     pub default_event_fg_color_index: Option<u8>,
     pub default_event_bg_color_index: Option<u8>,
     pub default_custom_event_bg_color_index: Option<u8>,
+    /// Whether time gap markers are enabled by default (default: true).
+    #[serde(default)]
+    pub time_gap_enabled: Option<bool>,
+    /// Default time gap threshold in minutes (default: 10).
+    #[serde(default)]
+    pub time_gap_threshold_minutes: Option<u32>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -179,6 +185,16 @@ impl Config {
         self.default_custom_event_bg_color_index
             .map(Color::Indexed)
             .unwrap_or(EVENT_NAME_CUSTOM_DEFAULT_FG)
+    }
+
+    /// Returns whether time gap markers are enabled by default.
+    pub fn time_gap_enabled(&self) -> bool {
+        self.time_gap_enabled.unwrap_or(true)
+    }
+
+    /// Returns the default time gap threshold in minutes.
+    pub fn time_gap_threshold_minutes(&self) -> u32 {
+        self.time_gap_threshold_minutes.unwrap_or(10)
     }
 
     fn default_config_dir() -> PathBuf {

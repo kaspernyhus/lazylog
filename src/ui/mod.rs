@@ -58,7 +58,7 @@ impl Widget for &App {
                 self.render_filter_list(filter_area, buf);
             }
             ViewState::OptionsView => {
-                let options_area = popup_area(area, 42, 10);
+                let options_area = popup_area(area, 42, 11);
                 self.render_options(options_area, buf);
             }
             ViewState::EventsView => {
@@ -95,6 +95,9 @@ impl Widget for &App {
                 }
                 Overlay::AddCustomEvent => {
                     self.render_add_custom_event_popup(overlay_area.unwrap(), buf);
+                }
+                Overlay::TimeFilter => {
+                    self.render_time_filter_popup(overlay_area.unwrap(), buf);
                 }
                 Overlay::Message(message) => {
                     self.render_message_popup(message, area, buf);

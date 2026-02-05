@@ -2,6 +2,7 @@ use crate::file_manager::FileFilterRule;
 use crate::filter::FilterRule;
 use crate::list_view_state::ListViewState;
 use crate::marking::{Mark, MarkOnlyVisibilityRule, MarkTagRule};
+use crate::time_filter::{TimeFilter, TimeFilterFocus, compute_date_rollover_separator_indices, compute_gap_separator_indices};
 use crate::{
     cli::Cli,
     completion::CompletionEngine,
@@ -25,6 +26,7 @@ use crate::{
     ui::colors::{FILTER_MODE_BG, FILTER_MODE_FG, SEARCH_MODE_BG, SEARCH_MODE_FG},
     viewport::Viewport,
 };
+use chrono::{DateTime, Utc};
 use crossterm::event::Event::Key;
 use ratatui::{
     Terminal,
@@ -75,6 +77,8 @@ pub enum Overlay {
     SaveToFile,
     /// Active mode for entering a custom event pattern.
     AddCustomEvent,
+    /// Time filter popup for filtering by timestamp range.
+    TimeFilter,
     /// Display a message to the user.
     Message(String),
     /// Display an error message to the user.
@@ -86,6 +90,7 @@ impl Overlay {
         match self {
             Overlay::EditFilter | Overlay::MarkName | Overlay::SaveToFile | Overlay::AddCustomEvent => Some((60, 3)),
             Overlay::EventsFilter => Some((50, 25)),
+            Overlay::TimeFilter => Some((50, 4)),
             Overlay::Message(_) | Overlay::Error(_) => None,
         }
     }
@@ -93,7 +98,11 @@ impl Overlay {
     pub fn has_text_input(&self) -> bool {
         matches!(
             self,
-            Overlay::EditFilter | Overlay::MarkName | Overlay::SaveToFile | Overlay::AddCustomEvent
+            Overlay::EditFilter
+                | Overlay::MarkName
+                | Overlay::SaveToFile
+                | Overlay::AddCustomEvent
+                | Overlay::TimeFilter
         )
     }
 }
@@ -163,6 +172,16 @@ pub struct App {
     persist_enabled: bool,
     /// Whether to only show marked lines
     pub show_marked_lines_only: bool,
+    /// Active time filter for timestamp-based filtering.
+    pub time_filter: Option<TimeFilter>,
+    /// Cached file time range (min, max timestamps).
+    pub file_time_range: Option<(DateTime<Utc>, DateTime<Utc>)>,
+    /// Time filter start input field.
+    pub time_filter_input_start: Input,
+    /// Time filter end input field.
+    pub time_filter_input_end: Input,
+    /// Current focus in time filter popup.
+    pub time_filter_focus: TimeFilterFocus,
 }
 
 impl App {
@@ -259,11 +278,20 @@ impl App {
             keybindings,
             persist_enabled: !args.no_persist,
             show_marked_lines_only: false,
+            time_filter: None,
+            file_time_range: None,
+            time_filter_input_start: Input::default(),
+            time_filter_input_end: Input::default(),
+            time_filter_focus: TimeFilterFocus::Start,
         };
 
         // Set item counts for list states
         app.files_list_state.set_item_count(app.file_manager.count());
         app.options_list_state.set_item_count(app.options.count());
+
+        // Apply config defaults for time gap
+        app.options
+            .apply_time_gap_config(app.config.time_gap_enabled(), app.config.time_gap_threshold_minutes());
 
         if use_stdin {
             app.log_buffer.init_stdin_mode();
@@ -283,6 +311,7 @@ impl App {
 
         match load_result {
             Ok(skipped_lines) => {
+                app.file_time_range = app.log_buffer.compute_time_range();
                 app.update_view();
                 app.update_completion_words();
 
@@ -341,6 +370,10 @@ impl App {
         self.resolver
             .add_visibility_rule(Box::new(FilterRule::new(patterns, Arc::new(always_visible))));
 
+        if let Some(ref time_filter) = self.time_filter {
+            self.resolver.add_visibility_rule(Box::new(time_filter.clone()));
+        }
+
         let marked_indices = Arc::new(marked_indices);
 
         if self.show_marked_lines_only {
@@ -351,6 +384,18 @@ impl App {
         self.resolver.add_tag_rule(Box::new(MarkTagRule::new(marked_indices)));
 
         self.resolver.set_expanded_lines(self.expansion.get_all_expanded());
+
+        if !self.log_buffer.streaming && self.options.is_enabled(AppOption::ShowDateRollover) {
+            let date_rollover_indices = compute_date_rollover_separator_indices(all_lines);
+            self.resolver.set_date_rollover_indices(date_rollover_indices);
+        }
+
+        if !self.log_buffer.streaming && self.options.is_enabled(AppOption::TimeGapThreshold) {
+            let skip_date_rollovers = self.options.is_enabled(AppOption::ShowDateRollover);
+            let gap_indices =
+                compute_gap_separator_indices(all_lines, self.options.get_gap_threshold_minutes(), skip_date_rollovers);
+            self.resolver.set_gap_separator_indices(gap_indices);
+        }
 
         let num_lines = {
             let visible_lines = self.resolver.get_visible_lines(all_lines);
@@ -762,6 +807,11 @@ impl App {
             return;
         }
 
+        if let Some(Overlay::TimeFilter) = self.overlay {
+            self.get_active_time_filter_input_mut().handle_event(&Key(key_event));
+            return;
+        }
+
         self.input.handle_event(&Key(key_event));
     }
 
@@ -833,6 +883,10 @@ impl App {
                     self.close_overlay();
                     return;
                 }
+                Overlay::TimeFilter => {
+                    self.confirm_time_filter();
+                    return;
+                }
                 Overlay::Message(_) => {
                     self.close_overlay();
                     return;
@@ -900,6 +954,8 @@ impl App {
             ViewState::OptionsView => {
                 let selected_index = self.options_list_state.selected_index();
                 self.options.enable_option(selected_index);
+                self.highlighter.invalidate_cache();
+                self.update_view();
                 self.set_view_state(ViewState::LogView);
             }
             ViewState::MarksView => {
@@ -937,6 +993,9 @@ impl App {
                     self.set_view_state(ViewState::LogView);
                 }
                 Overlay::AddCustomEvent => {
+                    self.close_overlay();
+                }
+                Overlay::TimeFilter => {
                     self.close_overlay();
                 }
                 Overlay::Message(_) => {
@@ -979,6 +1038,34 @@ impl App {
         }
     }
 
+    /// Checks if current viewport position is a TimeGap separator and skips it.
+    /// Direction: true = moving down, false = moving up.
+    fn skip_time_gap_separator(&mut self, direction_down: bool) {
+        let all_lines = self.log_buffer.all_lines();
+        let visible_lines = self.resolver.get_visible_lines(all_lines);
+
+        while self.viewport.selected_line < visible_lines.len() {
+            if let Some(vl) = visible_lines.get(self.viewport.selected_line) {
+                if !(vl.tags.contains(&Tag::TimeGap) | vl.tags.contains(&Tag::DateRollover)) {
+                    break;
+                }
+                if direction_down {
+                    if self.viewport.selected_line + 1 < visible_lines.len() {
+                        self.viewport.selected_line += 1;
+                    } else {
+                        break;
+                    }
+                } else if self.viewport.selected_line > 0 {
+                    self.viewport.selected_line -= 1;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+    }
+
     pub fn move_up(&mut self) {
         // Handle overlay-specific navigation
         if let Some(Overlay::EventsFilter) = self.overlay {
@@ -1002,11 +1089,13 @@ impl App {
             }
             ViewState::SelectionMode => {
                 self.viewport.move_up();
+                self.skip_time_gap_separator(false);
                 self.viewport.follow_mode = false;
                 self.update_selection_end();
             }
             _ => {
                 self.viewport.move_up();
+                self.skip_time_gap_separator(false);
                 self.viewport.follow_mode = false;
             }
         }
@@ -1034,11 +1123,13 @@ impl App {
             }
             ViewState::SelectionMode => {
                 self.viewport.move_down();
+                self.skip_time_gap_separator(true);
                 self.viewport.follow_mode = false;
                 self.update_selection_end();
             }
             _ => {
                 self.viewport.move_down();
+                self.skip_time_gap_separator(true);
             }
         }
     }
@@ -1056,11 +1147,13 @@ impl App {
             }
             ViewState::SelectionMode => {
                 self.viewport.page_up();
+                self.skip_time_gap_separator(false);
                 self.viewport.follow_mode = false;
                 self.update_selection_end();
             }
             _ => {
                 self.viewport.page_up();
+                self.skip_time_gap_separator(false);
                 self.viewport.follow_mode = false;
             }
         }
@@ -1079,23 +1172,27 @@ impl App {
             }
             ViewState::SelectionMode => {
                 self.viewport.page_down();
+                self.skip_time_gap_separator(true);
                 self.viewport.follow_mode = false;
                 self.update_selection_end();
             }
             _ => {
                 self.viewport.page_down();
+                self.skip_time_gap_separator(true);
             }
         }
     }
 
     pub fn goto_top(&mut self) {
         self.viewport.goto_top();
+        self.skip_time_gap_separator(true);
         self.push_viewport_line_to_history(self.viewport.selected_line);
         self.viewport.follow_mode = false;
     }
 
     pub fn goto_bottom(&mut self) {
         self.viewport.goto_bottom();
+        self.skip_time_gap_separator(false);
         self.push_viewport_line_to_history(self.viewport.selected_line);
     }
 
@@ -1141,6 +1238,18 @@ impl App {
         let selected_index = self.options_list_state.selected_index();
         self.options.toggle_option(selected_index);
         self.highlighter.invalidate_cache();
+        self.update_view();
+    }
+
+    pub fn increment_option(&mut self) {
+        let selected_index = self.options_list_state.selected_index();
+        self.options.increment_option(selected_index);
+        self.update_view();
+    }
+
+    pub fn decrement_option(&mut self) {
+        let selected_index = self.options_list_state.selected_index();
+        self.options.decrement_option(selected_index);
         self.update_view();
     }
 
@@ -2027,5 +2136,97 @@ impl App {
             .rev()
             .find(|event| event.line_index < line_index)
             .map(|event| event.line_index)
+    }
+
+    /// Activates the time filter mode.
+    pub fn activate_time_filter_mode(&mut self) {
+        if self.log_buffer.streaming {
+            self.show_message("Time filter not available in streaming mode");
+            return;
+        }
+
+        self.time_filter_focus = TimeFilterFocus::Start;
+
+        let format = "%Y-%m-%d %H:%M:%S";
+
+        if let Some((start, end)) = self.file_time_range {
+            self.time_filter_input_start = Input::new(start.format(format).to_string());
+            self.time_filter_input_end = Input::new(end.format(format).to_string());
+        } else {
+            self.time_filter_input_start = Input::default();
+            self.time_filter_input_end = Input::default();
+        }
+
+        self.overlay = Some(Overlay::TimeFilter);
+    }
+
+    /// Clears the time filter.
+    pub fn clear_time_filter(&mut self) {
+        self.time_filter = None;
+        self.update_view();
+    }
+
+    /// Switches focus between start and end input fields.
+    pub fn time_filter_focus_next(&mut self) {
+        self.time_filter_focus = self.time_filter_focus.next();
+    }
+
+    /// Confirms the time filter input and applies it.
+    fn confirm_time_filter(&mut self) {
+        let start_str = self.time_filter_input_start.value();
+        let end_str = self.time_filter_input_end.value();
+
+        let parse_timestamp = |s: &str| -> Option<DateTime<Utc>> {
+            let formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"];
+
+            for format in &formats {
+                if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, format) {
+                    return Some(DateTime::from_naive_utc_and_offset(naive, Utc));
+                }
+            }
+
+            if let Ok(naive_date) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+                return Some(DateTime::from_naive_utc_and_offset(
+                    naive_date.and_hms_opt(0, 0, 0)?,
+                    Utc,
+                ));
+            }
+
+            None
+        };
+
+        match (parse_timestamp(start_str), parse_timestamp(end_str)) {
+            (Some(start), Some(end)) => {
+                if start > end {
+                    self.show_error("Start time must be before end time");
+                    return;
+                }
+                self.time_filter = Some(TimeFilter::new(start, end));
+                self.close_overlay();
+                self.update_view();
+            }
+            (None, _) => {
+                self.show_error("Invalid start timestamp format");
+            }
+            (_, None) => {
+                self.show_error("Invalid end timestamp format");
+            }
+        }
+    }
+
+    /// Gets the current input for time filter (based on focus).
+    pub fn get_active_time_filter_input(&self) -> &Input {
+        match self.time_filter_focus {
+            TimeFilterFocus::Start => &self.time_filter_input_start,
+            TimeFilterFocus::End => &self.time_filter_input_end,
+        }
+    }
+
+    /// Gets mutable reference to the current input for time filter.
+    pub fn get_active_time_filter_input_mut(&mut self) -> &mut Input {
+        match self.time_filter_focus {
+            TimeFilterFocus::Start => &mut self.time_filter_input_start,
+            TimeFilterFocus::End => &mut self.time_filter_input_end,
+        }
     }
 }

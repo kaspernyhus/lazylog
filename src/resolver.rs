@@ -20,6 +20,10 @@ pub enum Tag {
     FileEnabled,
     /// Line is shown due to expansion
     Expanded,
+    /// Visual separator line for date rollover (not a real log line, not selectable)
+    DateRollover,
+    /// Visual separator line for time gaps (not a real log line, not selectable)
+    TimeGap,
 }
 
 /// Trait for rules that determine line visibility.
@@ -76,6 +80,10 @@ pub struct ViewportResolver {
     visible_cache: RefCell<Option<Rc<Vec<VisibleLine>>>>,
     /// Expanded lines: log index -> Vec<log_index>
     expanded_lines: Arc<HashMap<usize, Vec<usize>>>,
+    /// Log indices that should have a time gap separator inserted before them
+    gap_separator_indices: HashSet<usize>,
+    /// Log indices that should have a date rollover separator inserted before them
+    date_rollover_indices: HashSet<usize>,
 }
 
 impl Debug for ViewportResolver {
@@ -102,6 +110,8 @@ impl ViewportResolver {
             tag_rules: Vec::new(),
             visible_cache: RefCell::new(None),
             expanded_lines: Arc::new(HashMap::new()),
+            gap_separator_indices: HashSet::new(),
+            date_rollover_indices: HashSet::new(),
         }
     }
 
@@ -122,12 +132,26 @@ impl ViewportResolver {
         self.visibility_rules.clear();
         self.tag_rules.clear();
         self.expanded_lines = Arc::new(HashMap::new());
+        self.gap_separator_indices.clear();
+        self.date_rollover_indices.clear();
         self.invalidate_cache();
     }
 
     /// Set expanded line.
     pub fn set_expanded_lines(&mut self, expanded_lines: Arc<HashMap<usize, Vec<usize>>>) {
         self.expanded_lines = expanded_lines;
+        self.invalidate_cache();
+    }
+
+    /// Set log indices that should have a time gap separator before them.
+    pub fn set_gap_separator_indices(&mut self, indices: HashSet<usize>) {
+        self.gap_separator_indices = indices;
+        self.invalidate_cache();
+    }
+
+    /// Set log indices that should have a date rollover separator before them.
+    pub fn set_date_rollover_indices(&mut self, indices: HashSet<usize>) {
+        self.date_rollover_indices = indices;
         self.invalidate_cache();
     }
 
@@ -166,6 +190,16 @@ impl ViewportResolver {
 
             if !is_visible {
                 continue;
+            }
+
+            if self.date_rollover_indices.contains(&idx) {
+                let separator = VisibleLine::new(idx).with_tag(Tag::DateRollover);
+                results.push(separator);
+            }
+
+            if self.gap_separator_indices.contains(&idx) {
+                let separator = VisibleLine::new(idx).with_tag(Tag::TimeGap);
+                results.push(separator);
             }
 
             let mut visible_line = VisibleLine::new(idx);

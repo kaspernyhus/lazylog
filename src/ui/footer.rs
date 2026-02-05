@@ -105,6 +105,9 @@ impl App {
         if self.show_marked_lines_only {
             left_parts.push("| marked only".to_string());
         }
+        if self.time_filter.is_some() {
+            left_parts.push("| time-filtered".to_string());
+        }
         let left = Line::from(left_parts.join(" "));
         let middle = Line::from("F1:View Help").centered();
 

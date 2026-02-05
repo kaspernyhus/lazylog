@@ -258,6 +258,7 @@ impl Help {
                 Overlay::MarkName => KeybindingContext::Overlay(Overlay::MarkName),
                 Overlay::SaveToFile => KeybindingContext::Overlay(Overlay::SaveToFile),
                 Overlay::AddCustomEvent => KeybindingContext::Overlay(Overlay::AddCustomEvent),
+                Overlay::TimeFilter => KeybindingContext::Overlay(Overlay::TimeFilter),
                 Overlay::Message(_) => KeybindingContext::Overlay(Overlay::Message(String::new())),
                 Overlay::Error(_) => KeybindingContext::Overlay(Overlay::Error(String::new())),
             };

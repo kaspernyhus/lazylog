@@ -56,6 +56,8 @@ pub enum Command {
     // Display Options
     ActivateOptionsView,
     ToggleOption,
+    IncrementOption,
+    DecrementOption,
 
     // Events
     ActivateEventsView,
@@ -102,6 +104,11 @@ pub enum Command {
     SelectToEventPrevious,
     SelectToMarkNext,
     SelectToMarkPrevious,
+
+    // Time Filter
+    ActivateTimeFilterMode,
+    ClearTimeFilter,
+    TimeFilterFocusNext,
 }
 
 impl Command {
@@ -160,6 +167,8 @@ impl Command {
             // Display Options
             Command::ActivateOptionsView => "Display options",
             Command::ToggleOption => "Toggle option on/off",
+            Command::IncrementOption => "Increment option value",
+            Command::DecrementOption => "Decrement option value",
 
             // Events
             Command::ActivateEventsView => "View log events",
@@ -206,6 +215,11 @@ impl Command {
             Command::SelectToEventPrevious => "Select to previous event",
             Command::SelectToMarkNext => "Select to next mark",
             Command::SelectToMarkPrevious => "Select to previous mark",
+
+            // Time Filter
+            Command::ActivateTimeFilterMode => "Open time filter",
+            Command::ClearTimeFilter => "Clear time filter",
+            Command::TimeFilterFocusNext => "Switch input field",
         }
     }
 
@@ -275,6 +289,8 @@ impl Command {
             // Display Options
             Command::ActivateOptionsView => app.activate_options_view(),
             Command::ToggleOption => app.toggle_option(),
+            Command::IncrementOption => app.increment_option(),
+            Command::DecrementOption => app.decrement_option(),
 
             // Events
             Command::ActivateEventsView => app.activate_events_view(),
@@ -321,6 +337,11 @@ impl Command {
             Command::SelectToEventPrevious => app.select_to_event_previous(),
             Command::SelectToMarkNext => app.select_to_mark_next(),
             Command::SelectToMarkPrevious => app.select_to_mark_previous(),
+
+            // Time Filter
+            Command::ActivateTimeFilterMode => app.activate_time_filter_mode(),
+            Command::ClearTimeFilter => app.clear_time_filter(),
+            Command::TimeFilterFocusNext => app.time_filter_focus_next(),
         }
         Ok(())
     }

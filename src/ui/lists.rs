@@ -22,15 +22,21 @@ use ratatui::{
 
 impl App {
     pub(super) fn render_options(&self, area: Rect, buf: &mut Buffer) {
+        use crate::options::OptionAction;
         Clear.render(area, buf);
 
         let items: Vec<Line> = self
             .options
             .iter()
             .map(|option| {
-                let checkbox = if option.enabled { "[x]" } else { "[ ]" };
                 let option_description = option.get_description();
-                let content = format!("{} {}", checkbox, option_description);
+
+                let content = if let OptionAction::NumericValue(v) = &option.action {
+                    format!("[{}] {}", v, option_description)
+                } else {
+                    let checkbox = if option.enabled { "[x]" } else { "[ ]" };
+                    format!("{} {}", checkbox, option_description)
+                };
 
                 if option.enabled {
                     Line::from(content).style(Style::default().fg(OPTION_ENABLED_FG))
@@ -488,5 +494,50 @@ impl App {
             .alignment(Alignment::Left);
 
         popup.render(area, buf);
+    }
+
+    pub(super) fn render_time_filter_popup(&self, area: Rect, buf: &mut Buffer) {
+        use crate::time_filter::TimeFilterFocus;
+
+        Clear.render(area, buf);
+
+        let block = Block::default()
+            .title(" Time Filter ")
+            .title_alignment(Alignment::Center)
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(Color::Cyan));
+
+        let inner = block.inner(area);
+        block.render(area, buf);
+
+        let start_label = if self.time_filter_focus == TimeFilterFocus::Start {
+            Span::styled(
+                "Start: ",
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            )
+        } else {
+            Span::styled("Start: ", Style::default().fg(WHITE_COLOR))
+        };
+
+        let end_label = if self.time_filter_focus == TimeFilterFocus::End {
+            Span::styled(
+                "End:   ",
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            )
+        } else {
+            Span::styled("End:   ", Style::default().fg(WHITE_COLOR))
+        };
+
+        let start_value = Span::styled(self.time_filter_input_start.value(), Style::default().fg(WHITE_COLOR));
+        let end_value = Span::styled(self.time_filter_input_end.value(), Style::default().fg(WHITE_COLOR));
+
+        let start_line = Line::from(vec![start_label, start_value]);
+        let end_line = Line::from(vec![end_label, end_value]);
+
+        let text = vec![start_line, end_line, Line::from("")];
+
+        let paragraph = Paragraph::new(text).alignment(Alignment::Left);
+        paragraph.render(inner, buf);
     }
 }
