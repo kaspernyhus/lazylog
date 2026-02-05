@@ -10,207 +10,208 @@
 2025-01-01T10:00:47 INFO Loading default preferences for user_8472
 2025-01-01T10:00:53 INFO Application started successfully - environment=production, version=2.5.1, build=abc123def456, deployed_at=2024-01-15T08:00:00Z
 2025-01-01T10:00:59 DEBUG Initializing UI components
-2025-01-01T10:01:09 INFO Dashboard loaded successfully
+2025-01-01T10:01:08 INFO Dashboard loaded successfully
 2025-01-01T10:01:19 WARNING Cache miss for key: user_profile_12345, fetching from database (query_time=45ms, cache_hit_ratio=0.87)
 2025-01-01T10:01:21 DEBUG WebSocket connection established to ws://api.example.com
-2025-01-01T10:01:25 INFO Subscribed to real-time updates
-2025-01-01T10:01:35 DEBUG Received heartbeat from server
-2025-01-01T10:01:41 INFO HTTP 200 GET /api/users/12345 - response_time=123ms, user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", client_ip=203.0.113.45
-2025-01-01T10:01:43 ERROR Failed to load widget: weather-widget (timeout after 5s)
-2025-01-01T10:01:52 WARNING Retrying weather widget load attempt 1/3
-2025-01-01T10:01:56 INFO Weather widget loaded successfully
-2025-01-01T10:02:03 INFO Dashboard loaded successfully
-2025-01-01T10:02:07 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
-2025-01-01T10:02:08 ERROR Failed to connect to external service at https://api.example.com/data - network unreachable, DNS resolution failed for api.example.com, attempted endpoints: [192.168.1.50:443, 192.168.1.51:443]
-2025-01-01T10:02:13 DEBUG Processing user action: click_button
-2025-01-01T10:02:19 INFO Navigation to /dashboard/analytics
-2025-01-01T10:02:21 INFO Subscribed to real-time updates
-2025-01-01T10:02:24 ERROR Connection timeout after 30s - retry_count=3, backoff_strategy=exponential, next_retry_in=60s, circuit_breaker_state=open
-2025-01-01T10:02:32 DEBUG Loading analytics module
-2025-01-01T10:02:36 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
-2025-01-01T10:02:42 INFO Fetching analytics data for date range: 2025-10-01 to 2025-10-15
-2025-01-01T10:02:47 INFO Dashboard loaded successfully
-2025-01-01T10:02:57 CRITICAL Database pool exhausted, max connections: 100 - waiting_requests=250, avg_wait_time=5.2s, connections_in_use=100, idle_connections=0, consider increasing pool size
-2025-01-01T10:03:05 DEBUG Query: SELECT * FROM analytics WHERE date BETWEEN '2025-10-01' AND '2025-10-15'
-2025-01-01T10:03:08 INFO Query returned 1523 rows
-2025-01-01T10:03:15 ERROR Exception in request handler: NullPointerException at line 42 - request_id=req_a1b2c3d4, session_id=sess_xyz789, user_id=12345, endpoint=/api/orders, method=POST
-2025-01-01T10:03:18 DEBUG Aggregating data by category
-2025-01-01T10:03:22 INFO Data aggregation completed in 145ms
-2025-01-01T10:03:25 ERROR   at com.example.service.OrderService.process(OrderService.java:42) - stacktrace_hash=8f7e6d5c, error_count_last_hour=15, similar_errors_today=47
-2025-01-01T10:03:33 INFO Dashboard loaded successfully
-2025-01-01T10:03:37 DEBUG Rendering charts: bar, line, pie
-2025-01-01T10:03:47 INFO Subscribed to real-time updates
-2025-01-01T10:03:49 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
-2025-01-01T10:03:53 INFO Charts rendered successfully
-2025-01-01T10:03:55 WARNING Retrying request, attempt 1/3 - endpoint=https://payment-gateway.example.com/charge, amount=99.99, currency=USD, merchant_id=MERCH_12345
-2025-01-01T10:03:57 DEBUG User exported data to CSV format
-2025-01-01T10:04:00 INFO HTTP 201 POST /api/orders (retry successful) - order_created=ORD-2024-001235, items_count=3, total_amount=299.97, payment_status=pending, shipping_address="123 Main St, City, ST 12345"
-2025-01-01T10:04:04 INFO CSV export completed: analytics_2025-10-15.csv (234KB)
-2025-01-01T10:04:05 WARNING Memory usage at 78% - consider cleanup
-2025-01-01T10:04:12 DEBUG Session created: f7b3c4d2-8e9a-4b1c-9d2e-3f4a5b6c7d8e - user_id=12345, session_duration=3600s, device_fingerprint=fp_abc123, geolocation="40.7128,-74.0060", browser="Chrome/120.0"
-2025-01-01T10:04:15 INFO Dashboard loaded successfully
-2025-01-01T10:04:21 DEBUG Running garbage collection
-2025-01-01T10:04:26 INFO Memory usage reduced to 52%
-2025-01-01T10:04:29 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
-2025-01-01T10:04:38 DEBUG User clicked settings icon
-2025-01-01T10:04:46 TRACE Query executed in 145ms: SELECT u.*, p.preferences, o.order_count FROM users u LEFT JOIN profiles p ON u.id=p.user_id LEFT JOIN (SELECT user_id, COUNT(*) as order_count FROM orders GROUP BY user_id) o ON u.id=o.user_id WHERE u.id = 12345
-2025-01-01T10:04:55 INFO Opening settings modal
-2025-01-01T10:05:05 DEBUG Loading user settings from cache
-2025-01-01T10:05:14 INFO Subscribed to real-time updates
-2025-01-01T10:05:18 INFO User 12345 logged in from 203.0.113.45 - username="john.doe@example.com", authentication_method=oauth2, provider=google, mfa_enabled=true, login_count_today=3
-2025-01-01T10:05:23 INFO Settings displayed: theme=dark, language=en, notifications=enabled
-2025-01-01T10:05:27 INFO Dashboard loaded successfully
-2025-01-01T10:05:29 DEBUG User toggled notification setting
-2025-01-01T10:05:39 WARNING Rate limit exceeded for IP 203.0.113.45 - requests_in_window=1500/1000, window_duration=60s, blocked_until=2024-01-15T10:32:45, endpoint=/api/search, user_agent="custom-bot/1.0"
-2025-01-01T10:05:49 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
-2025-01-01T10:05:57 INFO Saving updated settings
-2025-01-01T10:06:06 DEBUG POST /api/user/settings {"notifications": false}
-2025-01-01T10:06:10 ERROR HTTP 429 GET /api/data - Too many requests from IP 203.0.113.45, rate_limit_policy=strict, quota_reset_in=57s, upgrade_url="https://example.com/pricing"
-2025-01-01T10:06:19 INFO Dashboard loaded successfully
-2025-01-01T10:06:24 INFO Settings saved successfully
-2025-01-01T10:06:26 DEBUG Closing settings modal
-2025-01-01T10:06:28 INFO Subscribed to real-time updates
-2025-01-01T10:06:30 INFO Cache cleared, freed 256MB - cache_type=redis, keys_cleared=15432, eviction_policy=lru, memory_before=512MB, memory_after=256MB, operation_duration=234ms
-2025-01-01T10:06:32 ERROR Network request failed: GET /api/notifications (ERR_CONNECTION_REFUSED)
-2025-01-01T10:06:33 WARNING Falling back to offline mode
-2025-01-01T10:06:40 FATAL Unrecoverable error in core module - component=OrderProcessor, error=SegmentationFault, memory_address=0x00007fff5fbff000, core_dump_saved=/var/crashes/core.12345
-2025-01-01T10:06:44 INFO Using cached data from 2025-10-15 14:00:00
-2025-01-01T10:06:49 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
-2025-01-01T10:06:51 DEBUG User navigated to /profile
-2025-01-01T10:06:52 FATAL System shutdown initiated - reason=critical_error, graceful_shutdown_timeout=30s, active_connections=47, pending_tasks=123, backup_status=in_progress
-2025-01-01T10:06:56 INFO Loading profile page for user_8472
-2025-01-01T10:07:03 INFO Dashboard loaded successfully
-2025-01-01T10:07:08 DEBUG Fetching user avatar from CDN
-2025-01-01T10:07:17 INFO Service stopped gracefully - uptime=14d 6h 32m, total_requests_served=15234567, avg_response_time=87ms, error_rate=0.003%, peak_memory_usage=2.1GB
-2025-01-01T10:07:21 INFO Avatar loaded: https://cdn.example.com/avatars/user_8472.jpg
-2025-01-01T10:07:26 INFO Subscribed to real-time updates
-2025-01-01T10:07:30 DEBUG Displaying user statistics
-2025-01-01T10:07:34 INFO server1 systemd[1]: Starting application service - service_version=2.5.1, start_timeout=90s, restart_policy=always, max_restarts=5
-2025-01-01T10:07:42 INFO Profile page rendered in 312ms
-2025-01-01T10:07:49 DEBUG User started editing profile
-2025-01-01T10:07:51 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
-2025-01-01T10:08:01 INFO Dashboard loaded successfully
-2025-01-01T10:08:04 INFO server1 app[1234]: Listening on 192.168.0.2:3000 - workers=8, pid=1234, worker_pids=[1235,1236,1237,1238,1239,1240,1241,1242], load_balancer=round_robin
-2025-01-01T10:08:12 INFO Profile edit mode activated
-2025-01-01T10:08:13 DEBUG User uploaded new avatar image (512KB)
-2025-01-01T10:08:23 INFO server1 app[1234]: Worker process 5678 started - cpu_affinity=cores[0-3], memory_limit=512MB, queue_depth=1000, health_check_interval=10s
-2025-01-01T10:08:29 INFO Processing image upload
-2025-01-01T10:08:37 DEBUG Resizing image to 200x200px
-2025-01-01T10:08:41 INFO Subscribed to real-time updates
-2025-01-01T10:08:43 INFO server1 app[1234]: Request failed with status 404 - path=/api/v1/legacy/endpoint, referer="https://old-client.example.com/page", suggestion="use /api/v2/new-endpoint instead"
-2025-01-01T10:08:49 INFO Image processed and uploaded to CDN
-2025-01-01T10:08:55 DEBUG Updating user record with new avatar URL
-2025-01-01T10:08:58 INFO server1 app[1234]: WARNING: Disk space low on /var/data - available=2.1GB, total=50GB, used=47.9GB, usage_percent=95.8%, largest_files=[logs/app.log:15GB, cache/assets:12GB]
-2025-01-01T10:09:04 INFO Dashboard loaded successfully
-2025-01-01T10:09:07 INFO Profile updated successfully
-2025-01-01T10:09:08 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
-2025-01-01T10:09:09 DEBUG Broadcasting profile change event
-2025-01-01T10:09:11 INFO server1 kernel: [12345.678] Out of memory: process killed - process=node, pid=9876, oom_score=800, memory_usage=4.2GB, total_system_memory=4GB, swap_used=100%
-2025-01-01T10:09:13 INFO WebSocket message sent: profile_updated
-2025-01-01T10:09:19 ERROR Database connection lost: connection timeout
-2025-01-01T10:09:24 DEBUG Initializing metrics collector - prometheus_port=:9090, scrape_interval=15s, retention_period=30d, storage_path=/var/lib/metrics, tsdb_size=10GB
-2025-01-01T10:09:33 WARNING Attempting database reconnection 1/5
-2025-01-01T10:09:40 INFO Subscribed to real-time updates
-2025-01-01T10:09:42 ERROR Reconnection failed: host unreachable
-2025-01-01T10:09:47 INFO Background job started: data_cleanup_task - schedule="0 2 * * *", target_tables=[sessions, temp_uploads, expired_tokens], expected_duration=45m, last_run=2024-01-14T02:00:00Z
-2025-01-01T10:09:49 WARNING Attempting database reconnection 2/5
-2025-01-01T10:09:57 INFO Dashboard loaded successfully
-2025-01-01T10:10:06 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
-2025-01-01T10:10:12 INFO Database connection restored
-2025-01-01T10:10:15 ERROR Failed to send notification email to customer@example.com - smtp_host=smtp.gmail.com:587, error="Authentication failed", retry_queue_length=156, will_retry_in=300s
-2025-01-01T10:10:19 DEBUG Verifying connection health
-2025-01-01T10:10:22 INFO Connection health check passed
-2025-01-01T10:10:28 WARNING SSL certificate for *.example.com expires in 7 days - expiry_date=2024-01-22T23:59:59Z, issuer="Let's Encrypt", renewal_url="https://certbot.eff.org/", auto_renewal_enabled=false
-2025-01-01T10:10:32 DEBUG User initiated search query: "invoice 2024"
-2025-01-01T10:10:33 INFO Subscribed to real-time updates
-2025-01-01T10:10:41 INFO Executing search across documents
-2025-01-01T10:10:49 INFO Scheduled backup completed successfully - backup_type=incremental, destination=s3://backups/prod/2024-01-15/, size=15.2GB, duration=1234s, files_backed_up=45678, compression_ratio=0.42
-2025-01-01T10:10:54 DEBUG Search query: SELECT * FROM documents WHERE content LIKE '%invoice 2024%'
-2025-01-01T10:11:03 DEBUG WebSocket connection established - client_id=ws_abc123, protocol_version=13, compression=true, heartbeat_interval=30s, max_message_size=1MB, endpoint=/ws/realtime
-2025-01-01T10:11:07 INFO Search completed: 47 results found in 892ms
-2025-01-01T10:11:08 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
-2025-01-01T10:11:16 INFO Dashboard loaded successfully
-2025-01-01T10:11:21 DEBUG Ranking results by relevance
-2025-01-01T10:11:27 ERROR Payment processing failed for order ORD-2024-001236 - payment_gateway=stripe, decline_reason="insufficient_funds", amount=149.99, currency=EUR, customer_id=CUST_789, card_last4=4242
-2025-01-01T10:11:32 INFO Displaying search results (page 1/5)
-2025-01-01T10:11:40 DEBUG User clicked result #3
-2025-01-01T10:11:47 INFO Subscribed to real-time updates
-2025-01-01T10:11:54 WARNING High memory usage detected - current=3.2GB, threshold=3.0GB, available=0.8GB, swap_usage=2.1GB, top_processes=[java:1.2GB, postgres:0.8GB, redis:0.5GB], gc_pressure=high
-2025-01-01T10:11:56 INFO Opening document: invoice_2024_Q3.pdf
-2025-01-01T10:11:59 DEBUG Loading PDF viewer
-2025-01-01T10:12:02 INFO API request completed - method=POST, path=/api/v2/analytics/events, status=201, duration=234ms, request_size=45KB, response_size=512B, user_id=12345, api_key_id=key_prod_xyz789
-2025-01-01T10:12:10 INFO PDF rendered: 12 pages
-2025-01-01T10:12:15 DEBUG User scrolled to page 5
-2025-01-01T10:12:17 INFO Background job started: data_cleanup_task - schedule="0 2 * * *", target_tables=[sessions, temp_uploads, expired_tokens], expected_duration=45m, last_run=2024-01-14T02:00:00Z
-2025-01-01T10:12:20 CRITICAL Circuit breaker opened for service payment_processor - failure_rate=65%, threshold=50%, failures_last_minute=195/300, half_open_timeout=30s, fallback_strategy=queue_for_retry
-2025-01-01T10:12:25 INFO Subscribed to real-time updates
-2025-01-01T10:12:34 INFO Page 5 loaded successfully
-2025-01-01T10:12:35 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
-2025-01-01T10:12:44 DEBUG User zoomed in: 150%
-2025-01-01T10:12:53 DEBUG Cache warming completed - cache_type=application, preloaded_keys=10000, hit_rate_improvement=+15%, warming_duration=12.5s, memory_allocated=128MB, eviction_candidates=0
-2025-01-01T10:12:54 INFO Dashboard loaded successfully
-2025-01-01T10:12:57 INFO Rendering at higher resolution
-2025-01-01T10:13:00 WARNING High resolution rendering may impact performance
-2025-01-01T10:13:07 INFO Database migration applied successfully - version=20240115_001_add_user_preferences, direction=up, duration=5.2s, tables_modified=[users, user_settings], rows_affected=125000
-2025-01-01T10:13:10 INFO Subscribed to real-time updates
-2025-01-01T10:13:12 INFO Render completed in 234ms
-2025-01-01T10:13:18 DEBUG User downloaded document
-2025-01-01T10:13:26 ERROR Failed to acquire distributed lock for task process_payments - lock_key=lock:payments:batch_001, holder=worker-node-03, ttl=300s, retry_strategy=exponential_backoff, max_attempts=5
-2025-01-01T10:13:30 INFO Download started: invoice_2024_Q3.pdf (2.3MB)
-2025-01-01T10:13:33 DEBUG Download progress: 25%
-2025-01-01T10:13:36 WARNING Query performance degraded - query_hash=qh_abc123, avg_execution_time=2.5s, normal_execution_time=150ms, slowdown_factor=16.7x, affected_indexes=[idx_users_email, idx_orders_status]
-2025-01-01T10:13:43 DEBUG Download progress: 50%
-2025-01-01T10:13:47 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
-2025-01-01T10:13:49 DEBUG Download progress: 75%
-2025-01-01T10:13:52 INFO Feature flag updated - flag_name=enable_new_checkout, old_value=false, new_value=true, rollout_percentage=25%, target_segments=[beta_users, premium_customers], updated_by=admin@example.com
-2025-01-01T10:13:54 INFO Download completed successfully
-2025-01-01T10:13:57 INFO Subscribed to real-time updates
-2025-01-01T10:14:01 DEBUG User closed PDF viewer
-2025-01-01T10:14:05 INFO Dashboard loaded successfully
-2025-01-01T10:14:07 DEBUG Elasticsearch reindex completed - source_index=products_v1, destination_index=products_v2, documents_processed=500000, duration=1245s, conflicts_resolved=23, mapping_version=2.0
-2025-01-01T10:14:13 INFO Returning to search results
-2025-01-01T10:14:21 DEBUG User cleared search query
-2025-01-01T10:14:31 ERROR Webhook delivery failed - webhook_id=wh_evt_abc123, destination_url="https://customer-api.example.com/webhooks", event_type=order.created, http_status=503, retry_count=3/5, next_retry_in=120s
-2025-01-01T10:14:41 INFO Search session ended
-2025-01-01T10:14:46 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
-2025-01-01T10:14:56 DEBUG User navigated to /reports
-2025-01-01T10:14:59 INFO Load balancer health check passed - backend_servers=8, healthy_servers=8, unhealthy_servers=0, avg_response_time=45ms, checks_per_interval=60, interval=10s
-2025-01-01T10:15:01 INFO Loading reports dashboard
-2025-01-01T10:15:09 INFO Subscribed to real-time updates
-2025-01-01T10:15:14 DEBUG Fetching available reports list
-2025-01-01T10:15:19 WARNING Anomaly detected in user behavior - user_id=54321, anomaly_type=location_change, previous_location="New York, US", current_location="Tokyo, JP", time_difference=15m, confidence=0.92
-2025-01-01T10:15:27 INFO Dashboard loaded successfully
-2025-01-01T10:15:29 INFO Found 23 reports in system
-2025-01-01T10:15:32 DEBUG Filtering reports by user permissions
-2025-01-01T10:15:34 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
-2025-01-01T10:15:44 INFO User has access to 18 reports
-2025-01-01T10:15:54 INFO Subscribed to real-time updates
-2025-01-01T10:16:00 DEBUG Rendering reports list
-2025-01-01T10:16:04 INFO Background job started: data_cleanup_task - schedule="0 2 * * *", target_tables=[sessions, temp_uploads, expired_tokens], expected_duration=45m, last_run=2024-01-14T02:00:00Z
-2025-01-01T10:16:11 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:16:15 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:16:24 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:16:27 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:16:28 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:16:34 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:16:44 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:16:51 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:16:59 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:17:09 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:17:17 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:17:21 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:17:27 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:17:32 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:17:40 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:17:44 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:17:54 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:18:04 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:18:14 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:18:24 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:18:28 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:18:36 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:18:42 ERROR Failed to send notification email to mail@mail.com
-2025-01-01T10:18:50 INFO Reports dashboard loaded successfully
-2025-01-01T10:18:54 INFO Dashboard loaded successfully
-2025-01-01T10:18:58 INFO Subscribed to real-time updates
-2025-01-01T10:19:06 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
+2025-01-01T10:02:25 INFO Subscribed to real-time updates
+2025-01-01T10:02:35 DEBUG Received heartbeat from server
+2025-01-01T10:02:41 INFO HTTP 200 GET /api/users/12345 - response_time=123ms, user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", client_ip=203.0.113.45
+2025-01-01T10:02:43 ERROR Failed to load widget: weather-widget (timeout after 5s)
+2025-01-01T10:03:52 WARNING Retrying weather widget load attempt 1/3
+2025-01-01T10:03:56 INFO Weather widget loaded successfully
+2025-01-01T10:03:03 INFO Dashboard loaded successfully
+2025-01-01T10:03:07 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
+2025-01-01T10:03:08 ERROR Failed to connect to external service at https://api.example.com/data - network unreachable, DNS resolution failed for api.example.com, attempted endpoints: [192.168.1.50:443, 192.168.1.51:443]
+2025-01-01T10:06:13 DEBUG Processing user action: click_button
+2025-01-01T10:06:19 INFO Navigation to /dashboard/analytics
+2025-01-01T10:06:21 INFO Subscribed to real-time updates
+2025-01-01T10:06:24 ERROR Connection timeout after 30s - retry_count=3, backoff_strategy=exponential, next_retry_in=60s, circuit_breaker_state=open
+2025-01-01T10:06:32 DEBUG Loading analytics module
+2025-01-01T10:06:36 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
+2025-01-01T10:06:42 INFO Fetching analytics data for date range: 2025-10-01 to 2025-10-15
+2025-01-01T10:06:47 INFO Dashboard loaded successfully
+2025-01-01T10:06:57 CRITICAL Database pool exhausted, max connections: 100 - waiting_requests=250, avg_wait_time=5.2s, connections_in_use=100, idle_connections=0, consider increasing pool size
+2025-01-01T10:06:05 DEBUG Query: SELECT * FROM analytics WHERE date BETWEEN '2025-10-01' AND '2025-10-15'
+2025-01-01T10:06:08 INFO Query returned 1523 rows
+2025-01-01T10:06:15 ERROR Exception in request handler: NullPointerException at line 42 - request_id=req_a1b2c3d4, session_id=sess_xyz789, user_id=12345, endpoint=/api/orders, method=POST
+2025-01-01T10:13:18 DEBUG Aggregating data by category
+2025-01-01T10:13:22 INFO Data aggregation completed in 145ms
+2025-01-01T10:13:25 ERROR   at com.example.service.OrderService.process(OrderService.java:42) - stacktrace_hash=8f7e6d5c, error_count_last_hour=15, similar_errors_today=47
+2025-01-01T10:13:33 INFO Dashboard loaded successfully
+2025-01-01T10:13:37 DEBUG Rendering charts: bar, line, pie
+2025-01-01T10:13:47 INFO Subscribed to real-time updates
+2025-01-01T10:13:49 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
+2025-01-01T10:13:53 INFO Charts rendered successfully
+2025-01-01T10:13:55 WARNING Retrying request, attempt 1/3 - endpoint=https://payment-gateway.example.com/charge, amount=99.99, currency=USD, merchant_id=MERCH_12345
+2025-01-01T10:13:57 DEBUG User exported data to CSV format
+2025-01-01T10:14:00 INFO HTTP 201 POST /api/orders (retry successful) - order_created=ORD-2024-001235, items_count=3, total_amount=299.97, payment_status=pending, shipping_address="123 Main St, City, ST 12345"
+2025-01-01T10:14:04 INFO CSV export completed: analytics_2025-10-15.csv (234KB)
+2025-01-01T10:14:05 WARNING Memory usage at 78% - consider cleanup
+2025-01-01T10:14:12 DEBUG Session created: f7b3c4d2-8e9a-4b1c-9d2e-3f4a5b6c7d8e - user_id=12345, session_duration=3600s, device_fingerprint=fp_abc123, geolocation="40.7128,-74.0060", browser="Chrome/120.0"
+2025-01-01T10:14:15 INFO Dashboard loaded successfully
+2025-01-01T10:14:21 DEBUG Running garbage collection
+2025-01-01T10:14:26 INFO Memory usage reduced to 52%
+2025-01-01T10:24:29 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
+2025-01-01T10:24:38 DEBUG User clicked settings icon
+2025-01-01T10:24:46 TRACE Query executed in 145ms: SELECT u.*, p.preferences, o.order_count FROM users u LEFT JOIN profiles p ON u.id=p.user_id LEFT JOIN (SELECT user_id, COUNT(*) as order_count FROM orders GROUP BY user_id) o ON u.id=o.user_id WHERE u.id = 12345
+2025-01-01T10:24:55 INFO Opening settings modal
+2025-01-01T10:25:05 DEBUG Loading user settings from cache
+2025-01-01T10:25:14 INFO Subscribed to real-time updates
+2025-01-01T10:25:18 INFO User 12345 logged in from 203.0.113.45 - username="john.doe@example.com", authentication_method=oauth2, provider=google, mfa_enabled=true, login_count_today=3
+2025-01-01T10:25:23 INFO Settings displayed: theme=dark, language=en, notifications=enabled
+2025-01-01T10:25:27 INFO Dashboard loaded successfully
+2025-01-01T10:25:29 DEBUG User toggled notification setting
+2025-01-01T11:05:39 WARNING Rate limit exceeded for IP 203.0.113.45 - requests_in_window=1500/1000, window_duration=60s, blocked_until=2024-01-15T10:32:45, endpoint=/api/search, user_agent="custom-bot/1.0"
+2025-01-01T11:05:49 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
+2025-01-01T11:05:57 INFO Saving updated settings
+2025-01-01T11:06:06 DEBUG POST /api/user/settings {"notifications": false}
+2025-01-01T11:06:10 ERROR HTTP 429 GET /api/data - Too many requests from IP 203.0.113.45, rate_limit_policy=strict, quota_reset_in=57s, upgrade_url="https://example.com/pricing"
+2025-01-01T11:06:19 INFO Dashboard loaded successfully
+2025-01-01T11:06:24 INFO Settings saved successfully
+2025-01-01T11:06:26 DEBUG Closing settings modal
+2025-01-01T11:06:28 INFO Subscribed to real-time updates
+2025-01-01T11:06:30 INFO Cache cleared, freed 256MB - cache_type=redis, keys_cleared=15432, eviction_policy=lru, memory_before=512MB, memory_after=256MB, operation_duration=234ms
+2025-01-01T11:06:32 ERROR Network request failed: GET /api/notifications (ERR_CONNECTION_REFUSED)
+2025-01-01T11:06:33 WARNING Falling back to offline mode
+2025-01-01T11:06:40 FATAL Unrecoverable error in core module - component=OrderProcessor, error=SegmentationFault, memory_address=0x00007fff5fbff000, core_dump_saved=/var/crashes/core.12345
+2025-01-01T11:06:44 INFO Using cached data from 2025-10-15 14:00:00
+2025-01-01T11:06:49 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
+2025-01-01T11:06:51 DEBUG User navigated to /profile
+2025-01-01T11:06:52 FATAL System shutdown initiated - reason=critical_error, graceful_shutdown_timeout=30s, active_connections=47, pending_tasks=123, backup_status=in_progress
+2025-01-01T11:06:56 INFO Loading profile page for user_8472
+2025-01-01T11:07:03 INFO Dashboard loaded successfully
+2025-01-01T11:07:03 INFO Dashboard loaded successfully
+2025-01-01T11:07:08 DEBUG Fetching user avatar from CDN
+2025-01-01T11:07:17 INFO Service stopped gracefully - uptime=14d 6h 32m, total_requests_served=15234567, avg_response_time=87ms, error_rate=0.003%, peak_memory_usage=2.1GB
+2025-01-01T11:07:21 INFO Avatar loaded: https://cdn.example.com/avatars/user_8472.jpg
+2025-01-01T11:07:26 INFO Subscribed to real-time updates
+2025-01-01T11:07:30 DEBUG Displaying user statistics
+2025-01-01T11:07:34 INFO server1 systemd[1]: Starting application service - service_version=2.5.1, start_timeout=90s, restart_policy=always, max_restarts=5
+2025-01-01T11:07:42 INFO Profile page rendered in 312ms
+2025-01-01T11:07:49 DEBUG User started editing profile
+2025-01-01T11:07:51 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
+2025-01-01T11:08:01 INFO Dashboard loaded successfully
+2025-01-01T11:08:04 INFO server1 app[1234]: Listening on 192.168.0.2:3000 - workers=8, pid=1234, worker_pids=[1235,1236,1237,1238,1239,1240,1241,1242], load_balancer=round_robin
+2025-01-01T11:08:12 INFO Profile edit mode activated
+2025-01-01T11:08:13 DEBUG User uploaded new avatar image (512KB)
+2025-01-01T11:08:23 INFO server1 app[1234]: Worker process 5678 started - cpu_affinity=cores[0-3], memory_limit=512MB, queue_depth=1000, health_check_interval=10s
+2025-01-01T11:08:29 INFO Processing image upload
+2025-01-01T11:08:37 DEBUG Resizing image to 200x200px
+2025-01-01T11:08:41 INFO Subscribed to real-time updates
+2025-01-01T11:08:43 INFO server1 app[1234]: Request failed with status 404 - path=/api/v1/legacy/endpoint, referer="https://old-client.example.com/page", suggestion="use /api/v2/new-endpoint instead"
+2025-01-01T11:08:49 INFO Image processed and uploaded to CDN
+2025-01-01T11:08:55 DEBUG Updating user record with new avatar URL
+2025-01-01T11:08:58 INFO server1 app[1234]: WARNING: Disk space low on /var/data - available=2.1GB, total=50GB, used=47.9GB, usage_percent=95.8%, largest_files=[logs/app.log:15GB, cache/assets:12GB]
+2025-01-01T11:09:04 INFO Dashboard loaded successfully
+2025-01-01T11:09:07 INFO Profile updated successfully
+2025-01-01T11:09:08 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
+2025-01-01T11:09:09 DEBUG Broadcasting profile change event
+2025-01-01T11:09:11 INFO server1 kernel: [12345.678] Out of memory: process killed - process=node, pid=9876, oom_score=800, memory_usage=4.2GB, total_system_memory=4GB, swap_used=100%
+2025-01-01T11:09:13 INFO WebSocket message sent: profile_updated
+2025-01-01T11:09:19 ERROR Database connection lost: connection timeout
+2025-01-01T11:09:24 DEBUG Initializing metrics collector - prometheus_port=:9090, scrape_interval=15s, retention_period=30d, storage_path=/var/lib/metrics, tsdb_size=10GB
+2025-01-01T11:09:33 WARNING Attempting database reconnection 1/5
+2025-01-01T11:09:40 INFO Subscribed to real-time updates
+2025-01-01T11:09:42 ERROR Reconnection failed: host unreachable
+2025-01-01T11:09:47 INFO Background job started: data_cleanup_task - schedule="0 2 * * *", target_tables=[sessions, temp_uploads, expired_tokens], expected_duration=45m, last_run=2024-01-14T02:00:00Z
+2025-01-01T11:09:49 WARNING Attempting database reconnection 2/5
+2025-01-01T11:09:57 INFO Dashboard loaded successfully
+2025-01-01T11:10:06 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
+2025-01-01T11:10:12 INFO Database connection restored
+2025-01-01T11:10:15 ERROR Failed to send notification email to customer@example.com - smtp_host=smtp.gmail.com:587, error="Authentication failed", retry_queue_length=156, will_retry_in=300s
+2025-01-01T11:10:19 DEBUG Verifying connection health
+2025-01-01T11:10:22 INFO Connection health check passed
+2025-01-01T11:10:28 WARNING SSL certificate for *.example.com expires in 7 days - expiry_date=2024-01-22T23:59:59Z, issuer="Let's Encrypt", renewal_url="https://certbot.eff.org/", auto_renewal_enabled=false
+2025-01-01T11:10:32 DEBUG User initiated search query: "invoice 2024"
+2025-01-01T11:10:33 INFO Subscribed to real-time updates
+2025-01-01T11:10:41 INFO Executing search across documents
+2025-01-01T11:10:49 INFO Scheduled backup completed successfully - backup_type=incremental, destination=s3://backups/prod/2024-01-15/, size=15.2GB, duration=1234s, files_backed_up=45678, compression_ratio=0.42
+2025-01-01T11:10:54 DEBUG Search query: SELECT * FROM documents WHERE content LIKE '%invoice 2024%'
+2025-01-01T11:11:03 DEBUG WebSocket connection established - client_id=ws_abc123, protocol_version=13, compression=true, heartbeat_interval=30s, max_message_size=1MB, endpoint=/ws/realtime
+2025-01-01T11:11:07 INFO Search completed: 47 results found in 892ms
+2025-01-01T11:12:08 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
+2025-01-01T11:12:16 INFO Dashboard loaded successfully
+2025-01-01T11:12:21 DEBUG Ranking results by relevance
+2025-01-01T11:12:27 ERROR Payment processing failed for order ORD-2024-001236 - payment_gateway=stripe, decline_reason="insufficient_funds", amount=149.99, currency=EUR, customer_id=CUST_789, card_last4=4242
+2025-01-01T11:12:32 INFO Displaying search results (page 1/5)
+2025-01-01T11:12:40 DEBUG User clicked result #3
+2025-01-01T11:12:47 INFO Subscribed to real-time updates
+2025-01-01T11:12:54 WARNING High memory usage detected - current=3.2GB, threshold=3.0GB, available=0.8GB, swap_usage=2.1GB, top_processes=[java:1.2GB, postgres:0.8GB, redis:0.5GB], gc_pressure=high
+2025-01-01T11:12:56 INFO Opening document: invoice_2024_Q3.pdf
+2025-01-01T11:12:59 DEBUG Loading PDF viewer
+2025-01-01T11:14:02 INFO API request completed - method=POST, path=/api/v2/analytics/events, status=201, duration=234ms, request_size=45KB, response_size=512B, user_id=12345, api_key_id=key_prod_xyz789
+2025-01-01T11:14:10 INFO PDF rendered: 12 pages
+2025-01-01T11:14:15 DEBUG User scrolled to page 5
+2025-01-01T11:14:17 INFO Background job started: data_cleanup_task - schedule="0 2 * * *", target_tables=[sessions, temp_uploads, expired_tokens], expected_duration=45m, last_run=2024-01-14T02:00:00Z
+2025-01-01T11:14:20 CRITICAL Circuit breaker opened for service payment_processor - failure_rate=65%, threshold=50%, failures_last_minute=195/300, half_open_timeout=30s, fallback_strategy=queue_for_retry
+2025-01-01T11:14:25 INFO Subscribed to real-time updates
+2025-01-01T11:14:34 INFO Page 5 loaded successfully
+2025-01-01T11:14:35 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
+2025-01-01T11:14:44 DEBUG User zoomed in: 150%
+2025-01-01T11:14:53 DEBUG Cache warming completed - cache_type=application, preloaded_keys=10000, hit_rate_improvement=+15%, warming_duration=12.5s, memory_allocated=128MB, eviction_candidates=0
+2025-01-01T11:14:54 INFO Dashboard loaded successfully
+2025-01-01T11:14:57 INFO Rendering at higher resolution
+2025-01-01T11:23:00 WARNING High resolution rendering may impact performance
+2025-01-01T11:23:07 INFO Database migration applied successfully - version=20240115_001_add_user_preferences, direction=up, duration=5.2s, tables_modified=[users, user_settings], rows_affected=125000
+2025-01-01T11:23:10 INFO Subscribed to real-time updates
+2025-01-01T11:23:12 INFO Render completed in 234ms
+2025-01-01T11:23:18 DEBUG User downloaded document
+2025-01-01T11:23:26 ERROR Failed to acquire distributed lock for task process_payments - lock_key=lock:payments:batch_001, holder=worker-node-03, ttl=300s, retry_strategy=exponential_backoff, max_attempts=5
+2025-01-01T11:23:30 INFO Download started: invoice_2024_Q3.pdf (2.3MB)
+2025-01-01T11:23:33 DEBUG Download progress: 25%
+2025-01-01T11:23:36 WARNING Query performance degraded - query_hash=qh_abc123, avg_execution_time=2.5s, normal_execution_time=150ms, slowdown_factor=16.7x, affected_indexes=[idx_users_email, idx_orders_status]
+2025-01-01T11:23:43 DEBUG Download progress: 50%
+2025-01-01T11:23:47 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
+2025-01-01T11:23:49 DEBUG Download progress: 75%
+2025-01-01T11:23:52 INFO Feature flag updated - flag_name=enable_new_checkout, old_value=false, new_value=true, rollout_percentage=25%, target_segments=[beta_users, premium_customers], updated_by=admin@example.com
+2025-01-01T11:23:54 INFO Download completed successfully
+2025-01-01T11:23:57 INFO Subscribed to real-time updates
+2025-01-01T11:24:01 DEBUG User closed PDF viewer
+2025-01-01T11:24:05 INFO Dashboard loaded successfully
+2025-01-01T11:24:07 DEBUG Elasticsearch reindex completed - source_index=products_v1, destination_index=products_v2, documents_processed=500000, duration=1245s, conflicts_resolved=23, mapping_version=2.0
+2025-01-01T11:24:13 INFO Returning to search results
+2025-01-01T11:24:21 DEBUG User cleared search query
+2025-01-01T11:24:31 ERROR Webhook delivery failed - webhook_id=wh_evt_abc123, destination_url="https://customer-api.example.com/webhooks", event_type=order.created, http_status=503, retry_count=3/5, next_retry_in=120s
+2025-01-01T11:24:41 INFO Search session ended
+2025-01-01T11:24:46 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
+2025-01-01T11:24:56 DEBUG User navigated to /reports
+2025-01-01T11:24:59 INFO Load balancer health check passed - backend_servers=8, healthy_servers=8, unhealthy_servers=0, avg_response_time=45ms, checks_per_interval=60, interval=10s
+2025-01-01T11:25:01 INFO Loading reports dashboard
+2025-01-01T11:25:09 INFO Subscribed to real-time updates
+2025-01-01T11:25:14 DEBUG Fetching available reports list
+2025-01-01T11:25:19 WARNING Anomaly detected in user behavior - user_id=54321, anomaly_type=location_change, previous_location="New York, US", current_location="Tokyo, JP", time_difference=15m, confidence=0.92
+2025-01-01T11:25:27 INFO Dashboard loaded successfully
+2025-01-01T11:25:29 INFO Found 23 reports in system
+2025-01-01T11:25:32 DEBUG Filtering reports by user permissions
+2025-01-01T11:25:34 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
+2025-01-01T11:25:44 INFO User has access to 18 reports
+2025-01-01T11:25:54 INFO Subscribed to real-time updates
+2025-01-01T11:26:00 DEBUG Rendering reports list
+2025-01-01T11:26:04 INFO Background job started: data_cleanup_task - schedule="0 2 * * *", target_tables=[sessions, temp_uploads, expired_tokens], expected_duration=45m, last_run=2024-01-14T02:00:00Z
+2025-01-01T11:26:11 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T11:26:15 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T11:26:24 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T11:26:27 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T11:26:28 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T11:26:34 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T11:26:44 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T11:26:51 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T11:26:59 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T11:27:09 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T11:27:17 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T11:27:21 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T11:27:27 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T11:27:32 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T14:27:40 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T14:27:44 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T14:27:54 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T14:28:04 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T14:28:14 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T14:28:24 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T14:28:28 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T14:28:36 ERROR Failed to send notification email to mail@mail.com
+2025-01-01T14:28:42 ERROR Failed to send notification email to mail@mail.com
+2025-01-02T10:18:50 INFO Reports dashboard loaded successfully
+2025-01-02T10:18:54 INFO Dashboard loaded successfully
+2025-01-02T10:18:58 INFO Subscribed to real-time updates
+2025-01-03T00:19:06 INFO HTTP 500 POST /api/orders - Internal server error occurred during order processing, transaction rolled back, order_id=ORD-2024-001234
