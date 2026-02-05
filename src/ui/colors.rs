@@ -53,6 +53,10 @@ pub const MARK_INDICATOR_COLOR: Color = Color::Indexed(29);
 pub const MARK_NAME_FG: Color = Color::Yellow;
 pub const MARK_LINE_PREVIEW: Color = Color::Gray;
 
+// Time Filter
+pub const TIME_FILTER_FG: Color = Color::Cyan;
+pub const TIME_FILTER_TEXT_FG: Color = BLACK_COLOR;
+
 // Help
 pub const HELP_BG: Color = Color::Blue;
 pub const HELP_BORDER_FG: Color = Color::White;

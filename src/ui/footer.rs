@@ -1,6 +1,8 @@
 use crate::app::App;
 use crate::ui::MAX_PATH_LENGTH;
-use crate::ui::colors::{FILTER_MODE_BG, FILTER_MODE_FG, FOOTER_BG, SEARCH_MODE_BG, SEARCH_MODE_FG};
+use crate::ui::colors::{
+    FILTER_MODE_BG, FILTER_MODE_FG, FOOTER_BG, SEARCH_MODE_BG, SEARCH_MODE_FG, TIME_FILTER_FG, TIME_FILTER_TEXT_FG,
+};
 use num_format::{Locale, ToFormattedString};
 use ratatui::{
     buffer::Buffer,
@@ -106,6 +108,9 @@ impl App {
         if self.show_marked_lines_only {
             left_parts.push("| marked only".to_string());
         }
+        if self.time_filter.is_some() {
+            left_parts.push("| time-filtered".to_string());
+        }
         let left = Line::from(left_parts.join(" "));
         let middle = Line::from("F1:View Help").centered();
 
@@ -177,6 +182,21 @@ impl App {
             .style(Style::default().bg(FOOTER_BG))
             .alignment(Alignment::Left);
         search_bar.render(area, buf);
+    }
+
+    pub(super) fn render_edit_time_filter_footer(&self, area: Rect, buf: &mut Buffer) {
+        let prompt = Line::from(format!("{}{}", self.get_input_prefix(), self.input.value())).left_aligned();
+        let progression_text = self.format_progression_text();
+        let progression = Line::from(progression_text + " ").right_aligned();
+
+        let bar = Block::default().title_bottom(prompt).title_bottom(progression).style(
+            Style::default()
+                .fg(TIME_FILTER_TEXT_FG)
+                .bg(TIME_FILTER_FG)
+                .add_modifier(Modifier::BOLD),
+        );
+
+        bar.render(area, buf);
     }
 
     pub(super) fn render_selection_footer(&self, area: Rect, buf: &mut Buffer) {

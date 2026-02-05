@@ -204,6 +204,18 @@ impl Help {
             &KeybindingContext::View(ViewState::MarksView),
         );
 
+        // Time filter View section
+        help_items.push(HelpItem::new_empty());
+        help_items.push(HelpItem::new_header(
+            "Time Filter",
+            Some(KeybindingContext::View(ViewState::TimeFilterView)),
+        ));
+        self.add_context_bindings(
+            &mut help_items,
+            registry,
+            &KeybindingContext::View(ViewState::TimeFilterView),
+        );
+
         self.help_items = help_items;
         self.reset();
     }
@@ -258,6 +270,7 @@ impl Help {
                 Overlay::MarkName => KeybindingContext::Overlay(Overlay::MarkName),
                 Overlay::SaveToFile => KeybindingContext::Overlay(Overlay::SaveToFile),
                 Overlay::AddCustomEvent => KeybindingContext::Overlay(Overlay::AddCustomEvent),
+                Overlay::EditTimeFilter => KeybindingContext::Overlay(Overlay::EditTimeFilter),
                 Overlay::Message(_) => KeybindingContext::Overlay(Overlay::Message(String::new())),
                 Overlay::Error(_) => KeybindingContext::Overlay(Overlay::Error(String::new())),
             };

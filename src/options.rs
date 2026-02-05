@@ -10,12 +10,15 @@ pub enum AppOption {
     AlwaysShowMarkedLines,
     AlwaysShowCriticalEvents,
     AlwaysShowCustomEvents,
+    ShowDateRollover,
+    TimeGapThreshold,
 }
 
 #[derive(Debug, Clone)]
 pub enum OptionAction {
     LineTransform(Regex),
     Toggle,
+    NumericValue(u32),
 }
 
 #[derive(Debug, Clone)]
@@ -45,8 +48,33 @@ impl AppOptionDef {
         }
     }
 
+    pub fn new_toggle_enabled(option: AppOption, description: &'static str) -> Self {
+        AppOptionDef {
+            option,
+            description,
+            action: OptionAction::Toggle,
+            enabled: true,
+        }
+    }
+
+    pub fn new_numeric(option: AppOption, description: &'static str, default_value: u32) -> Self {
+        AppOptionDef {
+            option,
+            description,
+            action: OptionAction::NumericValue(default_value),
+            enabled: true,
+        }
+    }
+
     pub fn get_description(&self) -> &'static str {
         self.description
+    }
+
+    pub fn get_numeric_value(&self) -> Option<u32> {
+        match &self.action {
+            OptionAction::NumericValue(v) => Some(*v),
+            _ => None,
+        }
     }
 }
 
@@ -70,12 +98,28 @@ impl Default for AppOptions {
                 AppOptionDef::new_toggle(AppOption::AlwaysShowMarkedLines, "Always show marked lines"),
                 AppOptionDef::new_toggle(AppOption::AlwaysShowCriticalEvents, "Always show critical events"),
                 AppOptionDef::new_toggle(AppOption::AlwaysShowCustomEvents, "Always show custom events"),
+                AppOptionDef::new_toggle_enabled(AppOption::ShowDateRollover, "Show date rollover line"),
+                AppOptionDef::new_numeric(AppOption::TimeGapThreshold, "Time gap threshold (minutes)", 10),
             ],
         }
     }
 }
 
 impl AppOptions {
+    /// Apply config defaults for time gap settings.
+    pub fn apply_time_gap_config(&mut self, enabled: bool, threshold_minutes: u32) {
+        if let Some(opt) = self
+            .options
+            .iter_mut()
+            .find(|o| o.option == AppOption::TimeGapThreshold)
+        {
+            opt.enabled = enabled;
+            if let OptionAction::NumericValue(ref mut v) = opt.action {
+                *v = threshold_minutes;
+            }
+        }
+    }
+
     /// Number of options.
     pub fn count(&self) -> usize {
         self.options.len()
@@ -126,6 +170,7 @@ impl AppOptions {
                     return &line[offset..];
                 }
                 OptionAction::Toggle => {}
+                OptionAction::NumericValue(_) => {}
             }
         }
 
@@ -152,11 +197,43 @@ impl AppOptions {
     }
 
     /// Restore options from a saved state.
-    pub fn restore(&mut self, saved_options: &[(AppOption, bool)]) {
-        for (option, enabled) in saved_options {
+    pub fn restore(&mut self, saved_options: &[(AppOption, bool, Option<u32>)]) {
+        for (option, enabled, value) in saved_options {
             if let Some(option_def) = self.options.iter_mut().find(|opt| opt.option == *option) {
                 option_def.enabled = *enabled;
+                if let Some(v) = value
+                    && let OptionAction::NumericValue(ref mut current) = option_def.action
+                {
+                    *current = *v;
+                }
             }
+        }
+    }
+
+    /// Gets the time gap threshold in minutes.
+    pub fn get_gap_threshold_minutes(&self) -> i64 {
+        self.options
+            .iter()
+            .find(|opt| opt.option == AppOption::TimeGapThreshold)
+            .and_then(|opt| opt.get_numeric_value())
+            .unwrap_or(10) as i64
+    }
+
+    /// Increments the numeric value of an option at the given index.
+    pub fn increment_option(&mut self, index: usize) {
+        if let Some(option) = self.options.get_mut(index)
+            && let OptionAction::NumericValue(ref mut v) = option.action
+        {
+            *v = v.saturating_add(1);
+        }
+    }
+
+    /// Decrements the numeric value of an option at the given index.
+    pub fn decrement_option(&mut self, index: usize) {
+        if let Some(option) = self.options.get_mut(index)
+            && let OptionAction::NumericValue(ref mut v) = option.action
+        {
+            *v = v.saturating_sub(1).max(1);
         }
     }
 }

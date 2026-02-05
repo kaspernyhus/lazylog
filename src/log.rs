@@ -41,6 +41,8 @@ pub struct LogLine {
     pub index: usize,
     /// Parsed timestamp (if applicable).
     pub timestamp: Option<DateTime<Utc>>,
+    /// Whether the timestamp was inherited from a previous line.
+    pub timestamp_inherited: bool,
     /// File id
     pub log_file_id: Option<usize>,
 }
@@ -61,6 +63,7 @@ impl LogLine {
             content: sanitize_line(content),
             index,
             timestamp: None,
+            timestamp_inherited: false,
             log_file_id: None,
         }
     }
@@ -80,14 +83,32 @@ impl LogBuffer {
 
         self.streaming = false;
 
-        // Single file: skip timestamp parsing and sorting
+        // Single file: parse timestamps and propagate to lines without them
         if paths.len() == 1 {
             let bytes = std::fs::read(paths[0])?;
             let content = String::from_utf8_lossy(&bytes);
+            let mut last_timestamp: Option<DateTime<Utc>> = None;
+
             self.lines = content
                 .lines()
                 .enumerate()
-                .map(|(index, line)| LogLine::new(line, index))
+                .map(|(index, line)| {
+                    let parsed = parse_timestamp(line);
+                    let (timestamp, inherited) = match parsed {
+                        Some(ts) => {
+                            last_timestamp = Some(ts);
+                            (Some(ts), false)
+                        }
+                        None => (last_timestamp, last_timestamp.is_some()),
+                    };
+                    LogLine {
+                        content: sanitize_line(line),
+                        index,
+                        timestamp,
+                        timestamp_inherited: inherited,
+                        log_file_id: None,
+                    }
+                })
                 .collect();
             return Ok(0);
         }
@@ -98,26 +119,32 @@ impl LogBuffer {
         for (file_id, path) in paths.iter().enumerate() {
             let bytes = std::fs::read(path)?;
             let content = String::from_utf8_lossy(&bytes);
+            let mut last_timestamp: Option<DateTime<Utc>> = None;
+
             let mut file_lines: Vec<LogLine> = content
                 .lines()
                 .enumerate()
                 .map(|(index, line)| {
-                    let content = sanitize_line(line);
-                    if let Some(timestamp) = parse_timestamp(line) {
-                        LogLine {
-                            content,
-                            index,
-                            timestamp: Some(timestamp),
-                            log_file_id: Some(file_id),
+                    let line_content = sanitize_line(line);
+                    let parsed = parse_timestamp(line);
+                    let (timestamp, inherited) = match parsed {
+                        Some(ts) => {
+                            last_timestamp = Some(ts);
+                            (Some(ts), false)
                         }
-                    } else {
-                        total_lines_skipped += 1;
-                        LogLine {
-                            content,
-                            index,
-                            timestamp: None,
-                            log_file_id: Some(file_id),
+                        None => {
+                            if last_timestamp.is_none() {
+                                total_lines_skipped += 1;
+                            }
+                            (last_timestamp, last_timestamp.is_some())
                         }
+                    };
+                    LogLine {
+                        content: line_content,
+                        index,
+                        timestamp,
+                        timestamp_inherited: inherited,
+                        log_file_id: Some(file_id),
                     }
                 })
                 .collect();
@@ -156,6 +183,7 @@ impl LogBuffer {
             content: sanitize_line_owned(content),
             index,
             timestamp: None,
+            timestamp_inherited: false,
             log_file_id: None,
         };
         self.lines.push(log_line);
@@ -200,5 +228,18 @@ impl LogBuffer {
     /// Returns all log lines as a slice
     pub fn all_lines(&self) -> &[LogLine] {
         &self.lines
+    }
+
+    /// Computes the time range (min, max) from all lines with timestamps.
+    pub fn compute_time_range(&self) -> Option<(DateTime<Utc>, DateTime<Utc>)> {
+        let timestamps: Vec<DateTime<Utc>> = self.lines.iter().filter_map(|line| line.timestamp).collect();
+
+        if timestamps.is_empty() {
+            return None;
+        }
+
+        let min = *timestamps.iter().min()?;
+        let max = *timestamps.iter().max()?;
+        Some((min, max))
     }
 }

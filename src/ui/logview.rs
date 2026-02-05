@@ -136,6 +136,19 @@ impl App {
             .iter()
             .enumerate()
             .map(|(offset, vl)| {
+                if vl.tags.contains(&Tag::TimeGap) {
+                    return Line::from("");
+                }
+
+                if vl.tags.contains(&Tag::DateRollover) {
+                    let date_str = all_lines
+                        .get(vl.log_index)
+                        .and_then(|line| line.timestamp)
+                        .map(|ts| ts.format("%Y-%m-%d").to_string())
+                        .unwrap_or_else(|| "---".to_string());
+                    return build_date_rollover_line(&date_str, area.width as usize);
+                }
+
                 let log_line = &all_lines[vl.log_index];
                 let viewport_line = self.options.apply_to_line(log_line.content());
                 let text = viewport_line.get(horizontal_offset..).unwrap_or("");
@@ -281,4 +294,27 @@ pub(super) fn build_line_from_highlighted<'a>(
     }
 
     Line::from(spans)
+}
+
+/// Builds a centered horizontal line with the date for date rollover separators.
+fn build_date_rollover_line(date_str: &str, width: usize) -> Line<'static> {
+    let label = format!(" {} ", date_str);
+    let label_len = label.len();
+
+    if width <= label_len + 4 {
+        return Line::styled(label, Style::default().fg(Color::DarkGray));
+    }
+
+    let remaining = width.saturating_sub(label_len);
+    let left_len = remaining / 2;
+    let right_len = remaining - left_len;
+
+    let left_line = "─".repeat(left_len);
+    let right_line = "─".repeat(right_len);
+
+    Line::from(vec![
+        Span::styled(left_line, Style::default().fg(Color::DarkGray)),
+        Span::styled(label, Style::default().fg(Color::DarkGray)),
+        Span::styled(right_line, Style::default().fg(Color::DarkGray)),
+    ])
 }

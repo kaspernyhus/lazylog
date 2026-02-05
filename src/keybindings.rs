@@ -34,6 +34,7 @@ impl KeybindingRegistry {
         registry.register_files_view_bindings();
         registry.register_message_state_bindings();
         registry.register_error_state_bindings();
+        registry.register_time_filter_bindings();
 
         // Register global bindings for all view states
         registry.register_global_bindings(KeybindingContext::View(ViewState::LogView));
@@ -45,6 +46,7 @@ impl KeybindingRegistry {
         registry.register_global_bindings(KeybindingContext::View(ViewState::EventsView));
         registry.register_global_bindings(KeybindingContext::View(ViewState::MarksView));
         registry.register_global_bindings(KeybindingContext::View(ViewState::FilesView));
+        registry.register_global_bindings(KeybindingContext::View(ViewState::TimeFilterView));
         registry.register_global_bindings(KeybindingContext::View(ViewState::GotoLineMode));
 
         // Register global bindings for all overlay types
@@ -53,6 +55,7 @@ impl KeybindingRegistry {
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::MarkName));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::SaveToFile));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::AddCustomEvent));
+        registry.register_global_bindings(KeybindingContext::Overlay(Overlay::EditTimeFilter));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::Message(String::new())));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::Error(String::new())));
 
@@ -246,6 +249,7 @@ impl KeybindingRegistry {
         );
         self.bind_simple(context.clone(), KeyCode::Tab, Command::HistoryForward);
         self.bind_shift(context.clone(), 'V', Command::StartSelection);
+        self.bind_shift(context.clone(), 'T', Command::ActivateTimeFilterMode);
     }
 
     fn register_selection_mode_bindings(&mut self) {
@@ -343,6 +347,10 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::Char('k'), Command::MoveUp);
         self.bind_simple(context.clone(), KeyCode::Char('j'), Command::MoveDown);
         self.bind_simple(context.clone(), KeyCode::Char(' '), Command::ToggleOption);
+        self.bind_simple(context.clone(), KeyCode::Right, Command::IncrementOption);
+        self.bind_simple(context.clone(), KeyCode::Left, Command::DecrementOption);
+        self.bind_simple(context.clone(), KeyCode::Char('+'), Command::IncrementOption);
+        self.bind_simple(context.clone(), KeyCode::Char('-'), Command::DecrementOption);
     }
 
     fn register_events_view_bindings(&mut self) {
@@ -432,5 +440,14 @@ impl KeybindingRegistry {
         let context = KeybindingContext::Overlay(Overlay::Error(String::new()));
 
         self.bind_simple(context, KeyCode::Char('q'), Command::Quit);
+    }
+
+    fn register_time_filter_bindings(&mut self) {
+        let context = KeybindingContext::View(ViewState::TimeFilterView);
+
+        self.bind_simple(context.clone(), KeyCode::Up, Command::MoveUp);
+        self.bind_simple(context.clone(), KeyCode::Down, Command::MoveDown);
+        self.bind_simple(context.clone(), KeyCode::Char('e'), Command::EditTimeFilterMode);
+        self.bind_simple(context.clone(), KeyCode::Char('r'), Command::ResetTimeFilter);
     }
 }

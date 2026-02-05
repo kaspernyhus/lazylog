@@ -1,5 +1,5 @@
 use super::colors::{MESSAGE_BORDER, MESSAGE_ERROR_FG, MESSAGE_INFO_FG, WHITE_COLOR};
-use crate::app::App;
+use crate::app::{App, Overlay, ViewState};
 use ratatui::widgets::{BorderType, Padding};
 use ratatui::{
     buffer::Buffer,
@@ -28,6 +28,34 @@ pub fn popup_area(area: Rect, width: u16, height: u16) -> Rect {
         y,
         width: popup_width,
         height: popup_height,
+    }
+}
+
+impl ViewState {
+    pub fn popup_size(&self) -> Option<(u16, u16)> {
+        match self {
+            ViewState::FilterView => Some((118, 35)),
+            ViewState::OptionsView => Some((42, 11)),
+            ViewState::EventsView => Some((118, 35)),
+            ViewState::MarksView => Some((118, 35)),
+            ViewState::FilesView => Some((100, 8)),
+            ViewState::TimeFilterView => Some((50, 4)),
+            _ => None,
+        }
+    }
+}
+
+impl Overlay {
+    pub fn popup_size(&self) -> Option<(u16, u16)> {
+        match self {
+            Overlay::EditFilter => Some((80, 3)),
+            Overlay::EventsFilter => Some((40, 15)),
+            Overlay::MarkName => Some((60, 3)),
+            Overlay::SaveToFile => Some((70, 3)),
+            Overlay::AddCustomEvent => Some((70, 3)),
+            Overlay::EditTimeFilter => None,
+            Overlay::Message(_) | Overlay::Error(_) => None,
+        }
     }
 }
 

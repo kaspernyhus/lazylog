@@ -27,6 +27,8 @@ pub struct PersistedState {
 struct OptionState {
     option: AppOption,
     enabled: bool,
+    #[serde(default)]
+    value: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -118,6 +120,7 @@ impl PersistedState {
                 .map(|opt| OptionState {
                     option: opt.option,
                     enabled: opt.enabled,
+                    value: opt.get_numeric_value(),
                 })
                 .collect(),
         }
@@ -300,10 +303,10 @@ impl PersistedState {
         &self.custom_events
     }
 
-    pub fn options(&self) -> Vec<(AppOption, bool)> {
+    pub fn options(&self) -> Vec<(AppOption, bool, Option<u32>)> {
         self.options
             .iter()
-            .map(|opt_state| (opt_state.option, opt_state.enabled))
+            .map(|opt_state| (opt_state.option, opt_state.enabled, opt_state.value))
             .collect()
     }
 }

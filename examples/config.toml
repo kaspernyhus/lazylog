@@ -47,3 +47,9 @@ filters = [
     { pattern = "DEBUG", mode = "exclude", case_sensitive = false, enabled = true },
     { pattern = "INFO",  mode = "include", case_sensitive = true,  enabled = false },
 ]
+
+# Time gap markers: show a visual separator when there's a gap between log timestamps.
+# Enable/disable time gap markers by default (default: true)
+time_gap_enabled = false
+# Time gap threshold in minutes (default: 10)
+time_gap_threshold_minutes = 15

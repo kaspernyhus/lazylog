@@ -25,6 +25,7 @@ pub mod options;
 pub mod persistence;
 pub mod resolver;
 pub mod search;
+pub mod time_filter;
 pub mod timestamp;
 pub mod ui;
 pub mod utils;

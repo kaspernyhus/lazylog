@@ -48,32 +48,22 @@ impl Widget for &App {
             (ViewState::GotoLineMode, _) => self.render_goto_line_footer(bottom, buf),
             (ViewState::ActiveFilterMode, _) => self.render_filter_footer(bottom, buf),
             (ViewState::SelectionMode, _) => self.render_selection_footer(bottom, buf),
+            (_, Some(Overlay::EditTimeFilter)) => self.render_edit_time_filter_footer(bottom, buf),
             _ => self.render_default_footer(bottom, buf),
         }
 
         // Popups
-        match self.view_state {
-            ViewState::FilterView => {
-                let filter_area = popup_area(area, 118, 35);
-                self.render_filter_list(filter_area, buf);
+        if let Some((w, h)) = self.view_state.popup_size() {
+            let popup = popup_area(area, w, h);
+            match self.view_state {
+                ViewState::FilterView => self.render_filter_list(popup, buf),
+                ViewState::OptionsView => self.render_options(popup, buf),
+                ViewState::EventsView => self.render_events_list(popup, buf),
+                ViewState::MarksView => self.render_marks_list(popup, buf),
+                ViewState::FilesView => self.render_files_list(popup, buf),
+                ViewState::TimeFilterView => self.render_time_filter_popup(popup, buf),
+                _ => {}
             }
-            ViewState::OptionsView => {
-                let options_area = popup_area(area, 42, 10);
-                self.render_options(options_area, buf);
-            }
-            ViewState::EventsView => {
-                let events_area = popup_area(area, 118, 35);
-                self.render_events_list(events_area, buf);
-            }
-            ViewState::MarksView => {
-                let marks_area = popup_area(area, 118, 35);
-                self.render_marks_list(marks_area, buf);
-            }
-            ViewState::FilesView => {
-                let files_area = popup_area(area, 100, 8);
-                self.render_files_list(files_area, buf);
-            }
-            _ => {}
         }
 
         // Overlays
@@ -96,6 +86,7 @@ impl Widget for &App {
                 Overlay::AddCustomEvent => {
                     self.render_add_custom_event_popup(overlay_area.unwrap(), buf);
                 }
+                Overlay::EditTimeFilter => {}
                 Overlay::Message(message) => {
                     self.render_message_popup(message, area, buf);
                 }
