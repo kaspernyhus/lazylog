@@ -27,18 +27,53 @@ impl VisibilityRule for TimeFilter {
 
 /// Focus state for time filter input fields.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TimeFilterFocus {
-    Start,
-    End,
+pub enum TimeFilterField {
+    StartDate,
+    StartTime,
+    EndDate,
+    EndTime,
 }
 
-impl TimeFilterFocus {
+impl TimeFilterField {
     pub fn next(&self) -> Self {
         match self {
-            TimeFilterFocus::Start => TimeFilterFocus::End,
-            TimeFilterFocus::End => TimeFilterFocus::Start,
+            Self::StartDate => Self::StartTime,
+            Self::StartTime => Self::EndDate,
+            Self::EndDate => Self::EndTime,
+            Self::EndTime => Self::StartDate,
         }
     }
+
+    pub fn row_up(&self) -> Self {
+        match self {
+            Self::StartDate => Self::EndDate,
+            Self::StartTime => Self::EndTime,
+            Self::EndDate => Self::StartDate,
+            Self::EndTime => Self::StartTime,
+        }
+    }
+
+    pub fn row_down(&self) -> Self {
+        self.row_up()
+    }
+
+    pub fn is_date(&self) -> bool {
+        matches!(self, Self::StartDate | Self::EndDate)
+    }
+
+    pub fn is_start(&self) -> bool {
+        matches!(self, Self::StartDate | Self::StartTime)
+    }
+}
+
+pub fn validate_date(s: &str) -> Result<chrono::NaiveDate, String> {
+    chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
+        .map_err(|_| "Invalid date format (expected YYYY-MM-DD)".to_string())
+}
+
+pub fn validate_time(s: &str) -> Result<chrono::NaiveTime, String> {
+    chrono::NaiveTime::parse_from_str(s, "%H:%M:%S")
+        .map_err(|_| "Invalid time format (expected HH:MM:SS)".to_string())
 }
 
 /// Computes which log indices should have a time gap separator before them.

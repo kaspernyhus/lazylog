@@ -497,7 +497,7 @@ impl App {
     }
 
     pub(super) fn render_time_filter_popup(&self, area: Rect, buf: &mut Buffer) {
-        use crate::time_filter::TimeFilterFocus;
+        use crate::time_filter::TimeFilterField;
 
         Clear.render(area, buf);
 
@@ -511,33 +511,80 @@ impl App {
         let inner = block.inner(area);
         block.render(area, buf);
 
-        let start_label = if self.time_filter_focus == TimeFilterFocus::Start {
-            Span::styled(
-                "Start: ",
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
-            )
-        } else {
-            Span::styled("Start: ", Style::default().fg(WHITE_COLOR))
+        let field = self.time_filter_field;
+        let editing = self.time_filter_editing;
+
+        let render_field = |value: &str, is_selected: bool, is_editing: bool, edit_value: &str| -> Span {
+            if is_editing {
+                Span::styled(
+                    format!("[{}]", edit_value),
+                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                )
+            } else if is_selected {
+                Span::styled(
+                    format!("[{}]", value),
+                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                )
+            } else {
+                Span::styled(format!("[{}]", value), Style::default().fg(WHITE_COLOR))
+            }
         };
 
-        let end_label = if self.time_filter_focus == TimeFilterFocus::End {
-            Span::styled(
-                "End:   ",
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
-            )
+        let edit_value = self.time_filter_edit_input.value();
+
+        let start_date = render_field(
+            &self.time_filter_start_date,
+            field == TimeFilterField::StartDate,
+            editing && field == TimeFilterField::StartDate,
+            edit_value,
+        );
+        let start_time = render_field(
+            &self.time_filter_start_time,
+            field == TimeFilterField::StartTime,
+            editing && field == TimeFilterField::StartTime,
+            edit_value,
+        );
+        let end_date = render_field(
+            &self.time_filter_end_date,
+            field == TimeFilterField::EndDate,
+            editing && field == TimeFilterField::EndDate,
+            edit_value,
+        );
+        let end_time = render_field(
+            &self.time_filter_end_time,
+            field == TimeFilterField::EndTime,
+            editing && field == TimeFilterField::EndTime,
+            edit_value,
+        );
+
+        let start_line = Line::from(vec![
+            Span::styled("Start: ", Style::default().fg(WHITE_COLOR)),
+            start_date,
+            Span::raw("  "),
+            start_time,
+        ]);
+
+        let end_line = Line::from(vec![
+            Span::styled("End:   ", Style::default().fg(WHITE_COLOR)),
+            end_date,
+            Span::raw("  "),
+            end_time,
+        ]);
+
+        let help_text = if editing {
+            "Enter: confirm | Esc: cancel"
         } else {
-            Span::styled("End:   ", Style::default().fg(WHITE_COLOR))
+            "Tab: next | ↑↓: row | e: edit | Enter: apply"
         };
+        let help_line = Line::from(Span::styled(help_text, Style::default().fg(Color::DarkGray)));
 
-        let start_value = Span::styled(self.time_filter_input_start.value(), Style::default().fg(WHITE_COLOR));
-        let end_value = Span::styled(self.time_filter_input_end.value(), Style::default().fg(WHITE_COLOR));
+        let mut lines = vec![start_line, end_line, Line::from(""), help_line];
 
-        let start_line = Line::from(vec![start_label, start_value]);
-        let end_line = Line::from(vec![end_label, end_value]);
+        if let Some(ref error) = self.time_filter_validation_error {
+            lines.push(Line::from(Span::styled(error, Style::default().fg(Color::Red))));
+        }
 
-        let text = vec![start_line, end_line, Line::from("")];
-
-        let paragraph = Paragraph::new(text).alignment(Alignment::Left);
+        let paragraph = Paragraph::new(lines).alignment(Alignment::Left);
         paragraph.render(inner, buf);
     }
 }

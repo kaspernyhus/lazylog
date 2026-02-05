@@ -2,7 +2,7 @@ use crate::file_manager::FileFilterRule;
 use crate::filter::FilterRule;
 use crate::list_view_state::ListViewState;
 use crate::marking::{Mark, MarkOnlyVisibilityRule, MarkTagRule};
-use crate::time_filter::{TimeFilter, TimeFilterFocus, compute_date_rollover_separator_indices, compute_gap_separator_indices};
+use crate::time_filter::{TimeFilter, TimeFilterField, compute_date_rollover_separator_indices, compute_gap_separator_indices, validate_date, validate_time};
 use crate::{
     cli::Cli,
     completion::CompletionEngine,
@@ -176,12 +176,22 @@ pub struct App {
     pub time_filter: Option<TimeFilter>,
     /// Cached file time range (min, max timestamps).
     pub file_time_range: Option<(DateTime<Utc>, DateTime<Utc>)>,
-    /// Time filter start input field.
-    pub time_filter_input_start: Input,
-    /// Time filter end input field.
-    pub time_filter_input_end: Input,
-    /// Current focus in time filter popup.
-    pub time_filter_focus: TimeFilterFocus,
+    /// Currently focused field in time filter popup.
+    pub time_filter_field: TimeFilterField,
+    /// Whether currently editing a time filter field.
+    pub time_filter_editing: bool,
+    /// Input field for editing time filter values.
+    pub time_filter_edit_input: Input,
+    /// Validation error message for time filter.
+    pub time_filter_validation_error: Option<String>,
+    /// Time filter start date (YYYY-MM-DD).
+    pub time_filter_start_date: String,
+    /// Time filter start time (HH:MM:SS).
+    pub time_filter_start_time: String,
+    /// Time filter end date (YYYY-MM-DD).
+    pub time_filter_end_date: String,
+    /// Time filter end time (HH:MM:SS).
+    pub time_filter_end_time: String,
 }
 
 impl App {
@@ -280,9 +290,14 @@ impl App {
             show_marked_lines_only: false,
             time_filter: None,
             file_time_range: None,
-            time_filter_input_start: Input::default(),
-            time_filter_input_end: Input::default(),
-            time_filter_focus: TimeFilterFocus::Start,
+            time_filter_field: TimeFilterField::StartDate,
+            time_filter_editing: false,
+            time_filter_edit_input: Input::default(),
+            time_filter_validation_error: None,
+            time_filter_start_date: String::new(),
+            time_filter_start_time: String::new(),
+            time_filter_end_date: String::new(),
+            time_filter_end_time: String::new(),
         };
 
         // Set item counts for list states
@@ -808,7 +823,9 @@ impl App {
         }
 
         if let Some(Overlay::TimeFilter) = self.overlay {
-            self.get_active_time_filter_input_mut().handle_event(&Key(key_event));
+            if self.time_filter_editing {
+                self.time_filter_edit_input.handle_event(&Key(key_event));
+            }
             return;
         }
 
@@ -884,7 +901,11 @@ impl App {
                     return;
                 }
                 Overlay::TimeFilter => {
-                    self.confirm_time_filter();
+                    if self.time_filter_editing {
+                        self.time_filter_confirm_edit();
+                    } else {
+                        self.time_filter_apply();
+                    }
                     return;
                 }
                 Overlay::Message(_) => {
@@ -996,7 +1017,11 @@ impl App {
                     self.close_overlay();
                 }
                 Overlay::TimeFilter => {
-                    self.close_overlay();
+                    if self.time_filter_editing {
+                        self.time_filter_cancel_edit();
+                    } else {
+                        self.close_overlay();
+                    }
                 }
                 Overlay::Message(_) => {
                     self.set_view_state(ViewState::LogView);
@@ -2145,16 +2170,20 @@ impl App {
             return;
         }
 
-        self.time_filter_focus = TimeFilterFocus::Start;
-
-        let format = "%Y-%m-%d %H:%M:%S";
+        self.time_filter_field = TimeFilterField::StartDate;
+        self.time_filter_editing = false;
+        self.time_filter_validation_error = None;
 
         if let Some((start, end)) = self.file_time_range {
-            self.time_filter_input_start = Input::new(start.format(format).to_string());
-            self.time_filter_input_end = Input::new(end.format(format).to_string());
+            self.time_filter_start_date = start.format("%Y-%m-%d").to_string();
+            self.time_filter_start_time = start.format("%H:%M:%S").to_string();
+            self.time_filter_end_date = end.format("%Y-%m-%d").to_string();
+            self.time_filter_end_time = end.format("%H:%M:%S").to_string();
         } else {
-            self.time_filter_input_start = Input::default();
-            self.time_filter_input_end = Input::default();
+            self.time_filter_start_date = String::new();
+            self.time_filter_start_time = String::new();
+            self.time_filter_end_date = String::new();
+            self.time_filter_end_time = String::new();
         }
 
         self.overlay = Some(Overlay::TimeFilter);
@@ -2166,67 +2195,130 @@ impl App {
         self.update_view();
     }
 
-    /// Switches focus between start and end input fields.
-    pub fn time_filter_focus_next(&mut self) {
-        self.time_filter_focus = self.time_filter_focus.next();
+    /// Moves to next field in time filter (Tab).
+    pub fn time_filter_field_next(&mut self) {
+        if self.time_filter_editing {
+            return;
+        }
+        self.time_filter_field = self.time_filter_field.next();
     }
 
-    /// Confirms the time filter input and applies it.
-    fn confirm_time_filter(&mut self) {
-        let start_str = self.time_filter_input_start.value();
-        let end_str = self.time_filter_input_end.value();
+    /// Moves to field in row above (Up).
+    pub fn time_filter_row_up(&mut self) {
+        if self.time_filter_editing {
+            return;
+        }
+        self.time_filter_field = self.time_filter_field.row_up();
+    }
 
-        let parse_timestamp = |s: &str| -> Option<DateTime<Utc>> {
-            let formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"];
+    /// Moves to field in row below (Down).
+    pub fn time_filter_row_down(&mut self) {
+        if self.time_filter_editing {
+            return;
+        }
+        self.time_filter_field = self.time_filter_field.row_down();
+    }
 
-            for format in &formats {
-                if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, format) {
-                    return Some(DateTime::from_naive_utc_and_offset(naive, Utc));
-                }
-            }
+    /// Starts editing the currently selected field.
+    pub fn time_filter_start_edit(&mut self) {
+        let current_value = self.get_time_filter_field_value();
+        self.time_filter_edit_input = Input::new(current_value);
+        self.time_filter_editing = true;
+        self.time_filter_validation_error = None;
+    }
 
-            if let Ok(naive_date) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
-                return Some(DateTime::from_naive_utc_and_offset(
-                    naive_date.and_hms_opt(0, 0, 0)?,
-                    Utc,
-                ));
-            }
+    /// Confirms the current edit and validates the input.
+    pub fn time_filter_confirm_edit(&mut self) {
+        if !self.time_filter_editing {
+            return;
+        }
 
-            None
+        let value = self.time_filter_edit_input.value().to_string();
+
+        let validation_result = if self.time_filter_field.is_date() {
+            validate_date(&value).map(|_| ())
+        } else {
+            validate_time(&value).map(|_| ())
         };
 
-        match (parse_timestamp(start_str), parse_timestamp(end_str)) {
-            (Some(start), Some(end)) => {
-                if start > end {
-                    self.show_error("Start time must be before end time");
-                    return;
-                }
-                self.time_filter = Some(TimeFilter::new(start, end));
-                self.close_overlay();
-                self.update_view();
+        match validation_result {
+            Ok(()) => {
+                self.set_time_filter_field_value(value);
+                self.time_filter_editing = false;
+                self.time_filter_validation_error = None;
             }
-            (None, _) => {
-                self.show_error("Invalid start timestamp format");
-            }
-            (_, None) => {
-                self.show_error("Invalid end timestamp format");
+            Err(msg) => {
+                self.time_filter_validation_error = Some(msg);
             }
         }
     }
 
-    /// Gets the current input for time filter (based on focus).
-    pub fn get_active_time_filter_input(&self) -> &Input {
-        match self.time_filter_focus {
-            TimeFilterFocus::Start => &self.time_filter_input_start,
-            TimeFilterFocus::End => &self.time_filter_input_end,
+    /// Cancels the current edit and restores previous value.
+    pub fn time_filter_cancel_edit(&mut self) {
+        self.time_filter_editing = false;
+        self.time_filter_validation_error = None;
+    }
+
+    /// Applies the time filter if all fields are valid.
+    pub fn time_filter_apply(&mut self) {
+        if self.time_filter_editing {
+            self.time_filter_confirm_edit();
+            return;
+        }
+
+        if let Err(msg) = validate_date(&self.time_filter_start_date) {
+            self.time_filter_validation_error = Some(format!("Start date: {}", msg));
+            return;
+        }
+        if let Err(msg) = validate_time(&self.time_filter_start_time) {
+            self.time_filter_validation_error = Some(format!("Start time: {}", msg));
+            return;
+        }
+        if let Err(msg) = validate_date(&self.time_filter_end_date) {
+            self.time_filter_validation_error = Some(format!("End date: {}", msg));
+            return;
+        }
+        if let Err(msg) = validate_time(&self.time_filter_end_time) {
+            self.time_filter_validation_error = Some(format!("End time: {}", msg));
+            return;
+        }
+
+        let start_date = validate_date(&self.time_filter_start_date).unwrap();
+        let start_time = validate_time(&self.time_filter_start_time).unwrap();
+        let end_date = validate_date(&self.time_filter_end_date).unwrap();
+        let end_time = validate_time(&self.time_filter_end_time).unwrap();
+
+        let start_datetime = start_date.and_time(start_time);
+        let end_datetime = end_date.and_time(end_time);
+
+        let start = DateTime::from_naive_utc_and_offset(start_datetime, Utc);
+        let end = DateTime::from_naive_utc_and_offset(end_datetime, Utc);
+
+        if start > end {
+            self.time_filter_validation_error = Some("Start must be before end".to_string());
+            return;
+        }
+
+        self.time_filter = Some(TimeFilter::new(start, end));
+        self.close_overlay();
+        self.update_view();
+    }
+
+    fn get_time_filter_field_value(&self) -> String {
+        match self.time_filter_field {
+            TimeFilterField::StartDate => self.time_filter_start_date.clone(),
+            TimeFilterField::StartTime => self.time_filter_start_time.clone(),
+            TimeFilterField::EndDate => self.time_filter_end_date.clone(),
+            TimeFilterField::EndTime => self.time_filter_end_time.clone(),
         }
     }
 
-    /// Gets mutable reference to the current input for time filter.
-    pub fn get_active_time_filter_input_mut(&mut self) -> &mut Input {
-        match self.time_filter_focus {
-            TimeFilterFocus::Start => &mut self.time_filter_input_start,
-            TimeFilterFocus::End => &mut self.time_filter_input_end,
+    fn set_time_filter_field_value(&mut self, value: String) {
+        match self.time_filter_field {
+            TimeFilterField::StartDate => self.time_filter_start_date = value,
+            TimeFilterField::StartTime => self.time_filter_start_time = value,
+            TimeFilterField::EndDate => self.time_filter_end_date = value,
+            TimeFilterField::EndTime => self.time_filter_end_time = value,
         }
     }
 }

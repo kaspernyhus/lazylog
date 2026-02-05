@@ -443,6 +443,11 @@ impl KeybindingRegistry {
     fn register_time_filter_bindings(&mut self) {
         let context = KeybindingContext::Overlay(Overlay::TimeFilter);
 
-        self.bind_simple(context, KeyCode::Tab, Command::TimeFilterFocusNext);
+        self.bind_simple(context.clone(), KeyCode::Tab, Command::TimeFilterFieldNext);
+        self.bind_simple(context.clone(), KeyCode::Up, Command::TimeFilterRowUp);
+        self.bind_simple(context.clone(), KeyCode::Down, Command::TimeFilterRowDown);
+        self.bind_simple(context.clone(), KeyCode::Char('k'), Command::TimeFilterRowUp);
+        self.bind_simple(context.clone(), KeyCode::Char('j'), Command::TimeFilterRowDown);
+        self.bind_simple(context, KeyCode::Char('e'), Command::TimeFilterStartEdit);
     }
 }

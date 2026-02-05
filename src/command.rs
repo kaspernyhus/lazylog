@@ -108,7 +108,13 @@ pub enum Command {
     // Time Filter
     ActivateTimeFilterMode,
     ClearTimeFilter,
-    TimeFilterFocusNext,
+    TimeFilterFieldNext,
+    TimeFilterRowUp,
+    TimeFilterRowDown,
+    TimeFilterStartEdit,
+    TimeFilterConfirmEdit,
+    TimeFilterCancelEdit,
+    TimeFilterApply,
 }
 
 impl Command {
@@ -219,7 +225,13 @@ impl Command {
             // Time Filter
             Command::ActivateTimeFilterMode => "Open time filter",
             Command::ClearTimeFilter => "Clear time filter",
-            Command::TimeFilterFocusNext => "Switch input field",
+            Command::TimeFilterFieldNext => "Next field",
+            Command::TimeFilterRowUp => "Switch to start/end row",
+            Command::TimeFilterRowDown => "Switch to start/end row",
+            Command::TimeFilterStartEdit => "Edit field",
+            Command::TimeFilterConfirmEdit => "Confirm edit",
+            Command::TimeFilterCancelEdit => "Cancel edit",
+            Command::TimeFilterApply => "Apply filter",
         }
     }
 
@@ -341,7 +353,13 @@ impl Command {
             // Time Filter
             Command::ActivateTimeFilterMode => app.activate_time_filter_mode(),
             Command::ClearTimeFilter => app.clear_time_filter(),
-            Command::TimeFilterFocusNext => app.time_filter_focus_next(),
+            Command::TimeFilterFieldNext => app.time_filter_field_next(),
+            Command::TimeFilterRowUp => app.time_filter_row_up(),
+            Command::TimeFilterRowDown => app.time_filter_row_down(),
+            Command::TimeFilterStartEdit => app.time_filter_start_edit(),
+            Command::TimeFilterConfirmEdit => app.time_filter_confirm_edit(),
+            Command::TimeFilterCancelEdit => app.time_filter_cancel_edit(),
+            Command::TimeFilterApply => app.time_filter_apply(),
         }
         Ok(())
     }
