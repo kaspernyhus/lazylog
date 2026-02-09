@@ -798,7 +798,7 @@ impl App {
                 }
                 Overlay::MarkName => {
                     if self.view_state == ViewState::EventsView && self.event_tracker.showing_marks() {
-                        let events = self.get_visible_events();
+                        let (events, _) = self.get_events_for_list();
                         let visible_marks = self.get_visible_marks();
                         let merged_items = EventMarkView::merge(&events, &visible_marks, true);
 
@@ -1195,8 +1195,9 @@ impl App {
         // Handle EventsView with merged marks
         if self.view_state == ViewState::EventsView {
             if self.event_tracker.showing_marks() {
-                let (visible_marks, visible_events) = self.get_visible_marks_and_events();
-                let merged_items = EventMarkView::merge(&visible_events, &visible_marks, true);
+                let (events, _) = self.get_events_for_list();
+                let visible_marks = self.get_visible_marks();
+                let merged_items = EventMarkView::merge(&events, &visible_marks, true);
 
                 if let Some(EventOrMark::Mark(mark)) = merged_items.get(self.events_list_state.selected_index()) {
                     if let Some(name) = &mark.name {
@@ -1244,20 +1245,14 @@ impl App {
                 .get(self.event_filter_list_state.selected_index())
                 .map(|es| es.name.clone())
         } else if self.view_state == ViewState::EventsView {
-            if self.event_tracker.showing_marks() {
-                let (visible_marks, visible_events) = self.get_visible_marks_and_events();
-                let merged = EventMarkView::merge(&visible_events, &visible_marks, true);
-                let selected_idx = self.events_list_state.selected_index();
-                if let Some(EventOrMark::Event(event)) = merged.get(selected_idx) {
-                    Some(event.name.clone())
-                } else {
-                    None
-                }
+            let (events, _) = self.get_events_for_list();
+            let visible_marks = self.get_visible_marks();
+            let merged = EventMarkView::merge(&events, &visible_marks, self.event_tracker.showing_marks());
+            let selected_idx = self.events_list_state.selected_index();
+            if let Some(EventOrMark::Event(event)) = merged.get(selected_idx) {
+                Some(event.name.clone())
             } else {
-                let visible_events = self.get_visible_events();
-                visible_events
-                    .get(self.events_list_state.selected_index())
-                    .map(|event| event.name.clone())
+                None
             }
         } else {
             // Not in EventsFilter or EventsView mode
@@ -1304,19 +1299,12 @@ impl App {
                 }
             }
         } else if self.view_state == ViewState::EventsView {
-            let line_index = if self.event_tracker.showing_marks() {
-                let (visible_marks, visible_events) = self.get_visible_marks_and_events();
-                let merged = EventMarkView::merge(&visible_events, &visible_marks, true);
-                let selected_idx = self.events_list_state.selected_index();
-                merged.get(selected_idx).map(|item| item.line_index())
-            } else {
-                let visible_events = self.get_visible_events();
-                visible_events
-                    .get(self.events_list_state.selected_index())
-                    .map(|event| event.line_index)
-            };
-            if let Some(idx) = line_index {
-                self.marking.toggle_mark(idx);
+            let (events, _) = self.get_events_for_list();
+            let visible_marks = self.get_visible_marks();
+            let merged = EventMarkView::merge(&events, &visible_marks, self.event_tracker.showing_marks());
+            let selected_idx = self.events_list_state.selected_index();
+            if let Some(line_index) = merged.get(selected_idx).map(|item| item.line_index()) {
+                self.marking.toggle_mark(line_index);
             }
         } else if let Some(line_index) = self.viewport_to_log_line_index(self.viewport.selected_line) {
             self.marking.toggle_mark(line_index);
@@ -1677,8 +1665,9 @@ impl App {
     }
 
     fn update_events_view_count(&mut self) {
-        let (visible_marks, visible_events) = self.get_visible_marks_and_events();
-        let merged_items = EventMarkView::merge(&visible_events, &visible_marks, self.event_tracker.showing_marks());
+        let (events, _) = self.get_events_for_list();
+        let visible_marks = self.get_visible_marks();
+        let merged_items = EventMarkView::merge(&events, &visible_marks, self.event_tracker.showing_marks());
         self.events_list_state.set_item_count(merged_items.len());
 
         let filter_count = self.event_tracker.filter_count();
@@ -1779,19 +1768,17 @@ impl App {
     }
 
     pub fn goto_selected_event(&mut self, center: bool) {
-        let line_index = if self.event_tracker.showing_marks() {
-            let (visible_marks, visible_events) = self.get_visible_marks_and_events();
-            let merged = EventMarkView::merge(&visible_events, &visible_marks, true);
-            let selected_idx = self.events_list_state.selected_index();
-            merged.get(selected_idx).map(|item| item.line_index())
-        } else {
-            let visible_events = self.get_visible_events();
-            visible_events
-                .get(self.events_list_state.selected_index())
-                .map(|event| event.line_index)
-        };
+        let (events, filtered_indices) = self.get_events_for_list();
+        let visible_marks = self.get_visible_marks();
+        let merged = EventMarkView::merge(&events, &visible_marks, self.event_tracker.showing_marks());
+        let selected_idx = self.events_list_state.selected_index();
+        let line_index = merged.get(selected_idx).map(|item| item.line_index());
 
         if let Some(line_index) = line_index {
+            if filtered_indices.contains(&line_index) {
+                self.filter.disable_all_patterns();
+                self.update_view();
+            }
             self.viewport.push_history(line_index);
             self.goto_line(line_index, center);
         }
@@ -1911,29 +1898,34 @@ impl App {
             .collect()
     }
 
-    /// Returns both visible marks and events.
-    fn get_visible_marks_and_events(&self) -> (Vec<Mark>, Vec<LogEvent>) {
+    /// Returns enabled events whose lines are NOT visible (filtered out by text filters).
+    fn get_filtered_events(&self) -> Vec<LogEvent> {
         let lines = self.log_buffer.all_lines();
         let visible_lines = self.resolver.get_visible_lines(lines);
         let visible_indices: HashSet<usize> = visible_lines.iter().map(|vl| vl.log_index).collect();
 
-        let marks = self
-            .marking
-            .get_marks()
-            .iter()
-            .filter(|mark| visible_indices.contains(&mark.line_index))
-            .cloned()
-            .collect();
-
-        let events = self
-            .event_tracker
+        self.event_tracker
             .get_enabled_events()
             .into_iter()
-            .filter(|event| visible_indices.contains(&event.line_index))
+            .filter(|event| !visible_indices.contains(&event.line_index))
             .cloned()
-            .collect();
+            .collect()
+    }
 
-        (marks, events)
+    /// Returns all events for the events list plus a set of filtered-out line indices.
+    /// When event filtering is active, includes both visible and filtered-out events.
+    pub fn get_events_for_list(&self) -> (Vec<LogEvent>, HashSet<usize>) {
+        let visible = self.get_visible_events();
+        if self.event_tracker.has_event_filtering() {
+            let filtered = self.get_filtered_events();
+            let filtered_indices: HashSet<usize> = filtered.iter().map(|e| e.line_index).collect();
+            let mut all = visible;
+            all.extend(filtered);
+            all.sort_by_key(|e| e.line_index);
+            (all, filtered_indices)
+        } else {
+            (visible, HashSet::new())
+        }
     }
 
     /// Gets the currently selected mark based on marking_list_state selection.
@@ -1991,7 +1983,7 @@ impl App {
 
     /// Finds the index in the filtered events list that is nearest to the given line index.
     fn find_nearest_event(&self, line_index: usize) -> Option<usize> {
-        let enabled_events = self.get_visible_events();
+        let (enabled_events, _) = self.get_events_for_list();
         if enabled_events.is_empty() {
             return None;
         }

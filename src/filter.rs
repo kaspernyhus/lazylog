@@ -165,6 +165,13 @@ impl Filter {
         }
     }
 
+    /// Disables all filter patterns.
+    pub fn disable_all_patterns(&mut self) {
+        for pattern in &mut self.patterns {
+            pattern.enabled = false;
+        }
+    }
+
     /// Toggles all patterns between enabled and disabled.
     pub fn toggle_all_patterns_enabled(&mut self) {
         if self.patterns.is_empty() {

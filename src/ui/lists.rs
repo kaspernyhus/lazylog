@@ -7,8 +7,8 @@ use crate::event_mark_view::EventMarkView;
 use crate::filter::ActiveFilterMode;
 use crate::ui::MAX_PATH_LENGTH;
 use crate::ui::colors::{
-    EVENT_NAME_CRITICAL_FG, EVENT_NAME_CUSTOM_DEFAULT_FG, FILE_BORDER, FILE_DISABLED_FG, FILE_ENABLED_FG,
-    FILTER_CRITICAL_FG,
+    EVENT_FILTERED_FG, EVENT_NAME_CRITICAL_FG, EVENT_NAME_CUSTOM_DEFAULT_FG, FILE_BORDER, FILE_DISABLED_FG,
+    FILE_ENABLED_FG, FILTER_CRITICAL_FG,
 };
 use crate::ui::scrollable_list::ScrollableList;
 use crate::{app::App, ui::colors::MARK_INDICATOR_COLOR};
@@ -161,7 +161,7 @@ impl App {
             .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(EVENT_LIST_BG));
 
-        let events = self.get_visible_events();
+        let (events, filtered_indices) = self.get_events_for_list();
         let visible_marks = self.get_visible_marks();
         let list_items = EventMarkView::merge(&events, &visible_marks, self.event_tracker.showing_marks());
 
@@ -198,7 +198,10 @@ impl App {
 
                 let padding = " ".repeat(max_name_length - item.name().len());
 
-                let (name_color, line_color) = if item.is_mark() {
+                let is_filtered = !item.is_mark() && filtered_indices.contains(&item.line_index());
+                let (name_color, line_color) = if is_filtered {
+                    (EVENT_FILTERED_FG, EVENT_FILTERED_FG)
+                } else if item.is_mark() {
                     (MARK_INDICATOR_COLOR, MARK_LINE_PREVIEW)
                 } else if self.event_tracker.is_critical_event(item.name()) {
                     (EVENT_NAME_CRITICAL_FG, EVENT_LINE_PREVIEW)

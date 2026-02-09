@@ -219,6 +219,11 @@ impl LogEventTracker {
         self.show_marks
     }
 
+    /// Returns true if any event pattern is disabled ie event filtering is active.
+    pub fn has_event_filtering(&self) -> bool {
+        self.patterns.iter().any(|p| !p.enabled)
+    }
+
     /// Whether marks are being showed in events list.
     pub fn showing_marks(&self) -> bool {
         self.show_marks
