@@ -20,6 +20,7 @@ pub mod live_processor;
 pub mod log;
 pub mod log_event;
 pub mod marking;
+pub mod matcher;
 pub mod options;
 pub mod persistence;
 pub mod resolver;

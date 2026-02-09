@@ -1,4 +1,5 @@
-use lazylog::highlighter::{HighlightPattern, Highlighter, PatternMatchType, PatternStyle, PlainMatch};
+use lazylog::highlighter::{HighlightPattern, Highlighter, PatternStyle};
+use lazylog::matcher::{PatternMatchType, PlainMatch};
 use lazylog::options::{AppOption, AppOptions};
 use ratatui::style::Color;
 use regex::Regex;

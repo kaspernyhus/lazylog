@@ -1,7 +1,7 @@
 use crate::filter::{ActiveFilterMode, FilterPattern};
-use crate::highlighter::{HighlightPattern, PatternMatchType, PatternStyle};
-use crate::highlighter::{PatternMatcher, PlainMatch};
+use crate::highlighter::{HighlightPattern, PatternStyle};
 use crate::log_event::EventPattern;
+use crate::matcher::{PatternMatchType, PatternMatcher, PlainMatch};
 use crate::ui::colors::EVENT_NAME_CUSTOM_DEFAULT_FG;
 use ratatui::style::Color;
 use regex::Regex;

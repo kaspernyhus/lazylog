@@ -1,5 +1,6 @@
-use crate::highlighter::{PatternMatcher, PlainMatch};
 use crate::log::{LogBuffer, LogLine};
+use crate::matcher::{PatternMatcher, PlainMatch};
+
 use rayon::prelude::*;
 use std::collections::HashSet;
 use std::iter::once;
@@ -372,7 +373,6 @@ impl LogEventTracker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::highlighter::{PatternMatcher, PlainMatch};
     use crate::log::LogBuffer;
 
     fn create_test_patterns() -> Vec<EventPattern> {
