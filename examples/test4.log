@@ -1,0 +1,11 @@
+2025-01-01T10:20:07.246303+0200 some.module[123]: This is from test file 4 that has a timezone offset
+2025-01-01T10:20:09.346303+0200 some.module[123]: This is from test file 4 that has a timezone offset
+2025-01-01T10:20:10.512373+0200 some.module[123]: This is from test file 4 that has a timezone offset
+2025-01-01T10:20:12.524377+0200 some.module[123]: This is from test file 4 that has a timezone offset
+2025-01-01T10:20:14.533373+0200 some.module[123]: This is from test file 4 that has a timezone offset
+2025-01-01T10:21:14.542371+0200 some.module[123]: This is from test file 4 that has a timezone offset
+2025-01-01T10:34:04.551329+0200 some.module[123]: This is from test file 4 that has a timezone offset
+2025-01-01T12:34:04.551329+0200 some.module[123]: This is from test file 4 that has a timezone offset
+2025-01-01T22:34:04.551329+0200 some.module[123]: This is from test file 4 that has a timezone offset
+2025-01-02T02:34:04.551329+0200 some.module[123]: This is from test file 4 that has a timezone offset
+2025-01-02T12:04:04.551329+0200 some.module[123]: This is from test file 4 that has a timezone offset
