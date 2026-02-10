@@ -13,7 +13,10 @@ highlights = [
     { pattern = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", regex = true },  # UUIDs
     { pattern = "order_id" },  # Plain string matching
     { pattern = "FROM", case_sensitive = true },
-    { pattern = "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}", regex = true, style = { fg = "darkgray" } },  # Timestamps (ISO8601)
+    # Timestamps
+    { pattern = "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}", regex = true, style = { fg = "darkgray" } },
+    { pattern = "\\w{3}\\s+\\d{1,2}\\s+\\d{2}:\\d{2}:\\d{2}\\s+(\\S+)\\s+", regex = true, style = { fg = "darkgray" } },
+    { pattern = "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}[+-]\\d{2}:?\\d{2}", regex = true, style = { fg = "darkgray" } },
 ]
 
 # Event patterns. If no style is specified, a default style is applied (fg=white, bg=lightgreen).
