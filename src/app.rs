@@ -1829,7 +1829,9 @@ impl App {
                 })
                 .map(|log_line| {
                     if self.file_manager.is_multi_file() {
-                        if let Some(file_id) = log_line.log_file_id {
+                        if let Some(file_id) = log_line.log_file_id
+                            && self.options.is_disabled(AppOption::HideFileIds)
+                        {
                             format!("[{}] {}", file_id + 1, log_line.content)
                         } else {
                             log_line.content.clone()
