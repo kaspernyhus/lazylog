@@ -27,6 +27,7 @@ pub struct AppOptionDef {
     pub description: &'static str,
     pub action: OptionAction,
     pub enabled: bool,
+    pub grayed_out: bool,
 }
 
 impl AppOptionDef {
@@ -36,6 +37,7 @@ impl AppOptionDef {
             description,
             action,
             enabled: false,
+            grayed_out: false,
         }
     }
 
@@ -45,6 +47,7 @@ impl AppOptionDef {
             description,
             action: OptionAction::Toggle,
             enabled: false,
+            grayed_out: false,
         }
     }
 
@@ -54,6 +57,7 @@ impl AppOptionDef {
             description,
             action: OptionAction::Toggle,
             enabled: true,
+            grayed_out: false,
         }
     }
 
@@ -63,6 +67,7 @@ impl AppOptionDef {
             description,
             action: OptionAction::NumericValue(default_value),
             enabled: true,
+            grayed_out: false,
         }
     }
 
@@ -117,6 +122,12 @@ impl AppOptions {
             if let OptionAction::NumericValue(ref mut v) = opt.action {
                 *v = threshold_minutes;
             }
+        }
+    }
+
+    pub fn set_grayed_out(&mut self, option: AppOption, grayed: bool) {
+        if let Some(opt) = self.options.iter_mut().find(|o| o.option == option) {
+            opt.grayed_out = grayed;
         }
     }
 
@@ -179,7 +190,9 @@ impl AppOptions {
 
     /// Toggles the enabled state of an option at the given index.
     pub fn toggle_option(&mut self, index: usize) {
-        if let Some(option) = self.options.get_mut(index) {
+        if let Some(option) = self.options.get_mut(index)
+            && !option.grayed_out
+        {
             option.enabled = !option.enabled;
         }
     }
@@ -222,6 +235,7 @@ impl AppOptions {
     /// Increments the numeric value of an option at the given index.
     pub fn increment_option(&mut self, index: usize) {
         if let Some(option) = self.options.get_mut(index)
+            && !option.grayed_out
             && let OptionAction::NumericValue(ref mut v) = option.action
         {
             *v = v.saturating_add(1);
@@ -231,6 +245,7 @@ impl AppOptions {
     /// Decrements the numeric value of an option at the given index.
     pub fn decrement_option(&mut self, index: usize) {
         if let Some(option) = self.options.get_mut(index)
+            && !option.grayed_out
             && let OptionAction::NumericValue(ref mut v) = option.action
         {
             *v = v.saturating_sub(1).max(1);

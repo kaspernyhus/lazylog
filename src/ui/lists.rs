@@ -38,7 +38,9 @@ impl App {
                     format!("{} {}", checkbox, option_description)
                 };
 
-                if option.enabled {
+                if option.grayed_out {
+                    Line::from(content).style(Style::default().fg(Color::DarkGray))
+                } else if option.enabled {
                     Line::from(content).style(Style::default().fg(OPTION_ENABLED_FG))
                 } else {
                     Line::from(content).style(Style::default().fg(OPTION_DISABLED_FG))

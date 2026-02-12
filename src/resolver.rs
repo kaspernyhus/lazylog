@@ -84,6 +84,10 @@ pub struct ViewportResolver {
     gap_separator_indices: HashSet<usize>,
     /// Log indices that should have a date rollover separator inserted before them
     date_rollover_indices: HashSet<usize>,
+    /// Gap threshold in minutes for computing separators on visible lines
+    gap_threshold_minutes: Option<i64>,
+    /// Whether to show date rollover separators
+    show_date_rollover: bool,
 }
 
 impl Debug for ViewportResolver {
@@ -112,6 +116,8 @@ impl ViewportResolver {
             expanded_lines: Arc::new(HashMap::new()),
             gap_separator_indices: HashSet::new(),
             date_rollover_indices: HashSet::new(),
+            gap_threshold_minutes: None,
+            show_date_rollover: false,
         }
     }
 
@@ -134,6 +140,8 @@ impl ViewportResolver {
         self.expanded_lines = Arc::new(HashMap::new());
         self.gap_separator_indices.clear();
         self.date_rollover_indices.clear();
+        self.gap_threshold_minutes = None;
+        self.show_date_rollover = false;
         self.invalidate_cache();
     }
 
@@ -152,6 +160,18 @@ impl ViewportResolver {
     /// Set log indices that should have a date rollover separator before them.
     pub fn set_date_rollover_indices(&mut self, indices: HashSet<usize>) {
         self.date_rollover_indices = indices;
+        self.invalidate_cache();
+    }
+
+    /// Set the gap threshold for computing time gap separators on visible lines.
+    pub fn set_gap_threshold_minutes(&mut self, minutes: Option<i64>) {
+        self.gap_threshold_minutes = minutes;
+        self.invalidate_cache();
+    }
+
+    /// Set whether to show date rollover separators on visible lines.
+    pub fn set_show_date_rollover(&mut self, show: bool) {
+        self.show_date_rollover = show;
         self.invalidate_cache();
     }
 
@@ -178,11 +198,14 @@ impl ViewportResolver {
 
     /// Compute visible lines by applying all rules
     fn compute_visible_lines(&self, lines: &[LogLine]) -> Vec<VisibleLine> {
+        use chrono::DateTime;
+        use chrono::Utc;
+
         let mut results = Vec::new();
+        let mut prev_ts: Option<DateTime<Utc>> = None;
 
         for (idx, line) in lines.iter().enumerate() {
             let is_visible = if self.visibility_rules.is_empty() {
-                // No visibility rules means all lines visible
                 true
             } else {
                 self.visibility_rules.iter().all(|rule| rule.is_visible(line))
@@ -192,14 +215,38 @@ impl ViewportResolver {
                 continue;
             }
 
-            if self.date_rollover_indices.contains(&idx) {
-                let separator = VisibleLine::new(idx).with_tag(Tag::DateRollover);
-                results.push(separator);
+            // Compute separators from consecutive visible lines with own timestamps
+            if !line.timestamp_inherited
+                && let Some(current_ts) = line.timestamp
+            {
+                if let Some(prev) = prev_ts {
+                    if self.show_date_rollover && current_ts.date_naive() != prev.date_naive() {
+                        results.push(VisibleLine::new(idx).with_tag(Tag::DateRollover));
+                    }
+
+                    if let Some(threshold) = self.gap_threshold_minutes {
+                        let gap_minutes = (current_ts - prev).num_minutes().abs();
+                        if gap_minutes >= threshold {
+                            let is_date_rollover = current_ts.date_naive() != prev.date_naive();
+                            if !self.show_date_rollover || !is_date_rollover {
+                                results.push(VisibleLine::new(idx).with_tag(Tag::TimeGap));
+                            }
+                        }
+                    }
+                }
+                prev_ts = Some(current_ts);
             }
 
-            if self.gap_separator_indices.contains(&idx) {
-                let separator = VisibleLine::new(idx).with_tag(Tag::TimeGap);
-                results.push(separator);
+            // Also check pre-computed indices (for cases without inline computation)
+            if self.date_rollover_indices.contains(&idx)
+                && !results.last().is_some_and(|l| l.log_index == idx && l.tags.contains(&Tag::DateRollover))
+            {
+                results.push(VisibleLine::new(idx).with_tag(Tag::DateRollover));
+            }
+            if self.gap_separator_indices.contains(&idx)
+                && !results.last().is_some_and(|l| l.log_index == idx && l.tags.contains(&Tag::TimeGap))
+            {
+                results.push(VisibleLine::new(idx).with_tag(Tag::TimeGap));
             }
 
             let mut visible_line = VisibleLine::new(idx);

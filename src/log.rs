@@ -114,7 +114,7 @@ impl LogBuffer {
         }
 
         // Multi-file: parse timestamps and sort
-        let mut total_lines_skipped = 0;
+        let mut total_lines_without_timestamp = 0;
 
         for (file_id, path) in paths.iter().enumerate() {
             let bytes = std::fs::read(path)?;
@@ -132,12 +132,7 @@ impl LogBuffer {
                             last_timestamp = Some(ts);
                             (Some(ts), false)
                         }
-                        None => {
-                            if last_timestamp.is_none() {
-                                total_lines_skipped += 1;
-                            }
-                            (last_timestamp, last_timestamp.is_some())
-                        }
+                        None => (last_timestamp, last_timestamp.is_some()),
                     };
                     LogLine {
                         content: line_content,
@@ -149,6 +144,21 @@ impl LogBuffer {
                 })
                 .collect();
 
+            // Backfill leading lines that have no timestamp with the first timestamp in the file
+            let first_ts = file_lines.iter().find_map(|l| {
+                if !l.timestamp_inherited { l.timestamp } else { None }
+            });
+            if let Some(ts) = first_ts {
+                for line in &mut file_lines {
+                    if line.timestamp.is_some() {
+                        break;
+                    }
+                    line.timestamp = Some(ts);
+                    line.timestamp_inherited = true;
+                }
+            }
+
+            total_lines_without_timestamp += file_lines.iter().filter(|l| l.timestamp.is_none()).count();
             self.lines.append(&mut file_lines);
         }
 
@@ -164,7 +174,7 @@ impl LogBuffer {
             line.index = new_index;
         }
 
-        Ok(total_lines_skipped)
+        Ok(total_lines_without_timestamp)
     }
 
     /// Initializes the buffer for stdin streaming mode.

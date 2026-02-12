@@ -1,4 +1,4 @@
-use chrono::{DateTime, Datelike, NaiveDateTime, Utc};
+use chrono::{DateTime, Datelike, FixedOffset, NaiveDateTime, Utc};
 use regex::Regex;
 use std::sync::LazyLock;
 
@@ -112,6 +112,31 @@ fn try_syslog_format(line: &str) -> Option<DateTime<Utc>> {
     None
 }
 
+/// Extracts the timezone offset from a log line, if present.
+pub fn extract_timezone(line: &str) -> Option<FixedOffset> {
+    let timestamp_str = ISO8601_RE.find(line)?.as_str();
+
+    if let Ok(dt) = DateTime::parse_from_rfc3339(timestamp_str) {
+        return Some(*dt.offset());
+    }
+
+    // Handle timezone offset without colon (e.g., +0200)
+    if let Some(tz_pos) = timestamp_str.rfind(['+', '-'])
+        && tz_pos > 0
+        && !timestamp_str[tz_pos..].contains(':')
+    {
+        let mut normalized = timestamp_str.to_string();
+        if normalized.len() == tz_pos + 5 {
+            normalized.insert(tz_pos + 3, ':');
+            if let Ok(dt) = DateTime::parse_from_rfc3339(&normalized) {
+                return Some(*dt.offset());
+            }
+        }
+    }
+
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -146,5 +171,31 @@ mod tests {
         let dt2 = parse_timestamp(line2).unwrap();
 
         assert!(dt1 < dt2);
+    }
+
+    #[test]
+    fn test_extract_timezone_with_offset() {
+        let line = "2025-09-12T10:28:19.304534+0200 pipewire[632]: pw.port:";
+        let tz = extract_timezone(line).unwrap();
+        assert_eq!(tz, FixedOffset::east_opt(2 * 3600).unwrap());
+    }
+
+    #[test]
+    fn test_extract_timezone_rfc3339() {
+        let line = "2025-09-12T10:28:19+05:30 some log";
+        let tz = extract_timezone(line).unwrap();
+        assert_eq!(tz, FixedOffset::east_opt(5 * 3600 + 30 * 60).unwrap());
+    }
+
+    #[test]
+    fn test_extract_timezone_none_for_naive() {
+        let line = "2025-09-12T10:28:19 some log without tz";
+        assert!(extract_timezone(line).is_none());
+    }
+
+    #[test]
+    fn test_extract_timezone_none_for_no_timestamp() {
+        let line = "No timestamp here";
+        assert!(extract_timezone(line).is_none());
     }
 }

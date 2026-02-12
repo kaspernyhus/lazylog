@@ -2,9 +2,7 @@ use crate::file_manager::FileFilterRule;
 use crate::filter::FilterRule;
 use crate::list_view_state::ListViewState;
 use crate::marking::{Mark, MarkOnlyVisibilityRule, MarkTagRule};
-use crate::time_filter::{
-    TimeFilter, TimeFilterFocus, compute_date_rollover_separator_indices, compute_gap_separator_indices,
-};
+use crate::time_filter::{TimeFilter, TimeFilterFocus};
 use crate::{
     cli::Cli,
     completion::CompletionEngine,
@@ -176,6 +174,8 @@ pub struct App {
     pub time_filter: Option<TimeFilter>,
     /// Cached file time range (min, max timestamps).
     pub file_time_range: Option<(DateTime<Utc>, DateTime<Utc>)>,
+    /// Timezone offset detected from log file timestamps.
+    pub file_timezone: Option<chrono::FixedOffset>,
     /// Time filter start input field.
     pub time_filter_input_start: Input,
     /// Time filter end input field.
@@ -261,6 +261,7 @@ impl App {
             show_marked_lines_only: false,
             time_filter: None,
             file_time_range: None,
+            file_timezone: None,
             time_filter_input_start: Input::default(),
             time_filter_input_end: Input::default(),
             time_filter_focus: TimeFilterFocus::Start,
@@ -277,6 +278,8 @@ impl App {
         if use_stdin {
             app.log_buffer.init_stdin_mode();
             app.viewport.follow_mode = true;
+            app.options.set_grayed_out(AppOption::ShowDateRollover, true);
+            app.options.set_grayed_out(AppOption::TimeGapThreshold, true);
             app.update_processor_context();
             app.update_view();
             return app;
@@ -293,6 +296,10 @@ impl App {
         match load_result {
             Ok(skipped_lines) => {
                 app.file_time_range = app.log_buffer.compute_time_range();
+                app.file_timezone = app
+                    .log_buffer
+                    .iter()
+                    .find_map(|line| crate::timestamp::extract_timezone(&line.content));
                 app.update_view();
                 app.update_completion_words();
 
@@ -366,17 +373,15 @@ impl App {
 
         self.resolver.set_expanded_lines(self.expansion.get_all_expanded());
 
-        if !self.log_buffer.streaming && self.options.is_enabled(AppOption::ShowDateRollover) {
-            let date_rollover_indices = compute_date_rollover_separator_indices(all_lines);
-            self.resolver.set_date_rollover_indices(date_rollover_indices);
-        }
+        let show_date_rollover = !self.log_buffer.streaming && self.options.is_enabled(AppOption::ShowDateRollover);
+        self.resolver.set_show_date_rollover(show_date_rollover);
 
-        if !self.log_buffer.streaming && self.options.is_enabled(AppOption::TimeGapThreshold) {
-            let skip_date_rollovers = self.options.is_enabled(AppOption::ShowDateRollover);
-            let gap_indices =
-                compute_gap_separator_indices(all_lines, self.options.get_gap_threshold_minutes(), skip_date_rollovers);
-            self.resolver.set_gap_separator_indices(gap_indices);
-        }
+        let gap_threshold = if !self.log_buffer.streaming && self.options.is_enabled(AppOption::TimeGapThreshold) {
+            Some(self.options.get_gap_threshold_minutes())
+        } else {
+            None
+        };
+        self.resolver.set_gap_threshold_minutes(gap_threshold);
 
         let num_lines = {
             let visible_lines = self.resolver.get_visible_lines(all_lines);
@@ -881,7 +886,7 @@ impl App {
                 }
                 Overlay::EditTimeFilter => {
                     let new_value = self.input.value().to_string();
-                    if Self::parse_timestamp(&new_value).is_none() {
+                    if self.parse_filter_timestamp(&new_value).is_none() {
                         self.show_message("Invalid timestamp format.\nExpected: YYYY-MM-DD HH:MM:SS");
                         return;
                     }
@@ -2193,6 +2198,11 @@ impl App {
             return;
         }
 
+        if self.file_time_range.is_none() {
+            self.show_message("No timestamps found in file");
+            return;
+        }
+
         self.time_filter_focus = TimeFilterFocus::Start;
 
         if self.time_filter_input_start.value().is_empty() || self.time_filter_input_end.value().is_empty() {
@@ -2212,8 +2222,13 @@ impl App {
     fn reset_time_filter_to_file_range(&mut self) {
         let format = "%Y-%m-%d %H:%M:%S";
         if let Some((start, end)) = self.file_time_range {
-            self.time_filter_input_start = Input::new(start.format(format).to_string());
-            self.time_filter_input_end = Input::new(end.format(format).to_string());
+            if let Some(tz) = self.file_timezone {
+                self.time_filter_input_start = Input::new(start.with_timezone(&tz).format(format).to_string());
+                self.time_filter_input_end = Input::new(end.with_timezone(&tz).format(format).to_string());
+            } else {
+                self.time_filter_input_start = Input::new(start.format(format).to_string());
+                self.time_filter_input_end = Input::new(end.format(format).to_string());
+            }
         } else {
             self.time_filter_input_start = Input::default();
             self.time_filter_input_end = Input::default();
@@ -2241,20 +2256,26 @@ impl App {
         self.time_filter_focus = self.time_filter_focus.next();
     }
 
-    fn parse_timestamp(s: &str) -> Option<DateTime<Utc>> {
+    fn parse_filter_timestamp(&self, s: &str) -> Option<DateTime<Utc>> {
         let formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"];
 
         for format in &formats {
             if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, format) {
+                if let Some(tz) = self.file_timezone {
+                    let local_dt = naive.and_local_timezone(tz).single()?;
+                    return Some(local_dt.with_timezone(&Utc));
+                }
                 return Some(DateTime::from_naive_utc_and_offset(naive, Utc));
             }
         }
 
         if let Ok(naive_date) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
-            return Some(DateTime::from_naive_utc_and_offset(
-                naive_date.and_hms_opt(0, 0, 0)?,
-                Utc,
-            ));
+            let naive_dt = naive_date.and_hms_opt(0, 0, 0)?;
+            if let Some(tz) = self.file_timezone {
+                let local_dt = naive_dt.and_local_timezone(tz).single()?;
+                return Some(local_dt.with_timezone(&Utc));
+            }
+            return Some(DateTime::from_naive_utc_and_offset(naive_dt, Utc));
         }
 
         None
@@ -2265,7 +2286,7 @@ impl App {
         let start_str = self.time_filter_input_start.value();
         let end_str = self.time_filter_input_end.value();
 
-        match (Self::parse_timestamp(start_str), Self::parse_timestamp(end_str)) {
+        match (self.parse_filter_timestamp(start_str), self.parse_filter_timestamp(end_str)) {
             (Some(start), Some(end)) => {
                 if start > end {
                     self.show_message("Start time must be before end time");
