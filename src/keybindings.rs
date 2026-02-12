@@ -387,6 +387,8 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::Char('s'), Command::SoloEventFilter);
         self.bind_simple(context.clone(), KeyCode::Char('d'), Command::RemoveCustomEvent);
         self.bind_simple(context.clone(), KeyCode::Delete, Command::RemoveCustomEvent);
+        self.bind_simple(context.clone(), KeyCode::Char('}'), Command::EventNext);
+        self.bind_simple(context.clone(), KeyCode::Char('{'), Command::EventPrevious);
     }
 
     fn register_marks_view_bindings(&mut self) {

@@ -833,6 +833,12 @@ impl App {
                     self.close_overlay();
                     return;
                 }
+                Overlay::EventsFilter => {
+                    self.close_overlay();
+                    // Don't change logview selection from the event filter list
+                    self.set_view_state(ViewState::LogView);
+                    return;
+                }
                 Overlay::Message(_) => {
                     self.close_overlay();
                     return;
@@ -1399,9 +1405,15 @@ impl App {
     }
 
     pub fn event_next(&mut self) {
-        if let Some(line_index) = self.viewport_to_log_line_index(self.viewport.selected_line)
-            && let Some(next_event_line) = self.get_next_event_line(line_index)
-        {
+        let line_index = self.viewport_to_log_line_index(self.viewport.selected_line);
+        let next_line = match line_index {
+            Some(line_idx) if self.overlay == Some(Overlay::EventsFilter) => {
+                self.get_next_event_line_by_filter(line_idx)
+            }
+            Some(line_idx) => self.get_next_event_line(line_idx),
+            None => None,
+        };
+        if let Some(next_event_line) = next_line {
             let all_lines = self.log_buffer.all_lines();
             if let Some(viewport_idx) = self.resolver.log_to_viewport(next_event_line, all_lines) {
                 self.viewport.push_history(next_event_line);
@@ -1411,9 +1423,15 @@ impl App {
     }
 
     pub fn event_previous(&mut self) {
-        if let Some(line_index) = self.viewport_to_log_line_index(self.viewport.selected_line)
-            && let Some(prev_event_line) = self.get_previous_event_line(line_index)
-        {
+        let line_index = self.viewport_to_log_line_index(self.viewport.selected_line);
+        let prev_line = match line_index {
+            Some(line_idx) if self.overlay == Some(Overlay::EventsFilter) => {
+                self.get_previous_event_line_by_filter(line_idx)
+            }
+            Some(line_idx) => self.get_previous_event_line(line_idx),
+            None => None,
+        };
+        if let Some(prev_event_line) = prev_line {
             let all_lines = self.log_buffer.all_lines();
             if let Some(viewport_idx) = self.resolver.log_to_viewport(prev_event_line, all_lines) {
                 self.viewport.push_history(prev_event_line);
@@ -2021,5 +2039,31 @@ impl App {
             .rev()
             .find(|event| event.line_index < line_index)
             .map(|event| event.line_index)
+    }
+
+    fn selected_filter_event_name(&self) -> Option<String> {
+        let event_stats = self.event_tracker.get_event_stats();
+        event_stats
+            .get(self.event_filter_list_state.selected_index())
+            .map(|es| es.name.clone())
+    }
+
+    fn get_next_event_line_by_filter(&self, line_index: usize) -> Option<usize> {
+        let name = self.selected_filter_event_name()?;
+        self.event_tracker
+            .get_events_by_name(&name)
+            .into_iter()
+            .find(|e| e.line_index > line_index)
+            .map(|e| e.line_index)
+    }
+
+    fn get_previous_event_line_by_filter(&self, line_index: usize) -> Option<usize> {
+        let name = self.selected_filter_event_name()?;
+        self.event_tracker
+            .get_events_by_name(&name)
+            .into_iter()
+            .rev()
+            .find(|e| e.line_index < line_index)
+            .map(|e| e.line_index)
     }
 }

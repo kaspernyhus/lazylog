@@ -149,6 +149,11 @@ impl LogEventTracker {
             .collect()
     }
 
+    /// Returns enabled events matching a specific event name.
+    pub fn get_events_by_name(&self, name: &str) -> Vec<&LogEvent> {
+        self.events.iter().filter(|e| e.name == name).collect()
+    }
+
     /// Returns a set of all line indices that contain events.
     pub fn get_event_indices(&self) -> HashSet<usize> {
         self.events.iter().map(|e| e.line_index).collect()
