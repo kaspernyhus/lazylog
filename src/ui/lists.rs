@@ -442,17 +442,16 @@ impl App {
             })
             .collect();
 
-        let mut list_state = ListState::default();
-        if !self.file_manager.iter().collect::<Vec<_>>().is_empty() {
-            list_state.select(Some(self.files_list_state.selected_index()));
-        }
-
-        let files_list = List::new(items)
-            .block(block)
+        let (list_area, _) = ScrollableList::new(items)
+            .selection(
+                self.files_list_state.selected_index(),
+                self.files_list_state.viewport_offset(),
+            )
             .highlight_symbol(RIGHT_ARROW)
-            .highlight_style(Style::default().add_modifier(Modifier::BOLD));
+            .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+            .render(area, buf, block);
 
-        StatefulWidget::render(files_list, area, buf, &mut list_state);
+        self.files_list_state.set_viewport_height(list_area.height as usize);
     }
 
     pub(super) fn render_mark_name_input_popup(&self, area: Rect, buf: &mut Buffer) {
