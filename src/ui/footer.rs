@@ -60,7 +60,8 @@ impl App {
                 .iter()
                 .map(|file| {
                     let path_str = &file.path;
-                    let max_path_len = (60 - 9 * self.file_manager.count()) / self.file_manager.count();
+                    let max_path_len =
+                        60usize.saturating_sub(9 * self.file_manager.count()) / self.file_manager.count();
                     let truncated = if path_str.chars().count() > max_path_len {
                         let skip = path_str.chars().count().saturating_sub(max_path_len);
                         let suffix: String = path_str.chars().skip(skip).collect();
