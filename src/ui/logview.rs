@@ -192,7 +192,8 @@ impl App {
         let file_id_indicator = if self.options.is_disabled(AppOption::HideFileIds)
             && let Some(id) = log_line.log_file_id
         {
-            let indicator = format!("[{}] ", id + 1);
+            let width = self.file_manager.count().to_string().len() + 2;
+            let indicator = format!("{:>width$} ", format!("[{}]", id + 1));
             let color = if log_line.timestamp.is_some() {
                 FILE_ID_COLORS[id % FILE_ID_COLORS.len()]
             } else {
