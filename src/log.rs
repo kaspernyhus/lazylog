@@ -101,27 +101,25 @@ impl LogBuffer {
             let mut file_lines: Vec<LogLine> = content
                 .lines()
                 .enumerate()
-                .map(|(index, line)| {
-                    let content = sanitize_line(line);
-                    if let Some(timestamp) = parse_timestamp(line) {
-                        LogLine {
-                            content,
-                            index,
-                            timestamp: Some(timestamp),
-                            log_file_id: Some(file_id),
-                        }
-                    } else {
-                        total_lines_skipped += 1;
-                        LogLine {
-                            content,
-                            index,
-                            timestamp: None,
-                            log_file_id: Some(file_id),
-                        }
-                    }
+                .map(|(index, line)| LogLine {
+                    content: sanitize_line(line),
+                    index,
+                    timestamp: parse_timestamp(line),
+                    log_file_id: Some(file_id),
                 })
                 .collect();
 
+            // Lines without a timestamp inherit from the line above.
+            let mut last_timestamp: Option<DateTime<Utc>> = None;
+            for line in file_lines.iter_mut() {
+                if line.timestamp.is_some() {
+                    last_timestamp = line.timestamp;
+                } else {
+                    line.timestamp = last_timestamp;
+                }
+            }
+
+            total_lines_skipped += file_lines.iter().filter(|l| l.timestamp.is_none()).count();
             self.lines.append(&mut file_lines);
         }
 
