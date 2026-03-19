@@ -179,7 +179,9 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::Char('k'), Command::MoveUp);
         self.bind_simple(context.clone(), KeyCode::Char('j'), Command::MoveDown);
         self.bind_simple(context.clone(), KeyCode::PageUp, Command::PageUp);
+        self.bind_simple(context.clone(), KeyCode::Char('u'), Command::PageUp);
         self.bind_simple(context.clone(), KeyCode::PageDown, Command::PageDown);
+        self.bind_simple(context.clone(), KeyCode::Char('d'), Command::PageDown);
         self.bind_simple(context.clone(), KeyCode::Char('g'), Command::GotoTop);
         self.bind_shift(context.clone(), 'G', Command::GotoBottom);
         self.bind_simple(context.clone(), KeyCode::Char('z'), Command::CenterSelected);
