@@ -31,6 +31,7 @@ use ratatui::{
     backend::Backend,
     crossterm::event::{KeyCode, KeyEvent},
 };
+use regex::Regex;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
@@ -163,6 +164,8 @@ pub struct App {
     persist_enabled: bool,
     /// Whether to only show marked lines
     pub show_marked_lines_only: bool,
+    /// Compiled context capture regex for correlated line navigation.
+    pub context_capture: Option<Regex>,
 }
 
 impl App {
@@ -227,6 +230,8 @@ impl App {
         let event_patterns = config.parse_log_event_patterns();
         let event_tracker = LogEventTracker::new(event_patterns);
 
+        let context_capture = config.parse_context_capture();
+
         let mut app = Self {
             running: true,
             config,
@@ -259,6 +264,7 @@ impl App {
             keybindings,
             persist_enabled: !args.no_persist,
             show_marked_lines_only: false,
+            context_capture,
         };
 
         // Set item counts for list states
@@ -1404,6 +1410,30 @@ impl App {
         }
     }
 
+    pub fn context_next(&mut self) {
+        if let Some(line_index) = self.viewport_to_log_line_index(self.viewport.selected_line)
+            && let Some(next_line) = self.get_next_context_capture_line(line_index)
+        {
+            let all_lines = self.log_buffer.all_lines();
+            if let Some(viewport_idx) = self.resolver.log_to_viewport(next_line, all_lines) {
+                self.viewport.push_history(next_line);
+                self.viewport.goto_line(viewport_idx, false);
+            }
+        }
+    }
+
+    pub fn context_previous(&mut self) {
+        if let Some(line_index) = self.viewport_to_log_line_index(self.viewport.selected_line)
+            && let Some(prev_line) = self.get_previous_context_capture_line(line_index)
+        {
+            let all_lines = self.log_buffer.all_lines();
+            if let Some(viewport_idx) = self.resolver.log_to_viewport(prev_line, all_lines) {
+                self.viewport.push_history(prev_line);
+                self.viewport.goto_line(viewport_idx, false);
+            }
+        }
+    }
+
     pub fn event_next(&mut self) {
         let line_index = self.viewport_to_log_line_index(self.viewport.selected_line);
         let next_line = match line_index {
@@ -2022,7 +2052,32 @@ impl App {
         Some(nearest_idx)
     }
 
-    /// Returns the line index of the next event after the given line index.
+    fn get_context_capture_value(&self, content: &str) -> Option<String> {
+        let regex = self.context_capture.as_ref()?;
+        regex.captures(content)?.get(1).map(|m| m.as_str().to_string())
+    }
+
+    fn get_next_context_capture_line(&self, line_index: usize) -> Option<usize> {
+        let target = self.get_context_capture_value(&self.log_buffer.all_lines().get(line_index)?.content)?;
+        self.log_buffer
+            .all_lines()
+            .iter()
+            .skip(line_index + 1)
+            .find(|line| self.get_context_capture_value(&line.content).as_deref() == Some(&target))
+            .map(|line| line.index)
+    }
+
+    fn get_previous_context_capture_line(&self, line_index: usize) -> Option<usize> {
+        let target = self.get_context_capture_value(&self.log_buffer.all_lines().get(line_index)?.content)?;
+        self.log_buffer
+            .all_lines()
+            .iter()
+            .take(line_index)
+            .rev()
+            .find(|line| self.get_context_capture_value(&line.content).as_deref() == Some(&target))
+            .map(|line| line.index)
+    }
+
     fn get_next_event_line(&self, line_index: usize) -> Option<usize> {
         let enabled_events = self.get_visible_events();
         enabled_events

@@ -223,6 +223,8 @@ impl KeybindingRegistry {
         self.bind_simple(context.clone(), KeyCode::Char('['), Command::MarkPrevious);
         self.bind_simple(context.clone(), KeyCode::Char('}'), Command::EventNext);
         self.bind_simple(context.clone(), KeyCode::Char('{'), Command::EventPrevious);
+        self.bind_simple(context.clone(), KeyCode::Char(')'), Command::ContextNext);
+        self.bind_simple(context.clone(), KeyCode::Char('('), Command::ContextPrevious);
         self.bind_simple(context.clone(), KeyCode::Char('x'), Command::ToggleExpansion);
         self.bind_shift(context.clone(), 'X', Command::CollapseAll);
         self.bind_simple(context.clone(), KeyCode::Char('c'), Command::ToggleCenterCursorMode);

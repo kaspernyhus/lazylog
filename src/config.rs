@@ -23,6 +23,13 @@ pub struct Config {
     pub default_event_fg_color_index: Option<u8>,
     pub default_event_bg_color_index: Option<u8>,
     pub default_custom_event_bg_color_index: Option<u8>,
+    pub context_capture: Option<ContextCaptureConfig>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ContextCaptureConfig {
+    /// Regex with one capture group. The captured value is used to find correlated log lines.
+    pub pattern: String,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -268,6 +275,11 @@ impl Config {
                 HighlightPattern::new(&ev_config.pattern, match_type, style)
             })
             .collect()
+    }
+
+    /// Parses the context capture regex, if configured.
+    pub fn parse_context_capture(&self) -> Option<Regex> {
+        self.context_capture.as_ref().and_then(|c| Regex::new(&c.pattern).ok())
     }
 
     /// Parses event patterns to the log event tracker

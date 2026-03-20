@@ -44,3 +44,8 @@ filters = [
     { pattern = "DEBUG", mode = "exclude", case_sensitive = false, enabled = true },
     { pattern = "INFO",  mode = "include", case_sensitive = true,  enabled = false },
 ]
+
+# Log line context capture: a regex pattern that captures a value to compare with related log lines. Useful for navigation.
+context_capture = {
+    pattern = '\b(DEBUG|INFO|WARNING|ERROR|CRITICAL|FATAL)\b'
+}

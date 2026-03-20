@@ -102,6 +102,10 @@ pub enum Command {
     SelectToEventPrevious,
     SelectToMarkNext,
     SelectToMarkPrevious,
+
+    // Log line context capture navigation
+    ContextNext,
+    ContextPrevious,
 }
 
 impl Command {
@@ -206,6 +210,10 @@ impl Command {
             Command::SelectToEventPrevious => "Select to previous event",
             Command::SelectToMarkNext => "Select to next mark",
             Command::SelectToMarkPrevious => "Select to previous mark",
+
+            // Context capture navigation
+            Command::ContextNext => "Go to next line with same capture",
+            Command::ContextPrevious => "Go to previous line with same capture",
         }
     }
 
@@ -321,6 +329,10 @@ impl Command {
             Command::SelectToEventPrevious => app.select_to_event_previous(),
             Command::SelectToMarkNext => app.select_to_mark_next(),
             Command::SelectToMarkPrevious => app.select_to_mark_previous(),
+
+            // Context capture navigation
+            Command::ContextNext => app.context_next(),
+            Command::ContextPrevious => app.context_previous(),
         }
         Ok(())
     }
