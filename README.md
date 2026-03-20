@@ -98,3 +98,6 @@ Run performance measurements:
 ```bash
 cargo test --release --test perf -- --nocapture --test-threads=1
 ```
+
+## AI Usage
+This project is being developed with AI assistance (thanks Claude). I find AI really useful for exploring design decisions, implementing first drafts and doing massive refactoring quicker than I could have ever done it without these addictive bowling bumpers — the vision and iterative refinements remain driven by me for now. If something feels "generated" it probably is...
