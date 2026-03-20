@@ -106,6 +106,7 @@ pub enum Command {
     // Log line context capture navigation
     ContextNext,
     ContextPrevious,
+    ContextFilter,
 }
 
 impl Command {
@@ -214,6 +215,7 @@ impl Command {
             // Context capture navigation
             Command::ContextNext => "Go to next line with same capture",
             Command::ContextPrevious => "Go to previous line with same capture",
+            Command::ContextFilter => "Add capture value as filter",
         }
     }
 
@@ -333,6 +335,7 @@ impl Command {
             // Context capture navigation
             Command::ContextNext => app.context_next(),
             Command::ContextPrevious => app.context_previous(),
+            Command::ContextFilter => app.filter_on_context(),
         }
         Ok(())
     }

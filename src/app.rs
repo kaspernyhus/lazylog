@@ -1410,6 +1410,14 @@ impl App {
         }
     }
 
+    pub fn filter_on_context(&mut self) {
+        if let Some(capture_value) = self.active_context_capture_value() {
+            self.filter.add_filter_from_pattern(&capture_value);
+            self.filter_list_state.set_item_count(self.filter.count());
+            self.update_view();
+        }
+    }
+
     pub fn context_next(&mut self) {
         if let Some(line_index) = self.viewport_to_log_line_index(self.viewport.selected_line)
             && let Some(next_line) = self.get_next_context_capture_line(line_index)
@@ -2050,6 +2058,14 @@ impl App {
         }
 
         Some(nearest_idx)
+    }
+
+    pub fn active_context_capture_value(&self) -> Option<String> {
+        let all_lines = self.log_buffer.all_lines();
+        let visible = self.resolver.get_visible_lines(all_lines);
+        let log_index = visible.get(self.viewport.selected_line)?.log_index;
+        let content = &all_lines.get(log_index)?.content;
+        self.get_context_capture_value(content)
     }
 
     fn get_context_capture_value(&self, content: &str) -> Option<String> {
