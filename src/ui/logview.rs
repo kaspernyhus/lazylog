@@ -189,7 +189,8 @@ impl App {
             Span::raw(" ")
         };
 
-        let file_id_indicator = if self.options.is_disabled(AppOption::HideFileIds)
+        let file_id_indicator = if self.file_manager.is_multi_file()
+            && self.options.is_disabled(AppOption::HideFileIds)
             && let Some(id) = log_line.log_file_id
         {
             let width = self.file_manager.count().to_string().len() + 2;

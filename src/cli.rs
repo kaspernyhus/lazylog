@@ -23,6 +23,10 @@ pub struct Cli {
     #[arg(long)]
     pub no_persist: bool,
 
+    /// Skip timestamp parsing. Multi-file logs will not be sorted chronologically.
+    #[arg(long)]
+    pub no_timestamps: bool,
+
     /// Enable debug logging to file. Use RUST_LOG= to set log level
     #[arg(long, value_name = "FILE")]
     pub debug: Option<String>,
