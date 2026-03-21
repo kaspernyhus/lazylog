@@ -34,6 +34,7 @@ impl KeybindingRegistry {
         registry.register_files_view_bindings();
         registry.register_message_state_bindings();
         registry.register_error_state_bindings();
+        registry.register_fatal_state_bindings();
 
         // Register global bindings for all view states
         registry.register_global_bindings(KeybindingContext::View(ViewState::LogView));
@@ -55,6 +56,7 @@ impl KeybindingRegistry {
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::AddCustomEvent));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::Message(String::new())));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::Error(String::new())));
+        registry.register_global_bindings(KeybindingContext::Overlay(Overlay::Fatal(String::new())));
 
         registry
     }
@@ -91,6 +93,7 @@ impl KeybindingRegistry {
         match overlay {
             Overlay::Message(_) => Overlay::Message(String::new()),
             Overlay::Error(_) => Overlay::Error(String::new()),
+            Overlay::Fatal(_) => Overlay::Fatal(String::new()),
             other => other.clone(),
         }
     }
@@ -446,6 +449,12 @@ impl KeybindingRegistry {
 
     fn register_error_state_bindings(&mut self) {
         let context = KeybindingContext::Overlay(Overlay::Error(String::new()));
+
+        self.bind_simple(context, KeyCode::Char('q'), Command::Quit);
+    }
+
+    fn register_fatal_state_bindings(&mut self) {
+        let context = KeybindingContext::Overlay(Overlay::Fatal(String::new()));
 
         self.bind_simple(context, KeyCode::Char('q'), Command::Quit);
     }

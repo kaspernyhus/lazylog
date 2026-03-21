@@ -1,4 +1,4 @@
-use super::colors::{MESSAGE_BORDER, MESSAGE_ERROR_FG, MESSAGE_INFO_FG, WHITE_COLOR};
+use super::colors::{ERROR_BORDER, ERROR_FG, FATAL_BORDER, MESSAGE_BORDER, MESSAGE_INFO_FG, WHITE_COLOR};
 use crate::app::App;
 use ratatui::widgets::{BorderType, Padding};
 use ratatui::{
@@ -33,7 +33,15 @@ pub fn popup_area(area: Rect, width: u16, height: u16) -> Rect {
 
 impl App {
     /// Renders a centered popup that adapts to content size.
-    pub(super) fn render_popup(&self, message: &str, title: &str, title_color: Color, area: Rect, buf: &mut Buffer) {
+    pub(super) fn render_popup(
+        &self,
+        message: &str,
+        title: &str,
+        title_color: Color,
+        border_color: Color,
+        area: Rect,
+        buf: &mut Buffer,
+    ) {
         let lines: Vec<&str> = message.split('\n').collect();
         let max_line_width = lines.iter().map(|line| line.len()).max().unwrap_or(0);
 
@@ -42,12 +50,6 @@ impl App {
         let popup_area = popup_area(area, popup_width, popup_height);
 
         Clear.render(popup_area, buf);
-
-        let border_color = if title == "Error" {
-            MESSAGE_ERROR_FG
-        } else {
-            MESSAGE_BORDER
-        };
 
         let block = Block::default()
             .title(format!(" {} ", title))
@@ -63,14 +65,19 @@ impl App {
         popup.render(popup_area, buf);
     }
 
-    /// Renders a centered message popup that adapts to content size.
+    /// Renders a centered message popup.
     pub(super) fn render_message_popup(&self, message: &str, area: Rect, buf: &mut Buffer) {
-        self.render_popup(message, "Message", MESSAGE_INFO_FG, area, buf);
+        self.render_popup(message, "Message", MESSAGE_INFO_FG, MESSAGE_BORDER, area, buf);
     }
 
-    /// Renders a centered error popup that adapts to content size.
+    /// Renders a centered error popup.
     pub(super) fn render_error_popup(&self, error_msg: &str, area: Rect, buf: &mut Buffer) {
-        self.render_popup(error_msg, "Error", MESSAGE_ERROR_FG, area, buf);
+        self.render_popup(error_msg, "Error", ERROR_FG, ERROR_BORDER, area, buf);
+    }
+
+    /// Renders a centered fatal error popup.
+    pub(super) fn render_fatal_popup(&self, error_msg: &str, area: Rect, buf: &mut Buffer) {
+        self.render_popup(error_msg, "Fatal Error", ERROR_FG, FATAL_BORDER, area, buf);
     }
 
     /// Renders the save to file bar footer in SaveToFileMode.

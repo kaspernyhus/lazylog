@@ -80,6 +80,8 @@ pub enum Overlay {
     Message(String),
     /// Display an error message to the user.
     Error(String),
+    /// Display a fatal error — only option is to quit program.
+    Fatal(String),
 }
 
 impl Overlay {
@@ -87,7 +89,7 @@ impl Overlay {
         match self {
             Overlay::EditFilter | Overlay::MarkName | Overlay::SaveToFile | Overlay::AddCustomEvent => Some((60, 3)),
             Overlay::EventsFilter => Some((50, 25)),
-            Overlay::Message(_) | Overlay::Error(_) => None,
+            Overlay::Message(_) | Overlay::Error(_) | Overlay::Fatal(_) => None,
         }
     }
 
@@ -193,7 +195,7 @@ impl App {
         let initial_overlay = if args.clear_state {
             match clear_all_state() {
                 Ok(msg) => Some(Overlay::Message(msg)),
-                Err(err) => Some(Overlay::Error(err)),
+                Err(err) => Some(Overlay::Fatal(err)),
             }
         } else {
             None
@@ -280,7 +282,7 @@ impl App {
         }
 
         if !use_stdin && app.file_manager.is_empty() {
-            app.show_error("No file paths provided");
+            app.show_fatal("No file paths provided");
             return app;
         }
 
@@ -310,7 +312,7 @@ impl App {
                 }
             }
             Err(e) => {
-                app.show_error(format!("Failed to load file(s): {}\nError: {}", args.files.join(", "), e).as_str())
+                app.show_fatal(format!("Failed to load file(s): {}\nError: {}", args.files.join(", "), e).as_str())
             }
         }
 
@@ -440,6 +442,11 @@ impl App {
     /// Shows an error overlay.
     fn show_error(&mut self, error: &str) {
         self.show_overlay(Overlay::Error(error.to_string()));
+    }
+
+    /// Shows a fatal error overlay. OBS: The only option then is to quit program.
+    fn show_fatal(&mut self, error: &str) {
+        self.show_overlay(Overlay::Fatal(error.to_string()));
     }
 
     pub fn show_overlay(&mut self, overlay: Overlay) {
@@ -849,11 +856,13 @@ impl App {
                     self.set_view_state(ViewState::LogView);
                     return;
                 }
-                Overlay::Message(_) => {
+                Overlay::Message(_) | Overlay::Error(_) => {
                     self.close_overlay();
                     return;
                 }
-                _ => {}
+                Overlay::Fatal(_) => {
+                    return;
+                }
             }
         }
 
@@ -955,10 +964,10 @@ impl App {
                 Overlay::AddCustomEvent => {
                     self.close_overlay();
                 }
-                Overlay::Message(_) => {
-                    self.set_view_state(ViewState::LogView);
+                Overlay::Message(_) | Overlay::Error(_) => {
+                    self.close_overlay();
                 }
-                Overlay::Error(_) => {}
+                Overlay::Fatal(_) => {}
             }
             return;
         }

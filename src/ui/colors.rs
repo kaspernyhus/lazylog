@@ -71,7 +71,10 @@ pub const FILE_DISABLED_FG: Color = Color::White;
 // Messages
 pub const MESSAGE_INFO_FG: Color = WHITE_COLOR;
 pub const MESSAGE_BORDER: Color = Color::Blue;
-pub const MESSAGE_ERROR_FG: Color = Color::Red;
+pub const ERROR_FG: Color = Color::Red;
+pub const ERROR_BORDER: Color = Color::Red;
+pub const MESSAGE_FATAL_FG: Color = Color::LightRed;
+pub const FATAL_BORDER: Color = Color::LightRed;
 
 // Selection colors
 pub const SELECTION_BG: Color = Color::LightBlue;
