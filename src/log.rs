@@ -72,27 +72,14 @@ impl LogLine {
 }
 
 impl LogBuffer {
-    /// Loads log lines from one of more files.
-    pub fn load_files(&mut self, paths: &[&str]) -> color_eyre::Result<usize> {
+    /// Loads log lines from one or more files and parse timestamps if not disabled.
+    pub fn load_files(&mut self, paths: &[&str], parse_timestamps: bool) -> color_eyre::Result<usize> {
         if paths.is_empty() {
             return Err(color_eyre::eyre::eyre!("No files provided"));
         }
 
         self.streaming = false;
-
-        // Single file: skip timestamp parsing and sorting
-        if paths.len() == 1 {
-            let bytes = std::fs::read(paths[0])?;
-            let content = String::from_utf8_lossy(&bytes);
-            self.lines = content
-                .lines()
-                .enumerate()
-                .map(|(index, line)| LogLine::new(line, index))
-                .collect();
-            return Ok(0);
-        }
-
-        // Multi-file: parse timestamps and sort
+        let multi_file = paths.len() > 1;
         let mut total_lines_skipped = 0;
 
         for (file_id, path) in paths.iter().enumerate() {
@@ -104,35 +91,43 @@ impl LogBuffer {
                 .map(|(index, line)| LogLine {
                     content: sanitize_line(line),
                     index,
-                    timestamp: parse_timestamp(line),
+                    timestamp: if parse_timestamps { parse_timestamp(line) } else { None },
                     log_file_id: Some(file_id),
                 })
                 .collect();
 
-            // Lines without a timestamp inherit from the line above.
-            let mut last_timestamp: Option<DateTime<Utc>> = None;
-            for line in file_lines.iter_mut() {
-                if line.timestamp.is_some() {
-                    last_timestamp = line.timestamp;
-                } else {
-                    line.timestamp = last_timestamp;
+            if parse_timestamps {
+                // Lines without a timestamp inherit from the line above.
+                let mut last_timestamp: Option<DateTime<Utc>> = None;
+                for line in file_lines.iter_mut() {
+                    if line.timestamp.is_some() {
+                        last_timestamp = line.timestamp;
+                    } else {
+                        line.timestamp = last_timestamp;
+                    }
+                }
+
+                if multi_file {
+                    total_lines_skipped += file_lines.iter().filter(|l| l.timestamp.is_none()).count();
                 }
             }
 
-            total_lines_skipped += file_lines.iter().filter(|l| l.timestamp.is_none()).count();
             self.lines.append(&mut file_lines);
         }
 
-        // Sort lines with timestamps first, then lines without timestamps
-        self.lines.sort_by(|a, b| match (&a.timestamp, &b.timestamp) {
-            (Some(ts_a), Some(ts_b)) => ts_a.cmp(ts_b),
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => a.index.cmp(&b.index),
-        });
+        if multi_file {
+            if parse_timestamps {
+                self.lines.sort_by(|a, b| match (&a.timestamp, &b.timestamp) {
+                    (Some(ts_a), Some(ts_b)) => ts_a.cmp(ts_b),
+                    (Some(_), None) => std::cmp::Ordering::Less,
+                    (None, Some(_)) => std::cmp::Ordering::Greater,
+                    (None, None) => a.index.cmp(&b.index),
+                });
+            }
 
-        for (new_index, line) in self.lines.iter_mut().enumerate() {
-            line.index = new_index;
+            for (new_index, line) in self.lines.iter_mut().enumerate() {
+                line.index = new_index;
+            }
         }
 
         Ok(total_lines_skipped)

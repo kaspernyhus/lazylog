@@ -284,8 +284,9 @@ impl App {
             return app;
         }
 
-        let file_paths = app.file_manager.paths();
-        let load_result = app.log_buffer.load_files(&file_paths);
+        let load_result = app
+            .log_buffer
+            .load_files(&app.file_manager.paths(), !args.no_timestamps);
 
         match load_result {
             Ok(skipped_lines) => {
