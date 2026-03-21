@@ -102,6 +102,9 @@ impl Widget for &App {
                 Overlay::Error(error_msg) => {
                     self.render_error_popup(error_msg, area, buf);
                 }
+                Overlay::Fatal(error_msg) => {
+                    self.render_fatal_popup(error_msg, area, buf);
+                }
             }
         }
 

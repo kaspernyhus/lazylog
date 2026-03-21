@@ -260,6 +260,7 @@ impl Help {
                 Overlay::AddCustomEvent => KeybindingContext::Overlay(Overlay::AddCustomEvent),
                 Overlay::Message(_) => KeybindingContext::Overlay(Overlay::Message(String::new())),
                 Overlay::Error(_) => KeybindingContext::Overlay(Overlay::Error(String::new())),
+                Overlay::Fatal(_) => KeybindingContext::Overlay(Overlay::Fatal(String::new())),
             };
 
             for (index, item) in self.help_items.iter().enumerate() {
