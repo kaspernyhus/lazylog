@@ -133,6 +133,53 @@ impl LogBuffer {
         Ok(total_lines_skipped)
     }
 
+    /// Adds a new file to an existing buffer.
+    ///
+    /// Sorts all lines by timestamp if `parse_timestamps` is true.
+    pub fn add_file(&mut self, path: &str, file_id: usize, parse_timestamps: bool) -> color_eyre::Result<()> {
+        let bytes = std::fs::read(path)?;
+        let content = String::from_utf8_lossy(&bytes);
+        let mut last_timestamp: Option<DateTime<Utc>> = None;
+
+        let mut file_lines: Vec<LogLine> = content
+            .lines()
+            .enumerate()
+            .map(|(index, line)| LogLine {
+                content: sanitize_line(line),
+                index,
+                timestamp: if parse_timestamps { parse_timestamp(line) } else { None },
+                log_file_id: Some(file_id),
+            })
+            .collect();
+
+        if parse_timestamps {
+            for line in file_lines.iter_mut() {
+                if line.timestamp.is_some() {
+                    last_timestamp = line.timestamp;
+                } else {
+                    line.timestamp = last_timestamp;
+                }
+            }
+        }
+
+        self.lines.append(&mut file_lines);
+
+        if parse_timestamps {
+            self.lines.sort_by(|a, b| match (&a.timestamp, &b.timestamp) {
+                (Some(ts_a), Some(ts_b)) => ts_a.cmp(ts_b),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => a.index.cmp(&b.index),
+            });
+        }
+
+        for (new_index, line) in self.lines.iter_mut().enumerate() {
+            line.index = new_index;
+        }
+
+        Ok(())
+    }
+
     /// Initializes the buffer for stdin streaming mode.
     pub fn init_stdin_mode(&mut self) {
         self.streaming = true;
