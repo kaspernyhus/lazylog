@@ -491,23 +491,4 @@ impl App {
 
         popup.render(area, buf);
     }
-
-    pub(super) fn render_add_file_popup(&self, area: Rect, buf: &mut Buffer) {
-        Clear.render(area, buf);
-
-        let input_text = self.input.value();
-        let popup = Paragraph::new(input_text)
-            .block(
-                Block::default()
-                    .title(" Add File ")
-                    .title_alignment(Alignment::Center)
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded)
-                    .border_style(Style::default().fg(Color::Green)),
-            )
-            .style(Style::default().fg(WHITE_COLOR))
-            .alignment(Alignment::Left);
-
-        popup.render(area, buf);
-    }
 }
