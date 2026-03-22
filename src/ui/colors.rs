@@ -68,6 +68,12 @@ pub const FILE_BORDER: Color = Color::Indexed(108);
 pub const FILE_ENABLED_FG: Color = Color::Green;
 pub const FILE_DISABLED_FG: Color = Color::White;
 
+// File explorer
+pub const EXPLORER_BORDER: Color = FILE_BORDER;
+pub const EXPLORER_DIR_FG: Color = Color::Cyan;
+pub const EXPLORER_HIGHLIGHT_ITEM_FG: Color = WHITE_COLOR;
+pub const EXPLORER_HIGHLIGHT_DIR_FG: Color = FILE_BORDER;
+
 // Messages
 pub const MESSAGE_INFO_FG: Color = WHITE_COLOR;
 pub const MESSAGE_BORDER: Color = Color::Blue;

@@ -31,6 +31,7 @@ use ratatui::{
     backend::Backend,
     crossterm::event::{KeyCode, KeyEvent, KeyEventKind},
 };
+use ratatui_explorer::FileExplorer;
 use regex::Regex;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -89,11 +90,8 @@ pub enum Overlay {
 impl Overlay {
     pub fn popup_size(&self) -> Option<(u16, u16)> {
         match self {
-            Overlay::EditFilter
-            | Overlay::MarkName
-            | Overlay::SaveToFile
-            | Overlay::AddCustomEvent
-            | Overlay::AddFile => Some((60, 3)),
+            Overlay::EditFilter | Overlay::MarkName | Overlay::SaveToFile | Overlay::AddCustomEvent => Some((60, 3)),
+            Overlay::AddFile => Some((70, 20)),
             Overlay::EventsFilter => Some((50, 25)),
             Overlay::Message(_) | Overlay::Error(_) | Overlay::Fatal(_) => None,
         }
@@ -102,7 +100,7 @@ impl Overlay {
     pub fn has_text_input(&self) -> bool {
         matches!(
             self,
-            Overlay::EditFilter | Overlay::MarkName | Overlay::SaveToFile | Overlay::AddCustomEvent | Overlay::AddFile
+            Overlay::EditFilter | Overlay::MarkName | Overlay::SaveToFile | Overlay::AddCustomEvent
         )
     }
 }
@@ -176,6 +174,8 @@ pub struct App {
     pub show_marked_lines_only: bool,
     /// Compiled context capture regex for correlated line navigation.
     pub context_capture: Option<Regex>,
+    /// File explorer for browsing the filesystem when adding a file.
+    pub file_explorer: Option<FileExplorer>,
 }
 
 impl App {
@@ -195,7 +195,6 @@ impl App {
                 | Some(Overlay::MarkName)
                 | Some(Overlay::SaveToFile)
                 | Some(Overlay::AddCustomEvent)
-                | Some(Overlay::AddFile)
         )
     }
 
@@ -277,6 +276,7 @@ impl App {
             parse_timestamps: !args.no_timestamps,
             show_marked_lines_only: false,
             context_capture,
+            file_explorer: None,
         };
 
         // Set item counts for list states
@@ -469,6 +469,7 @@ impl App {
     pub fn close_overlay(&mut self) {
         self.overlay = None;
         self.message_timestamp = None;
+        self.file_explorer = None;
     }
 
     fn update_completion_words(&mut self) {
@@ -604,7 +605,11 @@ impl App {
                 Event::Tick => self.tick(),
                 Event::Crossterm(event) => match event {
                     Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                        self.handle_key_events(key_event)?;
+                        if matches!(self.overlay, Some(Overlay::AddFile)) {
+                            self.handle_file_explorer_event(key_event);
+                        } else {
+                            self.handle_key_events(key_event)?;
+                        }
                     }
                     crossterm::event::Event::Resize(x, y) => {
                         self.viewport
@@ -861,11 +866,6 @@ impl App {
                     return;
                 }
                 Overlay::AddFile => {
-                    let path = self.input.value().trim().to_string();
-                    self.close_overlay();
-                    if !path.is_empty() {
-                        self.add_file(path);
-                    }
                     return;
                 }
                 Overlay::EventsFilter => {
@@ -982,9 +982,7 @@ impl App {
                 Overlay::AddCustomEvent => {
                     self.close_overlay();
                 }
-                Overlay::AddFile => {
-                    self.close_overlay();
-                }
+                Overlay::AddFile => {}
                 Overlay::Message(_) | Overlay::Error(_) => {
                     self.close_overlay();
                 }
@@ -1228,13 +1226,6 @@ impl App {
         self.set_view_state(ViewState::FilesView);
     }
 
-    pub fn activate_add_file_overlay(&mut self) {
-        if self.view_state == ViewState::FilesView {
-            self.input.reset();
-            self.show_overlay(Overlay::AddFile);
-        }
-    }
-
     pub fn add_file(&mut self, path: String) {
         let canonical = match std::fs::canonicalize(&path) {
             Ok(p) => p,
@@ -1269,6 +1260,7 @@ impl App {
             self.marking_list_state.reset();
         }
 
+        self.highlighter.invalidate_cache();
         self.event_tracker.scan_all_lines(&self.log_buffer);
         self.update_events_view_count();
         self.update_view();

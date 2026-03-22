@@ -54,7 +54,6 @@ impl KeybindingRegistry {
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::MarkName));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::SaveToFile));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::AddCustomEvent));
-        registry.register_global_bindings(KeybindingContext::Overlay(Overlay::AddFile));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::Message(String::new())));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::Error(String::new())));
         registry.register_global_bindings(KeybindingContext::Overlay(Overlay::Fatal(String::new())));
