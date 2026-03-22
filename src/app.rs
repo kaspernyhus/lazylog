@@ -76,6 +76,8 @@ pub enum Overlay {
     SaveToFile,
     /// Active mode for entering a custom event pattern.
     AddCustomEvent,
+    /// Active mode for entering a file path to add at runtime.
+    AddFile,
     /// Display a message to the user.
     Message(String),
     /// Display an error message to the user.
@@ -87,7 +89,11 @@ pub enum Overlay {
 impl Overlay {
     pub fn popup_size(&self) -> Option<(u16, u16)> {
         match self {
-            Overlay::EditFilter | Overlay::MarkName | Overlay::SaveToFile | Overlay::AddCustomEvent => Some((60, 3)),
+            Overlay::EditFilter
+            | Overlay::MarkName
+            | Overlay::SaveToFile
+            | Overlay::AddCustomEvent
+            | Overlay::AddFile => Some((60, 3)),
             Overlay::EventsFilter => Some((50, 25)),
             Overlay::Message(_) | Overlay::Error(_) | Overlay::Fatal(_) => None,
         }
@@ -96,7 +102,7 @@ impl Overlay {
     pub fn has_text_input(&self) -> bool {
         matches!(
             self,
-            Overlay::EditFilter | Overlay::MarkName | Overlay::SaveToFile | Overlay::AddCustomEvent
+            Overlay::EditFilter | Overlay::MarkName | Overlay::SaveToFile | Overlay::AddCustomEvent | Overlay::AddFile
         )
     }
 }
@@ -164,6 +170,8 @@ pub struct App {
     keybindings: KeybindingRegistry,
     /// Whether persistence is enabled.
     persist_enabled: bool,
+    /// Whether timestamp parsing is enabled.
+    parse_timestamps: bool,
     /// Whether to only show marked lines
     pub show_marked_lines_only: bool,
     /// Compiled context capture regex for correlated line navigation.
@@ -187,6 +195,7 @@ impl App {
                 | Some(Overlay::MarkName)
                 | Some(Overlay::SaveToFile)
                 | Some(Overlay::AddCustomEvent)
+                | Some(Overlay::AddFile)
         )
     }
 
@@ -265,6 +274,7 @@ impl App {
             completion: CompletionEngine::default(),
             keybindings,
             persist_enabled: !args.no_persist,
+            parse_timestamps: !args.no_timestamps,
             show_marked_lines_only: false,
             context_capture,
         };
@@ -850,6 +860,14 @@ impl App {
                     self.close_overlay();
                     return;
                 }
+                Overlay::AddFile => {
+                    let path = self.input.value().trim().to_string();
+                    self.close_overlay();
+                    if !path.is_empty() {
+                        self.add_file(path);
+                    }
+                    return;
+                }
                 Overlay::EventsFilter => {
                     self.close_overlay();
                     // Don't change logview selection from the event filter list
@@ -962,6 +980,9 @@ impl App {
                     self.set_view_state(ViewState::LogView);
                 }
                 Overlay::AddCustomEvent => {
+                    self.close_overlay();
+                }
+                Overlay::AddFile => {
                     self.close_overlay();
                 }
                 Overlay::Message(_) | Overlay::Error(_) => {
@@ -1204,9 +1225,53 @@ impl App {
     }
 
     pub fn activate_files_view(&mut self) {
-        if self.file_manager.is_multi_file() {
-            self.set_view_state(ViewState::FilesView);
+        self.set_view_state(ViewState::FilesView);
+    }
+
+    pub fn activate_add_file_overlay(&mut self) {
+        if self.view_state == ViewState::FilesView {
+            self.input.reset();
+            self.show_overlay(Overlay::AddFile);
         }
+    }
+
+    pub fn add_file(&mut self, path: String) {
+        let canonical = match std::fs::canonicalize(&path) {
+            Ok(p) => p,
+            Err(_) => {
+                self.show_error(&format!("File not found: {}", path));
+                return;
+            }
+        };
+
+        let already_loaded = self
+            .file_manager
+            .iter()
+            .any(|f| std::fs::canonicalize(&f.path).ok().as_deref() == Some(&canonical));
+
+        if already_loaded {
+            self.show_error(&format!("File already loaded: {}", path));
+            return;
+        }
+
+        let file_id = self.file_manager.add_file(path.clone());
+        self.files_list_state.set_item_count(self.file_manager.count());
+
+        if let Err(e) = self.log_buffer.add_file(&path, file_id, self.parse_timestamps) {
+            self.file_manager.remove_last();
+            self.files_list_state.set_item_count(self.file_manager.count());
+            self.show_error(&format!("Failed to load file: {}", e));
+            return;
+        }
+
+        if self.parse_timestamps {
+            self.marking.clear_all();
+            self.marking_list_state.reset();
+        }
+
+        self.event_tracker.scan_all_lines(&self.log_buffer);
+        self.update_events_view_count();
+        self.update_view();
     }
 
     pub fn toggle_file(&mut self) {
