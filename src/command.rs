@@ -84,6 +84,7 @@ pub enum Command {
     // Files
     ActivateFilesView,
     ToggleFile,
+    ActivateAddFileMode,
 
     // Expansion
     ToggleExpansion,
@@ -193,6 +194,7 @@ impl Command {
             // Files
             Command::ActivateFilesView => "View files list",
             Command::ToggleFile => "Toggle file visibility",
+            Command::ActivateAddFileMode => "Add a file",
 
             // Expansion
             Command::ToggleExpansion => "Expand/collapse hidden lines",
@@ -313,6 +315,7 @@ impl Command {
             // Files
             Command::ActivateFilesView => app.activate_files_view(),
             Command::ToggleFile => app.toggle_file(),
+            Command::ActivateAddFileMode => app.activate_add_file_overlay(),
 
             // Expansion
             Command::ToggleExpansion => app.toggle_expansion(),

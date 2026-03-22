@@ -96,6 +96,9 @@ impl Widget for &App {
                 Overlay::AddCustomEvent => {
                     self.render_add_custom_event_popup(overlay_area.unwrap(), buf);
                 }
+                Overlay::AddFile => {
+                    self.render_add_file_popup(overlay_area.unwrap(), buf);
+                }
                 Overlay::Message(message) => {
                     self.render_message_popup(message, area, buf);
                 }

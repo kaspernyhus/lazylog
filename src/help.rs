@@ -204,6 +204,18 @@ impl Help {
             &KeybindingContext::View(ViewState::MarksView),
         );
 
+        // Files List
+        help_items.push(HelpItem::new_empty());
+        help_items.push(HelpItem::new_header(
+            "Files list",
+            Some(KeybindingContext::View(ViewState::FilesView)),
+        ));
+        self.add_context_bindings(
+            &mut help_items,
+            registry,
+            &KeybindingContext::View(ViewState::FilesView),
+        );
+
         self.help_items = help_items;
         self.reset();
     }
@@ -258,6 +270,7 @@ impl Help {
                 Overlay::MarkName => KeybindingContext::Overlay(Overlay::MarkName),
                 Overlay::SaveToFile => KeybindingContext::Overlay(Overlay::SaveToFile),
                 Overlay::AddCustomEvent => KeybindingContext::Overlay(Overlay::AddCustomEvent),
+                Overlay::AddFile => KeybindingContext::Overlay(Overlay::AddFile),
                 Overlay::Message(_) => KeybindingContext::Overlay(Overlay::Message(String::new())),
                 Overlay::Error(_) => KeybindingContext::Overlay(Overlay::Error(String::new())),
                 Overlay::Fatal(_) => KeybindingContext::Overlay(Overlay::Fatal(String::new())),

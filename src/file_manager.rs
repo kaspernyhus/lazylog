@@ -83,6 +83,18 @@ impl FileManager {
         self.files.get(index)
     }
 
+    /// Adds a new file entry and returns its assigned file ID.
+    pub fn add_file(&mut self, path: String) -> usize {
+        let file_id = self.files.len();
+        self.files.push(FileEntry::new(path, file_id));
+        file_id
+    }
+
+    /// Removes the last file entry (used to rollback a failed add_file).
+    pub fn remove_last(&mut self) {
+        self.files.pop();
+    }
+
     /// Toggles the enabled state of a file at the given index.
     pub fn toggle_enabled(&mut self, index: usize) {
         if let Some(file) = self.files.get_mut(index) {
