@@ -560,7 +560,10 @@ impl App {
     }
 
     /// Run the application's main loop.
-    pub async fn run<B: Backend>(mut self, mut terminal: Terminal<B>) -> color_eyre::Result<()> {
+    pub async fn run<B: Backend>(mut self, mut terminal: Terminal<B>) -> color_eyre::Result<()>
+    where
+        B::Error: Send + Sync + 'static,
+    {
         let terminal_size = terminal.size()?;
         self.viewport.resize(
             terminal_size.width.saturating_sub(1) as usize,

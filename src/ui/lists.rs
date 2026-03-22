@@ -15,7 +15,7 @@ use crate::{app::App, ui::colors::MARK_INDICATOR_COLOR};
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Rect},
-    style::{Color, Modifier, Style, Stylize},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, List, ListState, Paragraph, StatefulWidget, Widget},
 };
