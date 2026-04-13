@@ -195,10 +195,11 @@ impl App {
         {
             let width = self.file_manager.count().to_string().len() + 2;
             let indicator = format!("{:>width$} ", format!("[{}]", id + 1));
-            let color = if log_line.timestamp.is_some() {
-                FILE_ID_COLORS[id % FILE_ID_COLORS.len()]
-            } else {
+            // Make indicator red if the timestamp is None and timestamp parsing has not explicitly been turned off.
+            let color = if log_line.timestamp.is_none() && self.parse_timestamps {
                 Color::Red
+            } else {
+                FILE_ID_COLORS[id % FILE_ID_COLORS.len()]
             };
             Span::styled(indicator, Style::default().fg(color)).add_modifier(Modifier::BOLD)
         } else {
