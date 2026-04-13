@@ -80,7 +80,7 @@ impl LogBuffer {
 
         self.streaming = false;
         let multi_file = paths.len() > 1;
-        let mut total_lines_skipped = 0;
+        let mut timestamp_parsing_errors = 0;
 
         for (file_id, path) in paths.iter().enumerate() {
             let bytes = std::fs::read(path)?;
@@ -108,7 +108,7 @@ impl LogBuffer {
                 }
 
                 if multi_file {
-                    total_lines_skipped += file_lines.iter().filter(|l| l.timestamp.is_none()).count();
+                    timestamp_parsing_errors += file_lines.iter().filter(|l| l.timestamp.is_none()).count();
                 }
             }
 
@@ -130,7 +130,7 @@ impl LogBuffer {
             }
         }
 
-        Ok(total_lines_skipped)
+        Ok(timestamp_parsing_errors)
     }
 
     /// Adds a new file to an existing buffer.

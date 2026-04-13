@@ -169,7 +169,7 @@ pub struct App {
     /// Whether persistence is enabled.
     persist_enabled: bool,
     /// Whether timestamp parsing is enabled.
-    parse_timestamps: bool,
+    pub parse_timestamps: bool,
     /// Whether to only show marked lines
     pub show_marked_lines_only: bool,
     /// Compiled context capture regex for correlated line navigation.
@@ -241,6 +241,9 @@ impl App {
         let event_tracker = LogEventTracker::new(event_patterns);
 
         let context_capture = config.parse_context_capture();
+        let disable_timestamps = config.disable_timestamp_parsing.unwrap_or(false);
+        let no_timestamps = args.no_timestamps;
+        let parse_timestamps = if no_timestamps { false } else { !disable_timestamps };
 
         let mut app = Self {
             running: true,
@@ -273,7 +276,7 @@ impl App {
             completion: CompletionEngine::default(),
             keybindings,
             persist_enabled: !args.no_persist,
-            parse_timestamps: !args.no_timestamps,
+            parse_timestamps,
             show_marked_lines_only: false,
             context_capture,
             file_explorer: None,
@@ -296,9 +299,7 @@ impl App {
             return app;
         }
 
-        let load_result = app
-            .log_buffer
-            .load_files(&app.file_manager.paths(), !args.no_timestamps);
+        let load_result = app.log_buffer.load_files(&app.file_manager.paths(), parse_timestamps);
 
         match load_result {
             Ok(skipped_lines) => {

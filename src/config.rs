@@ -24,6 +24,7 @@ pub struct Config {
     pub default_event_bg_color_index: Option<u8>,
     pub default_custom_event_bg_color_index: Option<u8>,
     pub context_capture: Option<ContextCaptureConfig>,
+    pub disable_timestamp_parsing: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

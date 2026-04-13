@@ -49,3 +49,7 @@ filters = [
 context_capture = {
     pattern = '\b(DEBUG|INFO|WARNING|ERROR|CRITICAL|FATAL)\b'
 }
+
+# Options
+# Disable parsing timestamps
+disable_timestamp_parsing = false
