@@ -33,11 +33,6 @@ events = [
     { name = "Application Started", pattern = "Application started successfully", regex = false },
 ]
 
-# Optional: default event colors
-# https://ratatui.rs/examples/style/colors/
-default_event_fg_color_index = 255
-default_event_bg_color_index = 18
-default_custom_event_bg_color_index = 64
 
 # Predefined filters.
 filters = [
@@ -50,6 +45,19 @@ context_capture = {
     pattern = '\b(DEBUG|INFO|WARNING|ERROR|CRITICAL|FATAL)\b'
 }
 
-# Options
+# Options (optional):
+
+# Default event colors
+# https://ratatui.rs/examples/style/colors/
+default_event_fg_color_index = 255
+default_event_bg_color_index = 18
+default_custom_event_bg_color_index = 64
+
 # Disable parsing timestamps
 disable_timestamp_parsing = false
+
+# Timestamp gaps: show a visual separator when there's a gap between log timestamps.
+# Enable/disable showing timestamp gap (default: true)
+show_timestamp_gaps = false
+# Time gap threshold in minutes (default: 10)
+timestamp_gap_threshold_minutes = 15

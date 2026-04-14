@@ -136,6 +136,10 @@ impl App {
             .iter()
             .enumerate()
             .map(|(offset, vl)| {
+                if vl.tags.contains(&Tag::TimeGap) {
+                    return Line::from("");
+                }
+
                 let log_line = &all_lines[vl.log_index];
                 let viewport_line = self.options.apply_to_line(log_line.content());
                 let text = viewport_line.get(horizontal_offset..).unwrap_or("");

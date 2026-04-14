@@ -1,3 +1,5 @@
+use chrono::{DateTime, Utc};
+
 use crate::log::LogLine;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -20,6 +22,8 @@ pub enum Tag {
     FileEnabled,
     /// Line is shown due to expansion
     Expanded,
+    /// Visual separator line marking timestamp gaps
+    TimeGap,
 }
 
 /// Trait for rules that determine line visibility.
@@ -76,6 +80,10 @@ pub struct ViewportResolver {
     visible_cache: RefCell<Option<Rc<Vec<VisibleLine>>>>,
     /// Expanded lines: log index -> Vec<log_index>
     expanded_lines: Arc<HashMap<usize, Vec<usize>>>,
+    /// Indicate log indices that should have a gap inserted before them
+    gap_separator_indices: HashSet<usize>,
+    /// Timestamp gap threshold in minutes
+    gap_threshold_minutes: Option<u32>,
 }
 
 impl Debug for ViewportResolver {
@@ -102,6 +110,8 @@ impl ViewportResolver {
             tag_rules: Vec::new(),
             visible_cache: RefCell::new(None),
             expanded_lines: Arc::new(HashMap::new()),
+            gap_separator_indices: HashSet::new(),
+            gap_threshold_minutes: None,
         }
     }
 
@@ -122,6 +132,8 @@ impl ViewportResolver {
         self.visibility_rules.clear();
         self.tag_rules.clear();
         self.expanded_lines = Arc::new(HashMap::new());
+        self.gap_separator_indices.clear();
+        self.gap_threshold_minutes = None;
         self.invalidate_cache();
     }
 
@@ -131,6 +143,17 @@ impl ViewportResolver {
         self.invalidate_cache();
     }
 
+    /// Set log indices that should have a timestamp gap separator before them.
+    pub fn set_gap_separator_indices(&mut self, indices: HashSet<usize>) {
+        self.gap_separator_indices = indices;
+        self.invalidate_cache();
+    }
+
+    /// Set the gap threshold for computing timestamp gap separators on visible lines.
+    pub fn set_gap_threshold(&mut self, minutes: Option<u32>) {
+        self.gap_threshold_minutes = minutes;
+        self.invalidate_cache();
+    }
     /// Invalidate the cache, forcing recomputation on next access
     pub fn invalidate_cache(&mut self) {
         *self.visible_cache.borrow_mut() = None;
@@ -155,10 +178,10 @@ impl ViewportResolver {
     /// Compute visible lines by applying all rules
     fn compute_visible_lines(&self, lines: &[LogLine]) -> Vec<VisibleLine> {
         let mut results = Vec::new();
+        let mut prev_ts: Option<DateTime<Utc>> = None;
 
         for (idx, line) in lines.iter().enumerate() {
             let is_visible = if self.visibility_rules.is_empty() {
-                // No visibility rules means all lines visible
                 true
             } else {
                 self.visibility_rules.iter().all(|rule| rule.is_visible(line))
@@ -168,6 +191,26 @@ impl ViewportResolver {
                 continue;
             }
 
+            // Compute separators from consecutive visible lines with timestamps
+            if let Some(threshold) = self.gap_threshold_minutes
+                && let Some(current_ts) = line.timestamp
+            {
+                if let Some(prev) = prev_ts {
+                    let gap_minutes = (current_ts - prev).num_minutes().abs();
+                    if gap_minutes >= threshold as i64 {
+                        results.push(VisibleLine::new(idx).with_tag(Tag::TimeGap));
+                    }
+                }
+                prev_ts = Some(current_ts);
+            }
+
+            if self.gap_separator_indices.contains(&idx)
+                && !results
+                    .last()
+                    .is_some_and(|l| l.log_index == idx && l.tags.contains(&Tag::TimeGap))
+            {
+                results.push(VisibleLine::new(idx).with_tag(Tag::TimeGap));
+            }
             let mut visible_line = VisibleLine::new(idx);
             self.apply_tags(&mut visible_line, line);
             results.push(visible_line);

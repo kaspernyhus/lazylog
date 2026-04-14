@@ -25,6 +25,8 @@ pub struct Config {
     pub default_custom_event_bg_color_index: Option<u8>,
     pub context_capture: Option<ContextCaptureConfig>,
     pub disable_timestamp_parsing: Option<bool>,
+    pub show_timestamp_gaps: Option<bool>,
+    pub timestamp_gap_threshold_minutes: Option<u32>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -187,6 +189,16 @@ impl Config {
         self.default_custom_event_bg_color_index
             .map(Color::Indexed)
             .unwrap_or(EVENT_NAME_CUSTOM_DEFAULT_FG)
+    }
+
+    /// Returns whether showing timestamp gaps is enabled.
+    pub fn show_timestamp_gaps(&self) -> bool {
+        self.show_timestamp_gaps.unwrap_or(true)
+    }
+
+    /// Returns the default timestamp gap threshold in minutes.
+    pub fn timestamp_gap_threshold(&self) -> u32 {
+        self.timestamp_gap_threshold_minutes.unwrap_or(10)
     }
 
     fn default_config_dir() -> PathBuf {

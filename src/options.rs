@@ -10,6 +10,7 @@ pub enum AppOption {
     AlwaysShowMarkedLines,
     AlwaysShowCriticalEvents,
     AlwaysShowCustomEvents,
+    ShowTimestampGaps,
 }
 
 #[derive(Debug, Clone)]
@@ -70,6 +71,7 @@ impl Default for AppOptions {
                 AppOptionDef::new_toggle(AppOption::AlwaysShowMarkedLines, "Always show marked lines"),
                 AppOptionDef::new_toggle(AppOption::AlwaysShowCriticalEvents, "Always show critical events"),
                 AppOptionDef::new_toggle(AppOption::AlwaysShowCustomEvents, "Always show custom events"),
+                AppOptionDef::new_toggle(AppOption::ShowTimestampGaps, "Show timestamp gaps"),
             ],
         }
     }
@@ -104,6 +106,12 @@ impl AppOptions {
     pub fn enable(&mut self, option: AppOption) {
         if let Some(opt) = self.options.iter_mut().find(|opt| opt.option == option) {
             opt.enabled = true;
+        }
+    }
+
+    pub fn disable(&mut self, option: AppOption) {
+        if let Some(opt) = self.options.iter_mut().find(|opt| opt.option == option) {
+            opt.enabled = false;
         }
     }
 

@@ -371,6 +371,13 @@ impl App {
 
         self.resolver.set_expanded_lines(self.expansion.get_all_expanded());
 
+        let gap_threshold = if self.options.is_enabled(AppOption::ShowTimestampGaps) {
+            Some(self.config.timestamp_gap_threshold())
+        } else {
+            None
+        };
+        self.resolver.set_gap_threshold(gap_threshold);
+
         let num_lines = {
             let visible_lines = self.resolver.get_visible_lines(all_lines);
             let num_lines = visible_lines.len();
@@ -386,6 +393,19 @@ impl App {
         };
 
         self.viewport.set_total_lines(num_lines);
+
+        // Find the non-selectable log lines
+        let skip_indices: HashSet<usize> = {
+            let all_lines = self.log_buffer.all_lines();
+            let visible = self.resolver.get_visible_lines(all_lines);
+            visible
+                .iter()
+                .enumerate()
+                .filter(|(_, vl)| vl.tags.contains(&Tag::TimeGap))
+                .map(|(i, _)| i)
+                .collect()
+        };
+        self.viewport.set_non_selectable(skip_indices);
 
         // Call after the all_lines scope ends
         self.update_events_view_count();

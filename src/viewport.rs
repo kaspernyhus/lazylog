@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 /// Maximum number of history entries to keep.
 const MAX_HISTORY: usize = 20;
 
@@ -26,6 +28,8 @@ pub struct Viewport {
     history: Vec<usize>,
     /// Current position in the history stack.
     history_position: usize,
+    /// Viewport indices that navigation should skip.
+    non_selectable: HashSet<usize>,
 }
 
 impl Viewport {
@@ -50,19 +54,34 @@ impl Viewport {
         self.total_lines = total_lines;
     }
 
-    /// Moves the selection up by one line.
+    /// Sets viewport indices that navigation should skip (e.g. visual gap separators).
+    pub fn set_non_selectable(&mut self, indices: HashSet<usize>) {
+        self.non_selectable = indices;
+    }
+
+    /// Moves the selection up by one line, skipping non-selectable indices.
     pub fn move_up(&mut self) {
-        if self.selected_line > 0 {
-            self.selected_line -= 1;
-            self.adjust_visible();
+        let mut pos = self.selected_line;
+        while pos > 0 {
+            pos -= 1;
+            if !self.non_selectable.contains(&pos) {
+                self.selected_line = pos;
+                self.adjust_visible();
+                return;
+            }
         }
     }
 
-    /// Moves the selection down by one line.
+    /// Moves the selection down by one line, skipping non-selectable indices.
     pub fn move_down(&mut self) {
-        if self.selected_line + 1 < self.total_lines {
-            self.selected_line += 1;
-            self.adjust_visible();
+        let mut pos = self.selected_line;
+        while pos + 1 < self.total_lines {
+            pos += 1;
+            if !self.non_selectable.contains(&pos) {
+                self.selected_line = pos;
+                self.adjust_visible();
+                return;
+            }
         }
     }
 
@@ -70,7 +89,11 @@ impl Viewport {
     pub fn page_up(&mut self) {
         if self.selected_line > 0 {
             let page_size = self.height.saturating_sub(1);
-            self.selected_line = self.selected_line.saturating_sub(page_size);
+            let mut pos = self.selected_line.saturating_sub(page_size);
+            while self.non_selectable.contains(&pos) && pos > 0 {
+                pos -= 1;
+            }
+            self.selected_line = pos;
             self.adjust_visible();
             self.center_selected();
         }
@@ -80,22 +103,34 @@ impl Viewport {
     pub fn page_down(&mut self) {
         if self.selected_line + 1 < self.total_lines {
             let page_size = self.height.saturating_sub(1);
-            self.selected_line = (self.selected_line + page_size).min(self.total_lines.saturating_sub(1));
+            let mut pos = (self.selected_line + page_size).min(self.total_lines.saturating_sub(1));
+            while self.non_selectable.contains(&pos) && pos + 1 < self.total_lines {
+                pos += 1;
+            }
+            self.selected_line = pos;
             self.adjust_visible();
             self.center_selected();
         }
     }
 
-    /// Moves the selection to the first line.
+    /// Moves the selection to the first selectable line.
     pub fn goto_top(&mut self) {
-        self.selected_line = 0;
+        let mut pos = 0;
+        while self.non_selectable.contains(&pos) && pos + 1 < self.total_lines {
+            pos += 1;
+        }
+        self.selected_line = pos;
         self.adjust_visible();
     }
 
-    /// Moves the selection to the last line.
+    /// Moves the selection to the last selectable line.
     pub fn goto_bottom(&mut self) {
         if self.total_lines > 0 {
-            self.selected_line = self.total_lines - 1;
+            let mut pos = self.total_lines - 1;
+            while self.non_selectable.contains(&pos) && pos > 0 {
+                pos -= 1;
+            }
+            self.selected_line = pos;
         } else {
             self.selected_line = 0;
         }
@@ -264,6 +299,65 @@ mod tests {
         };
         viewport.set_total_lines(total_lines);
         viewport
+    }
+
+    fn with_non_selectable(mut viewport: Viewport, indices: &[usize]) -> Viewport {
+        viewport.set_non_selectable(indices.iter().copied().collect());
+        viewport
+    }
+
+    #[test]
+    fn test_move_down_skips_non_selectable() {
+        // lines: 0, 1(gap), 2
+        let mut viewport = with_non_selectable(create_viewport(10, 3), &[1]);
+        viewport.selected_line = 0;
+        viewport.move_down();
+        assert_eq!(viewport.selected_line, 2);
+    }
+
+    #[test]
+    fn test_move_up_skips_non_selectable() {
+        // lines: 0, 1(gap), 2
+        let mut viewport = with_non_selectable(create_viewport(10, 3), &[1]);
+        viewport.selected_line = 2;
+        viewport.move_up();
+        assert_eq!(viewport.selected_line, 0);
+    }
+
+    #[test]
+    fn test_move_down_stops_at_end_when_only_gaps_remain() {
+        // lines: 0, 1(gap) — no non-gap line after position 0
+        let mut viewport = with_non_selectable(create_viewport(10, 2), &[1]);
+        viewport.selected_line = 0;
+        viewport.move_down();
+        assert_eq!(viewport.selected_line, 0);
+    }
+
+    #[test]
+    fn test_move_up_stops_at_start_when_only_gaps_remain() {
+        // lines: 0(gap), 1 — no non-gap line before position 1
+        let mut viewport = with_non_selectable(create_viewport(10, 2), &[0]);
+        viewport.selected_line = 1;
+        viewport.move_up();
+        assert_eq!(viewport.selected_line, 1);
+    }
+
+    #[test]
+    fn test_goto_top_skips_leading_gap() {
+        // lines: 0(gap), 1, 2
+        let mut viewport = with_non_selectable(create_viewport(10, 3), &[0]);
+        viewport.selected_line = 2;
+        viewport.goto_top();
+        assert_eq!(viewport.selected_line, 1);
+    }
+
+    #[test]
+    fn test_goto_bottom_skips_trailing_gap() {
+        // lines: 0, 1, 2(gap)
+        let mut viewport = with_non_selectable(create_viewport(10, 3), &[2]);
+        viewport.selected_line = 0;
+        viewport.goto_bottom();
+        assert_eq!(viewport.selected_line, 1);
     }
 
     #[test]
