@@ -1224,7 +1224,9 @@ impl App {
     }
 
     pub fn activate_files_view(&mut self) {
-        self.set_view_state(ViewState::FilesView);
+        if !self.log_buffer.streaming {
+            self.set_view_state(ViewState::FilesView);
+        }
     }
 
     pub fn add_file(&mut self, path: String) {
