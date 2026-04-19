@@ -58,6 +58,6 @@ disable_timestamp_parsing = false
 
 # Timestamp gaps: show a visual separator when there's a gap between log timestamps.
 # Enable/disable showing timestamp gap (default: true)
-show_timestamp_gaps = false
+show_timestamp_gaps = true
 # Time gap threshold in minutes (default: 10)
 timestamp_gap_threshold_minutes = 15

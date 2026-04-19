@@ -24,6 +24,8 @@ pub enum Tag {
     Expanded,
     /// Visual separator line marking timestamp gaps
     TimeGap,
+    /// Visual separator line for marking date change
+    DateChange,
 }
 
 /// Trait for rules that determine line visibility.
@@ -84,6 +86,8 @@ pub struct ViewportResolver {
     gap_separator_indices: HashSet<usize>,
     /// Timestamp gap threshold in minutes
     gap_threshold_minutes: Option<u32>,
+    /// Indicate log indices that should have a date separator line inserted before them
+    date_change_indices: HashSet<usize>,
 }
 
 impl Debug for ViewportResolver {
@@ -112,6 +116,7 @@ impl ViewportResolver {
             expanded_lines: Arc::new(HashMap::new()),
             gap_separator_indices: HashSet::new(),
             gap_threshold_minutes: None,
+            date_change_indices: HashSet::new(),
         }
     }
 
@@ -134,6 +139,7 @@ impl ViewportResolver {
         self.expanded_lines = Arc::new(HashMap::new());
         self.gap_separator_indices.clear();
         self.gap_threshold_minutes = None;
+        self.date_change_indices.clear();
         self.invalidate_cache();
     }
 
@@ -150,10 +156,16 @@ impl ViewportResolver {
     }
 
     /// Set the gap threshold for computing timestamp gap separators on visible lines.
-    pub fn set_gap_threshold(&mut self, minutes: Option<u32>) {
-        self.gap_threshold_minutes = minutes;
+    pub fn set_gap_threshold(&mut self, minutes: u32) {
+        self.gap_threshold_minutes = Some(minutes);
         self.invalidate_cache();
     }
+
+    pub fn set_date_change_indices(&mut self, indices: HashSet<usize>) {
+        self.date_change_indices = indices;
+        self.invalidate_cache();
+    }
+
     /// Invalidate the cache, forcing recomputation on next access
     pub fn invalidate_cache(&mut self) {
         *self.visible_cache.borrow_mut() = None;
@@ -192,25 +204,22 @@ impl ViewportResolver {
             }
 
             // Compute separators from consecutive visible lines with timestamps
-            if let Some(threshold) = self.gap_threshold_minutes
-                && let Some(current_ts) = line.timestamp
-            {
+            if let Some(current_ts) = line.timestamp {
                 if let Some(prev) = prev_ts {
-                    let gap_minutes = (current_ts - prev).num_minutes().abs();
-                    if gap_minutes >= threshold as i64 {
-                        results.push(VisibleLine::new(idx).with_tag(Tag::TimeGap));
+                    if current_ts.date_naive() != prev.date_naive() {
+                        results.push(VisibleLine::new(idx).with_tag(Tag::DateChange));
+                    }
+
+                    if let Some(threshold) = self.gap_threshold_minutes {
+                        let gap_minutes = (current_ts - prev).num_minutes().abs();
+                        if gap_minutes >= threshold as i64 {
+                            results.push(VisibleLine::new(idx).with_tag(Tag::TimeGap));
+                        }
                     }
                 }
                 prev_ts = Some(current_ts);
             }
 
-            if self.gap_separator_indices.contains(&idx)
-                && !results
-                    .last()
-                    .is_some_and(|l| l.log_index == idx && l.tags.contains(&Tag::TimeGap))
-            {
-                results.push(VisibleLine::new(idx).with_tag(Tag::TimeGap));
-            }
             let mut visible_line = VisibleLine::new(idx);
             self.apply_tags(&mut visible_line, line);
             results.push(visible_line);

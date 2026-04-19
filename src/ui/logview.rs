@@ -131,13 +131,18 @@ impl App {
 
         let horizontal_offset = self.viewport.horizontal_offset;
         let enable_colors = !self.options.is_enabled(AppOption::DisableColors);
+        let show_gaps = self.options.is_enabled(AppOption::ShowTimestampGaps);
 
         let items: Vec<Line> = viewport_data
             .iter()
             .enumerate()
             .map(|(offset, vl)| {
-                if vl.tags.contains(&Tag::TimeGap) {
-                    return Line::from("");
+                if show_gaps {
+                    if vl.tags.contains(&Tag::TimeGap) {
+                        return Line::from("");
+                    } else if vl.tags.contains(&Tag::DateChange) {
+                        return Line::from("-".repeat(20));
+                    }
                 }
 
                 let log_line = &all_lines[vl.log_index];

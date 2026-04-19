@@ -368,15 +368,8 @@ impl App {
         }
 
         self.resolver.add_tag_rule(Box::new(MarkTagRule::new(marked_indices)));
-
         self.resolver.set_expanded_lines(self.expansion.get_all_expanded());
-
-        let gap_threshold = if self.options.is_enabled(AppOption::ShowTimestampGaps) {
-            Some(self.config.timestamp_gap_threshold())
-        } else {
-            None
-        };
-        self.resolver.set_gap_threshold(gap_threshold);
+        self.resolver.set_gap_threshold(self.config.timestamp_gap_threshold());
 
         let num_lines = {
             let visible_lines = self.resolver.get_visible_lines(all_lines);
