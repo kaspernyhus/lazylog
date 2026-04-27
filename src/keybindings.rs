@@ -256,6 +256,12 @@ impl KeybindingRegistry {
         );
         self.bind_simple(context.clone(), KeyCode::Tab, Command::HistoryForward);
         self.bind_shift(context.clone(), 'V', Command::StartSelection);
+        self.bind(
+            context.clone(),
+            KeyCode::Char('a'),
+            KeyModifiers::CONTROL,
+            Command::ToggleAllFilterPatterns,
+        );
     }
 
     fn register_selection_mode_bindings(&mut self) {
