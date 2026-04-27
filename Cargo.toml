@@ -31,10 +31,13 @@ serde_json = "1.0"
 dirs = "6.0.0"
 rayon = "1.10"
 num-format = "0.4.4"
-arboard = { version = "3.4.1", features = ["wayland-data-control"] }
+arboard = { version = "3.4.1" }
 tui-input = { version = "0.15.0", default-features = false, features = ["ratatui-crossterm"] }
 chrono = "0.4"
 shadow-rs = "1.5.0"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+arboard = { version = "3.4.1", features = ["wayland-data-control"] }
 
 [build-dependencies]
 shadow-rs = "1.5.0"

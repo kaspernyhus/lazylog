@@ -12,7 +12,18 @@ permissions:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: lazylog-x86_64-unknown-linux-gnu
+            archive_cmd: tar czf ../../lazylog-x86_64-unknown-linux-gnu.tar.gz lazylog
+            archive_file: lazylog-x86_64-unknown-linux-gnu.tar.gz
+          - os: windows-latest
+            artifact: lazylog-x86_64-pc-windows-msvc
+            archive_cmd: Compress-Archive -Path lazylog.exe -DestinationPath ..\..\lazylog-x86_64-pc-windows-msvc.zip
+            archive_file: lazylog-x86_64-pc-windows-msvc.zip
 
     steps:
       - name: Checkout code
@@ -26,17 +37,24 @@ jobs:
       - name: Build release binary
         run: cargo build --release
 
-      - name: Create archive
+      - name: Create archive (Linux)
+        if: matrix.os == 'ubuntu-latest'
         run: |
           cd target/release
-          tar czf ../../lazylog-x86_64-unknown-linux-gnu.tar.gz lazylog
-          cd -
+          tar czf ../../${{ matrix.archive_file }} lazylog
+
+      - name: Create archive (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          cd target/release
+          Compress-Archive -Path lazylog.exe -DestinationPath ..\..\${{ matrix.archive_file }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: lazylog-x86_64-unknown-linux-gnu
-          path: lazylog-x86_64-unknown-linux-gnu.tar.gz
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.archive_file }}
 
   release:
     name: Create Release
