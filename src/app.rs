@@ -1908,6 +1908,7 @@ impl App {
                         Ok(_) => {
                             let num_lines = lines.len();
                             self.selection_range = None;
+                            self.set_view_state(ViewState::LogView);
                             self.show_message(
                                 format!(
                                     "Copied {} line{} to clipboard",
@@ -1919,11 +1920,13 @@ impl App {
                         }
                         Err(e) => {
                             self.selection_range = None;
+                            self.set_view_state(ViewState::LogView);
                             self.show_error(format!("Failed to copy to clipboard: {}", e).as_str());
                         }
                     },
                     Err(e) => {
                         self.selection_range = None;
+                        self.set_view_state(ViewState::LogView);
                         self.show_error(format!("Failed to access clipboard: {}", e).as_str());
                     }
                 }
