@@ -14,15 +14,16 @@ A terminal-based log viewer with search, filtering, and streaming capabilities.
 - **Save streams** - Export stdin streams to files
 
 ## Installation
-Download a precompiled binary for linux [here](https://github.com/kaspernyhus/lazylog/releases)
 
-or build from source by running the install script:
+**Linux** — download a precompiled binary [here](https://github.com/kaspernyhus/lazylog/releases), or build from source:
 ```bash
 ./install.sh
 ```
 Note: installs to `/usr/local/bin/`.
+For building from source you need the stable Rust toolchain, instructions [here](https://rust-lang.org/tools/install/).
 
-For this you need the stable version of the rust toolchain, instructions can be found [here](https://rust-lang.org/tools/install/).
+**Windows** — download executable [here](https://github.com/kaspernyhus/lazylog/releases).
+
 
 ## Usage
 
@@ -41,10 +42,18 @@ Stream from stdin:
 journalctl -f | lazylog
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\lazylog.exe file1.log file2.log
+```
+
 ## Configuration
 
-Color highlighting patterns can be configured by creating a `config.toml` file:
-`~/.config/lazylog/config.toml`
+| Platform | Default config path |
+|----------|-------------------|
+| Linux | `~/.config/lazylog/config.toml` |
+| Windows | `%APPDATA%\lazylog\config.toml` |
+
 
 Use a custom config file with the `-c` option:
 ```bash
