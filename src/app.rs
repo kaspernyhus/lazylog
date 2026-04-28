@@ -29,7 +29,7 @@ use crossterm::event::Event::Key;
 use ratatui::{
     Terminal,
     backend::Backend,
-    crossterm::event::{KeyCode, KeyEvent},
+    crossterm::event::{KeyCode, KeyEvent, KeyEventKind},
 };
 use regex::Regex;
 use std::collections::HashSet;
@@ -585,7 +585,7 @@ impl App {
             match self.events.next().await? {
                 Event::Tick => self.tick(),
                 Event::Crossterm(event) => match event {
-                    Key(key_event) => {
+                    Key(key_event) if key_event.kind == KeyEventKind::Press => {
                         self.handle_key_events(key_event)?;
                     }
                     crossterm::event::Event::Resize(x, y) => {
