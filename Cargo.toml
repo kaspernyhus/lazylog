@@ -1,6 +1,6 @@
 [package]
 name = "lazylog"
-version = "0.1.14"
+version = "0.1.15"
 description = "Log Viewer"
 authors = ["Kasper Nyhus <kanyhus@gmail.com>"]
 license = "MIT"
@@ -32,7 +32,9 @@ dirs = "6.0.0"
 rayon = "1.10"
 num-format = "0.4.4"
 arboard = { version = "3.4.1" }
-tui-input = { version = "0.15.0", default-features = false, features = ["ratatui-crossterm"] }
+tui-input = { version = "0.15.0", default-features = false, features = [
+    "ratatui-crossterm",
+] }
 chrono = "0.4"
 shadow-rs = "1.5.0"
 
