@@ -59,7 +59,7 @@ impl Widget for &App {
                 self.render_filter_list(filter_area, buf);
             }
             ViewState::OptionsView => {
-                let options_area = popup_area(area, 42, 10);
+                let options_area = popup_area(area, 40, 9);
                 self.render_options(options_area, buf);
             }
             ViewState::EventsView => {
