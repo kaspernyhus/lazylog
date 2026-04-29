@@ -6,7 +6,7 @@ use crossterm::{
 use lazylog::{app::App, cli::Cli, debug_log};
 use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io::{LineWriter, stderr, stdout};
-use tracing::info;
+use tracing::{debug, info};
 
 #[tokio::main]
 async fn main() -> color_eyre::Result<()> {
@@ -28,7 +28,7 @@ async fn main() -> color_eyre::Result<()> {
 }
 
 async fn run_streaming_mode(args: Cli) -> color_eyre::Result<()> {
-    info!("Drawing to stderr");
+    debug!("Streaming mode: drawing to stderr");
     set_panic_hook_stderr();
     enable_raw_mode()?;
     execute!(stderr(), EnterAlternateScreen)?;
@@ -49,7 +49,7 @@ async fn run_streaming_mode(args: Cli) -> color_eyre::Result<()> {
 }
 
 async fn run_file_mode(args: Cli) -> color_eyre::Result<()> {
-    info!("Drawing to stdout");
+    debug!("File mode: drawing to stdout");
     set_panic_hook_stdout();
     enable_raw_mode()?;
 
