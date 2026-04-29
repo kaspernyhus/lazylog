@@ -407,6 +407,10 @@ impl App {
             .border_style(Style::default().fg(FILE_BORDER));
 
         if self.file_manager.count() == 0 {
+            let help = Paragraph::new("No files loaded. Press 'a' to add a file.")
+                .block(block)
+                .alignment(Alignment::Center);
+            help.render(area, buf);
             return;
         }
 

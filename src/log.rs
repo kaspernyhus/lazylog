@@ -75,7 +75,7 @@ impl LogBuffer {
     /// Loads log lines from one or more files and parse timestamps if not disabled.
     pub fn load_files(&mut self, paths: &[&str], parse_timestamps: bool) -> color_eyre::Result<usize> {
         if paths.is_empty() {
-            return Err(color_eyre::eyre::eyre!("No files provided"));
+            return Ok(0);
         }
 
         self.streaming = false;

@@ -295,7 +295,6 @@ impl App {
         }
 
         if !use_stdin && app.file_manager.is_empty() {
-            app.show_fatal("No file paths provided");
             return app;
         }
 
