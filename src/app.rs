@@ -36,7 +36,7 @@ use regex::Regex;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
-use tracing::trace;
+use tracing::{debug, trace};
 use tui_input::{Input, InputRequest, backend::crossterm::EventHandler as TuiEventHandler};
 
 /// Represents the main views.
@@ -440,6 +440,7 @@ impl App {
 
     /// Transitions to a new view state, clearing any overlay.
     fn set_view_state(&mut self, view: ViewState) {
+        debug!("ViewState: {:?}", view);
         self.view_state = view;
         self.overlay = None;
         self.update_temporary_highlights();
@@ -461,6 +462,7 @@ impl App {
     }
 
     pub fn show_overlay(&mut self, overlay: Overlay) {
+        debug!("Show overlay: {:?}", overlay);
         if matches!(overlay, Overlay::Message(_)) {
             self.message_timestamp = Some(std::time::Instant::now());
         }
@@ -606,6 +608,7 @@ impl App {
                 Event::Tick => self.tick(),
                 Event::Crossterm(event) => match event {
                     Key(key_event) if key_event.kind == KeyEventKind::Press => {
+                        debug!("Key Event: {:?}", key_event);
                         if matches!(self.overlay, Some(Overlay::AddFile)) {
                             self.handle_file_explorer_event(key_event);
                         } else {
@@ -764,6 +767,7 @@ impl App {
         }
 
         if let Some(command) = self.keybindings.lookup(&self.view_state, &self.overlay, key_event) {
+            debug!("Command: {:?}", command);
             command.execute(self)?;
         }
 
