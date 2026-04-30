@@ -7,6 +7,7 @@ use ratatui::style::Color;
 use regex::Regex;
 use serde::Deserialize;
 use std::path::PathBuf;
+use tracing::debug;
 
 #[derive(Debug, Deserialize, Default)]
 pub struct Config {
@@ -153,6 +154,7 @@ impl Config {
     }
 
     fn load_from_path(config_path: &PathBuf) -> Result<Self, String> {
+        debug!("Trying to load config from: {:?}", config_path);
         if config_path.exists() {
             match std::fs::read_to_string(config_path) {
                 Ok(content) => match toml::from_str::<Config>(&content) {
@@ -173,6 +175,7 @@ impl Config {
                 )),
             }
         } else {
+            debug!("No config files found");
             Ok(Self::default())
         }
     }
@@ -196,8 +199,8 @@ impl Config {
                 return config_path;
             }
         }
-        // Fallback to local .lazylog.toml (might not exist)
-        PathBuf::from(".lazylog.toml")
+        // Try to fallback to local config.toml
+        PathBuf::from("config.toml")
     }
 
     /// Parses filter configurations and returns a list of FilterPatterns.

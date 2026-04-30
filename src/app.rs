@@ -220,6 +220,7 @@ impl App {
                 (Config::default(), overlay)
             }
         };
+        debug!("Loaded config {:?}", config.get_path());
 
         let mut filter_patterns = config.parse_filter_patterns();
         if let Some(filters_file) = Filters::load(&args.filters) {
