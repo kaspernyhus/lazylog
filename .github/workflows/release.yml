@@ -18,12 +18,16 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact: lazylog-x86_64-unknown-linux-gnu
-            archive_cmd: tar czf ../../lazylog-x86_64-unknown-linux-gnu.tar.gz lazylog
             archive_file: lazylog-x86_64-unknown-linux-gnu.tar.gz
           - os: windows-latest
             artifact: lazylog-x86_64-pc-windows-msvc
-            archive_cmd: Compress-Archive -Path lazylog.exe -DestinationPath ..\..\lazylog-x86_64-pc-windows-msvc.zip
             archive_file: lazylog-x86_64-pc-windows-msvc.zip
+          - os: macos-15-intel
+            artifact: lazylog-x86_64-apple-darwin
+            archive_file: lazylog-x86_64-apple-darwin.tar.gz
+          - os: macos-latest
+            artifact: lazylog-aarch64-apple-darwin
+            archive_file: lazylog-aarch64-apple-darwin.tar.gz
 
     steps:
       - name: Checkout code
@@ -37,8 +41,8 @@ jobs:
       - name: Build release binary
         run: cargo build --release
 
-      - name: Create archive (Linux)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Create archive (Linux/macOS)
+        if: matrix.os != 'windows-latest'
         run: |
           cd target/release
           tar czf ../../${{ matrix.archive_file }} lazylog
