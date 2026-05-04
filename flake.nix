@@ -1,5 +1,5 @@
 {
-  description = "lazy-log";
+  description = "lazylog";
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
   };
